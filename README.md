@@ -30,6 +30,7 @@ Main UI with graph on.
 Config files stored in "$HOME/.config/spdtest" folder
 
 #### spdtest.cfg: (auto generated if not found)
+
 ```bash
 net_device="auto"		#* Network interface to get current speed from, set to "auto" to get default interface from "ip route" command
 unit="megabit"			#* Default speed value to use, valid values are "megabit" and "megabyte"
@@ -78,12 +79,13 @@ mtrpings="25"			#* Number of pings sent with mtr
 testonly="false" 		#* If "true", never enter UI mode, always run full tests and quit
 testnum="1"			#* Number of times to loop full tests in testonly mode
 
-ookla_speedtest="speedtest"	#* Command or full path to official speedtest client 
+ookla_speedtest="speedtest"	#* Command or full path to official speedtest client
 
 trace_errors="true"		#* In event of error print line number of offending command to $HOME/.config/spdtest/errors
 ```
 
 #### route.cfg.sample: (rename to route.cfg to use additional hosts in route test)
+
 ```bash
 #? List of routes to test with mtr
 #? Format:
@@ -109,6 +111,7 @@ routelistport["amazon.com"]="auto"
 ```
 
 #### Command line options: (to be updated)
+
 ```
 USAGE: ./spdtest.sh [OPTIONS]
 
