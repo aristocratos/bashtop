@@ -1,8 +1,0 @@
-{
-    "bashIde.path": "/usr/local/bin/bash-language-server",
-    "bashIde.highlightParsingErrors": false,
-    "shellcheck.enableQuickFix": true,
-    "Quick open": true,
-    "Toggle render whitespace": true,
-    "bracket-pair-colorizer-2.colorMode": "Independent",
-}
