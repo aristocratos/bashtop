@@ -2413,6 +2413,10 @@ menu_() { #? Shows the main menu overlay
 	local -a menus=("options" "help" "quit") color
 	
 	until false; do
+
+		#* Put program to sleep if caught ctrl-z
+		if ((sleepy==1)); then sleep_; fi
+
 		draw_clock
 		pause_ menu_pause
 		unset draw_out
@@ -2526,6 +2530,10 @@ help_() { #? Shows the help overlay
 	if [[ -n $pause_screen ]]; then from_menu=1; fi
 	
 	until [[ -n $tmp ]]; do
+
+		#* Put program to sleep if caught ctrl-z
+		if ((sleepy==1)); then sleep_; redraw=1; fi
+
 		if [[ -n $redraw ]]; then
 			col=$((tty_width/2-36)); line=$((tty_height/2-4)); y=1
 			unset redraw help_out
@@ -2548,6 +2556,7 @@ help_() { #? Shows the help overlay
 		
 		get_ms timestamp_end
 		time_left=$((timestamp_start+update_ms-timestamp_end))
+		
 		if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
 		elif ((time_left>0)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
 		else wait_string="0.001"; time_left=0; fi
@@ -2558,6 +2567,7 @@ help_() { #? Shows the help overlay
 			sleep 0.5
 			calc_sizes; draw_bg quiet; redraw=1
 			d_banner=1
+			unset bannerd menu_out
 		fi
 		if ((time_left==0)); then get_ms timestamp_start; collect_and_draw; fi
 		if ((resized>0)); then resized=0; fi
@@ -2616,6 +2626,10 @@ options_() { #? Shows the options overlay
 	if [[ -n $pause_screen ]]; then from_menu=1; fi
 
 	until false; do
+
+		#* Put program to sleep if caught ctrl-z
+		if ((sleepy==1)); then sleep_; fi
+		
 		draw_clock
 		pause_ options_pause
 
@@ -2786,6 +2800,7 @@ options_() { #? Shows the options overlay
 			while [[ $size_error == true ]] ; do size_error_msg; done
 			calc_sizes; draw_bg quiet
 			redraw_misc=1; time_left=0
+			unset options_out bannerd menu_out
 		fi
 
 		if ((time_left==0)); then get_ms timestamp_start; collect_and_draw; fi
@@ -2804,7 +2819,7 @@ options_() { #? Shows the options overlay
 
 get_key() { #? Get one key from standard input and translate key code to readable format
 	local key key_out wait_time esc ext_out save
-	
+
 	until (($#==0)); do
 		case "$1" in
 			-v|-variable) local -n key_out=$2; ext_out=1; shift;;			#* Output variable
@@ -3043,6 +3058,9 @@ collect_and_draw() { #? Run all collect and draw functions
 main_loop() { #? main loop...
 	local wait_time wait_string
 
+	#* Put program to sleep if caught ctrl-z
+	if ((sleepy==1)); then sleep_; fi
+	
 	#* Timestamp for accurate timer
 	get_ms timestamp_start
 
@@ -3057,9 +3075,6 @@ main_loop() { #? main loop...
 	calc_sizes
 	draw_bg
 	fi
-
-	#* Put program to sleep if caught ctrl-z
-	if ((sleepy==1)); then sleep_; fi
 
 	#* Run all collect and draw functions
 	collect_and_draw now
@@ -3134,9 +3149,18 @@ resume_() {
 	stty -echo
 	tput civis
 
-	echo -en "${boxes_out}${proc_det}${last_screen}${mem_out}${proc_misc}${proc_misc2}${update_string}${clock_out}"
-	
-	resized=1
+	if (( tty_width!=$(tput cols) | tty_height!=$(tput lines) )); then
+		tty_width="$(tput cols)"
+		tty_height="$(tput lines)"
+		resized=1
+	fi
+
+	if [[ -n $pause_screen ]]; then
+		echo -en "$pause_screen"
+	else
+		echo -en "${boxes_out}${proc_det}${last_screen}${mem_out}${proc_misc}${proc_misc2}${update_string}${clock_out}"
+	fi
+
 }
 
 #? Pre main loop
