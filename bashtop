@@ -92,8 +92,8 @@ declare -a save_array=("${options_array[@]}")
 declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" )
 declare -a pid_history detail_graph detail_history detail_mem_history
 declare time_left timestamp_start timestamp_end timestamp_input_start timestamp_input_end time_string mem_out proc_misc prev_screen pause_screen filter input_to_filter
-declare no_epoch proc_det proc_misc2 sleeping=0 cursor detail_mem_graph proc_det2
-declare esc_character tab backspace update_sec saved_key
+declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2
+declare esc_character tab backspace update_sec saved_key sleepy late_update
 declare -a disks_free disks_total disks_name disks_free_percent
 printf -v esc_character "\u1b"
 printf -v tab "\u09"
@@ -155,8 +155,9 @@ fi
 init_() { #? Collect needed information and set options before startig main loop
 	local i
 	#* Set terminal options, save and clear screen
-	tput smcup; stty -echo #; tput civis
-	print -v cursor -m 2 $((tty_width-1)) -fg 00 -t " " -l 1
+	tput smcup
+	stty -echo
+	tput civis
 
 	#* Check if "sensors" command is available, if not, disable temperature collection
 	if [[ $check_temp != false ]] && command -v sensors >/dev/null 2>&1; then check_temp="true"; else check_temp="false"; fi
@@ -350,7 +351,6 @@ init_() { #? Collect needed information and set options before startig main loop
 
 quit_() { #? Clean exit
 	#* Restore terminal options and screen
-	tput cvvis
 	tput rmcup
 	stty echo
 	tput cnorm
@@ -385,8 +385,6 @@ resized() { #? Get new terminal size if terminal is resized
 	while (( tty_width!=$(tput cols) | tty_height!=$(tput lines) )); do
 	tty_width="$(tput cols)"
 	tty_height="$(tput lines)"
-	unset cursor
-	print -v cursor -m 2 $((tty_width-1)) -fg 00 -t " " -l 1
 	resized=1
 	sleep 0.1
 	done
@@ -403,7 +401,6 @@ size_error_msg() { #? Shows error message if terminal size is below 80x25
 	print -c -fg cc -b "Resize window!"
 	print -d 1 -c "Current size: ${tty_height}x${tty_width}"
 	print -d 1 -c "Need to be atleast: 80x25"
-	echo -en "${cursor}"
 	while (( width==tty_width & height==tty_height )); do sleep 0.5 ; done
 	
 }
@@ -2379,7 +2376,7 @@ draw_clock() { #? Draw a clock at top of screen
 		unset clock_out
 		print -v clock_out -m 1 $((width/2-${#time_string}/2)) -rs -fg ${color} -t "┤" -fg ee -b -t "${time_string}" -fg ${color} -t "├"
 	fi
-	if [[ $1 == "now" ]]; then echo -en "${clock_out}${cursor}"; fi
+	if [[ $1 == "now" ]]; then echo -en "${clock_out}"; fi
 	#print -v draw_out -t "${clock_out}"
 }
 
@@ -2447,7 +2444,7 @@ menu_() { #? Shows the main menu overlay
 		fi
 		unset out_out
 		out_out="${menu_pause}${menu_out}"
-		echo -e "${out_out}${cursor}"
+		echo -e "${out_out}"
 		
 		
 		get_ms timestamp_end
@@ -2547,7 +2544,7 @@ help_() { #? Shows the help overlay
 		draw_clock
 		pause_ help_pause
 		unset draw_out
-		echo -en "${help_pause}${help_out}${cursor}"
+		echo -en "${help_pause}${help_out}"
 		
 		get_ms timestamp_end
 		time_left=$((timestamp_start+update_ms-timestamp_end))
@@ -2673,7 +2670,7 @@ options_() { #? Shows the options overlay
 			done
 		fi
 
-		echo -en "${options_pause}${options_misc}${options_out}${cursor}"
+		echo -en "${options_pause}${options_misc}${options_out}"
 		unset draw_out keypress
 		
 		
@@ -2807,6 +2804,7 @@ options_() { #? Shows the options overlay
 
 get_key() { #? Get one key from standard input and translate key code to readable format
 	local key key_out wait_time esc ext_out save
+	
 	until (($#==0)); do
 		case "$1" in
 			-v|-variable) local -n key_out=$2; ext_out=1; shift;;			#* Output variable
@@ -3060,11 +3058,14 @@ main_loop() { #? main loop...
 	draw_bg
 	fi
 
+	#* Put program to sleep if caught ctrl-z
+	if ((sleepy==1)); then sleep_; fi
+
 	#* Run all collect and draw functions
 	collect_and_draw now
 
 	#* Echo everyting out to screen in one command to get a smooth transition between updates
-	echo -en "${draw_out}${clock_out}${cursor}"
+	echo -en "${draw_out}${clock_out}"
 	unset draw_out
 
 	#* Reset resized variable if resized and all functions have finished redrawing
@@ -3074,6 +3075,8 @@ main_loop() { #? main loop...
 	get_ms timestamp_end
 	time_left=$((timestamp_start+update_ms-timestamp_end))
 	if ((time_left>0)); then
+
+		late_update=0
 
 		#* Divide waiting time in chunks of 500ms and below to keep program responsive while reading input
 		while ((time_left>0 & resized==0)); do
@@ -3106,8 +3109,8 @@ main_loop() { #? main loop...
 
 
 
-	#* If time left is too low to process any input, add 100ms to update timer
-	else
+	#* If time left is too low to process any input more than twice in succession, add 100ms to update timer
+	elif ((++late_update==2)); then
 		update_ms=$((update_ms+100))
 		draw_update_string
 	fi
@@ -3115,43 +3118,25 @@ main_loop() { #? main loop...
 }
 
 sleep_() {
-	#tput cvvis
-	clear
-	tput cnorm
-	#tput rmcup
-	
-	resized=1
+
+	tput rmcup
 	stty echo
+	tput cnorm
 	
-	
-	#sleeping=1
-	 
-	#trap 'sleeping=0' SIGCONT
-	#kill -USR1 $$
-
-	kill -STOP $$
-	
-	#trap - SIGTSTP
-	#kill -s SIGTSTP $$ &
-	#sleep 1
-
-	# tput smcup
-	# tput civis
-	# stty -echo
-	# #trap 'sleep_' SIGTSTP
-	# resized=1
-
+	kill -s SIGSTOP $$
 }
 
 resume_() {
 
-	echo "resuming"
-	tput smcup
-	tput civis
-	stty -echo
-	#trap 'sleep_' SIGTSTP
-	resized=1
+	sleepy=0
 
+	tput smcup
+	stty -echo
+	tput civis
+
+	echo -en "${boxes_out}${proc_det}${last_screen}${mem_out}${proc_misc}${proc_misc2}${update_string}${clock_out}"
+	
+	resized=1
 }
 
 #? Pre main loop
@@ -3182,7 +3167,9 @@ fi
 #* Set up traps for ctrl-c, soft kill, window resize and resume from ctrl-z
 trap 'quit_' SIGINT SIGQUIT SIGTERM
 trap 'resized' SIGWINCH
-trap 'resized=1' SIGCONT
+trap 'sleepy=1; time_left=0' SIGTSTP
+trap 'resume_' SIGCONT
+
 
 
 #* Set up error logging to file if enabled
