@@ -2134,8 +2134,8 @@ draw_processes() { #? Draw processes and values to screen
 				
 				
 				print -v proc_det2 -m $((d_line+det_y++)) $((right_col+1)) -jc $((right_width-4)) -rs -fg ee -t "${proc[detailed_cmd]::$((right_width-6))}"
-				if ((dets>0)); then print -v proc_det2 -m $((d_line+det_y++)) $((right_col+1)) -jl $((right_width-4)) -t "${proc[detailed_cmd]:$((right_width-6)):$((right_width-6))}"; fi
-				if ((dets>1)); then print -v proc_det2 -m $((d_line+det_y)) $((right_col+1)) -jl $((right_width-4)) -t "${proc[detailed_cmd]:$(( (right_width-6)*2 )):$((right_width-6))}"; fi
+				if ((dets>0)); then print -v proc_det2 -m $((d_line+det_y++)) $((right_col+2)) -jl $((right_width-6)) -t "${proc[detailed_cmd]:$((right_width-6)):$((right_width-6))}"; fi
+				if ((dets>1)); then print -v proc_det2 -m $((d_line+det_y)) $((right_col+2)) -jl $((right_width-6)) -t "${proc[detailed_cmd]:$(( (right_width-6)*2 )):$((right_width-6))}"; fi
 				
 			fi
 			
@@ -2157,7 +2157,7 @@ draw_processes() { #? Draw processes and values to screen
 			create_box -v proc_out -col ${box[${this_box}_col]} -line ${box[${this_box}_line]} -width ${box[${this_box}_width]} -height ${box[${this_box}_height]} -fill -lc "${box[${this_box}_color]}" -title ${this_box}
 		fi	
 	fi
-                                                                 #!              Use ps for better detailed stats!!!!!
+
 	if [[ ${proc[detailed]} -eq 1 ]]; then
 		local det_status status_color
 		if [[ -z $det_no_add && $1 != "now" && -z ${proc[detailed_killed]} ]]; then 
