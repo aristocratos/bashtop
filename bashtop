@@ -2601,7 +2601,7 @@ options_() { #? Shows the options overlay
 							"Increases automatically if set below internal"
 							"loops processing time."
 							" "
-							"Max value 86400000 ms = 24 hours.")
+							"Max value: 86400000 ms = 24 hours.")
 		desc_proc_sorting=(	"Processes sorting."
 							"Valid values are \"pid\", \"program\", \"arguments\","
 							"\"threads\", \"user\", \"memory\", \"cpu lazy\" and"
