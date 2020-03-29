@@ -92,8 +92,8 @@ declare -a save_array=("${options_array[@]}")
 declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" )
 declare -a pid_history detail_graph detail_history detail_mem_history
 declare time_left timestamp_start timestamp_end timestamp_input_start timestamp_input_end time_string mem_out proc_misc prev_screen pause_screen filter input_to_filter
-declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2
-declare esc_character tab backspace update_sec saved_key sleepy late_update
+declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2 proc_out
+declare esc_character tab backspace update_sec saved_key sleepy late_update skip_process_draw
 declare -a disks_free disks_total disks_name disks_free_percent
 printf -v esc_character "\u1b"
 printf -v tab "\u09"
@@ -1404,8 +1404,12 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 }
 
 collect_processes() { #? Collect process information and calculate accurate cpu usage
+	local argument="$1"
+	if [[ -n $skip_process_draw && $argument != "now" ]]; then return; fi
 	local width=${box[processes_width]} height=${box[processes_height]} format_args format_cmd readline sort symbol="▼" cpu_title options pid_string tmp selected
 	local -a grep_array
+
+	if [[ $argument == "now" ]]; then skip_process_draw=1; fi
 
 	if [[ -n ${proc[reverse]} ]]; then symbol="▲"; fi
 	case ${proc_sorting} in
@@ -1447,7 +1451,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 
 	if [[ -n $filter ]]; then
 		grep_array[0]="${proc_array[0]}"
-	 	readarray -O 1 -t grep_array < <(echo -e "${proc_array[@]:1}" | grep "${filter}" || true)
+	 	readarray -O 1 -t grep_array < <(echo -e "${proc_array[@]:1}" | grep -e "${filter}" ${proc[detailed_pid]:+-e ${proc[detailed_pid]}} || true)
 		proc_array=("${grep_array[@]}")
 	fi
 
@@ -2075,13 +2079,16 @@ draw_mem() { #? Draw mem, swap and disk statistics
 
 draw_processes() { #? Draw processes and values to screen
 	local argument="$1"
-	local line=${box[processes_line]} col=${box[processes_col]} width=${box[processes_width]} height=${box[processes_height]} out_line y=1 rgb=231 step add proc_out checker=2 page_string
+	if [[ -n $skip_process_draw && $argument != "now" ]]; then return; fi
+	local line=${box[processes_line]} col=${box[processes_col]} width=${box[processes_width]} height=${box[processes_height]} out_line y=1 rgb=231 step add checker=2 page_string
 	local reverse_string reverse_pos order_left="───────────┤" filter_string current_num detail_location det_no_add
 	local pid=0 pid_graph pid_r=13 pid_g=231 pid_b=86 p_step p_add bg_add bg_step rgb_d=70 d_step proc_start up_fg down_fg page_up_fg page_down_fg this_box=processes
 	local d_width=${box[details_width]} d_height=${box[details_height]} d_line=${box[details_line]} d_col=${box[details_col]}
 	local detail_graph_width=$((d_width/3+2)) detail_graph_height=$((d_height-1)) kill_fg det_mod
 	local right_width=$((d_width-detail_graph_width-2))
 	local right_col=$((d_col+detail_graph_width+4))
+
+	if [[ $argument == "now" ]]; then skip_process_draw=1; fi
 
 	add=$((200/height))
 	p_add=$((110/height))
@@ -2306,12 +2313,14 @@ draw_processes() { #? Draw processes and values to screen
 	#page_string="1/$((${#proc_array[@]}/(height-2)))"
 	#print -v proc_out -m $line $((col+width-${#page_string}-6)) -rs -fg ${box[processes_color]} -t "──┤" -fg ee -b -t "${page_string}" -rs -fg ${box[processes_color]} -t "├"
 
+	#draw_out="${draw_out}${detail_graph[*]}${proc_out}"
 
+	proc_out="${detail_graph[*]}${proc_out}"
 
 	if [[ $argument == "now" ]]; then
-		echo -en "${detail_graph[*]}${proc_out}"
-	else
-		draw_out="${draw_out}${detail_graph[*]}${proc_out}"
+		echo -en "${proc_out}"
+	#else
+	#	draw_out="${draw_out}${detail_graph[*]}${proc_out}"
 	fi
 
 }
@@ -2392,7 +2401,12 @@ pause_() { #? Pause input and draw a darkened version of main ui
 	local pause_out ext_var
 	if [[ -n $1 && $1 != "off" ]]; then local -n pause_out=${1}; ext_var=1; fi
 	if [[ $1 != "off" ]]; then
-		prev_screen="${boxes_out}${proc_det}${last_screen}${mem_out}${proc_misc}${proc_misc2}${update_string}${clock_out}"
+		prev_screen="${boxes_out}${proc_det}${last_screen}${mem_out}${detail_graph[*]}${proc_out}${proc_misc}${proc_misc2}${update_string}${clock_out}"
+		if [[ -n $skip_process_draw ]]; then
+			prev_screen="${prev_screen}${proc_out}"
+			unset skip_process_draw proc_out
+		fi
+		
 		pause_screen="\e[1;38;5;236m$(echo -n "${prev_screen}" | sed -E 's/\\e\[[0-9;\-]*m//g')\e[0m"
 		
 		if [[ -z $ext_var ]]; then echo -en "${pause_screen}"
@@ -2585,7 +2599,9 @@ options_() { #? Shows the options overlay
 							"times for graphs."
 							" "
 							"Increases automatically if set below internal"
-							"loops processing time.")
+							"loops processing time."
+							" "
+							"Max value 86400000 ms = 24 hours.")
 		desc_proc_sorting=(	"Processes sorting."
 							"Valid values are \"pid\", \"program\", \"arguments\","
 							"\"threads\", \"user\", \"memory\", \"cpu lazy\" and"
@@ -2716,18 +2732,23 @@ options_() { #? Shows the options overlay
 		if [[ -n $valid ]]; then
 			case "${selected} ${keypress}" in
 				"update_ms right") 
-						update_ms=$((update_ms+100))
-						updated_ms=1
+						if ((update_ms<86399900)); then
+							update_ms=$((update_ms+100))
+							updated_ms=1
+						fi
 					;;
 				"update_ms left")
 						if ((update_ms>100)); then
-						update_ms=$((update_ms-100))
-						updated_ms=1
+							update_ms=$((update_ms-100))
+							updated_ms=1
 						fi
 					;;
 				"update_ms enter")
 						if [[ -z $inputting ]]; then inputting=1; inputting_value="${update_ms}"
-						else update_ms="${inputting_value:-0}"; unset inputting inputting_value; updated_ms=1; fi
+						else 
+							if ((inputting_value<86400000)); then update_ms="${inputting_value:-0}"; updated_ms=1; fi
+							unset inputting inputting_value
+						fi
 					;;
 				"update_ms backspace")
 						if [[ ${#inputting_value} -gt 0 ]]; then
@@ -2735,9 +2756,9 @@ options_() { #? Shows the options overlay
 						fi
 					;;
 				"update_ms"*)
-						if [[ $keypress =~ ^[0-9]$ ]]; then
-							inputting_value="${inputting_value}${keypress}"
-						fi
+						#if [[ $keypress =~ ^[0-9]$ ]]; then
+							inputting_value="${inputting_value}${keypress//[^0-9]/}"
+						#fi
 					;;
 				"draw_clock enter")
 						if [[ -z $inputting ]]; then inputting=1; inputting_value="${draw_clock}"
@@ -2749,7 +2770,7 @@ options_() { #? Shows the options overlay
 						fi
 					;;
 				"draw_clock"*)
-						inputting_value="${inputting_value}${keypress//[^a-zA-Z0-9\.\:\,\-\_\/\@\%]/}"
+						inputting_value="${inputting_value}${keypress//[\\\$\"\']/}"
 					;;
 				"custom_cpu_name enter")
 						if [[ -z $inputting ]]; then inputting=1; inputting_value="${custom_cpu_name}"
@@ -2761,7 +2782,7 @@ options_() { #? Shows the options overlay
 						fi
 					;;
 				"custom_cpu_name"*)
-						inputting_value="${inputting_value}${keypress//[^a-zA-Z0-9\.\:\,\-\_\/\@]/}"
+						inputting_value="${inputting_value}${keypress//[\\\$\"\']/}"
 					;;		
 				"proc_reversed"*|"check_temp"*|"error_logging"*)
 						local -n selected_var=${selected}
@@ -2806,7 +2827,7 @@ options_() { #? Shows the options overlay
 		if ((time_left==0)); then get_ms timestamp_start; collect_and_draw; fi
 		if ((resized>0)); then resized=0; fi
 
-		if [[ -n ${updated_ms} ]]; then
+		if  [[ -n $updated_ms ]] && ((updated_ms++==2)); then
 			unset updated_ms
 			draw_update_string quiet
 		fi
@@ -2832,7 +2853,7 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 	if [[ -n $save && -n $saved_key ]]; then return
 	elif [[ -n $saved_key ]]; then key="${saved_key}"; unset saved_key
 	else
-		if ! IFS= read -rst ${wait_time:-0.0001} -n 1 key >/dev/null 2>&1; then key_out=""; return; fi
+		if ! IFS= read -rst ${wait_time:-0.05} -n 1 key >/dev/null 2>&1; then key_out=""; return; fi
 		
 		
 		#* Read 3 more characters if a leading escape character is detected
@@ -2893,7 +2914,7 @@ process_input() { #? Process keypresses for main ui
 			"enter") unset input_to_filter ;;
 			"backspace") if [[ ${#filter} -gt 0 ]]; then filter="${filter:: (-1)}"; else unset filter_change; fi ;;
 			"escape") unset input_to_filter filter ;;
-			*) if [[ ${#keypress} -eq 1 ]]; then filter="${filter}${keypress//[^a-zA-Z0-9\.\:\,\-\_\/\@]/}"; else unset filter_change; fi ;;
+			*) if [[ ${#keypress} -eq 1 ]]; then filter="${filter}${keypress//[\\\$\"\']/}"; else unset filter_change; fi ;;
 		esac
 			
 	else
@@ -2920,13 +2941,13 @@ process_input() { #? Process keypresses for main ui
 			;;
 			down|tab)
 				if ! ((proc[page]==proc[pages] & proc[selected]>=box[processes_height]-3)); then
-					if ! ((proc[selected]++)); then collect_processes; proc[detailed_change]=1; fi
+					if ! ((proc[selected]++)); then collect_processes now; proc[detailed_change]=1; fi
 					if ((proc[selected]>box[processes_height]-3)); then ((proc[page]++)); proc[selected]=1; fi
 					proc[page_change]=1
 				fi
 			;;
 			enter)
-				if ((proc[selected]>0 & proc[detailed_pid]!=proc[selected_pid])); then
+				if ((proc[selected]>0 & proc[detailed_pid]!=proc[selected_pid])) && ps -p ${proc[selected_pid]} > /dev/null 2>&1; then
 					proc[detailed]=1
 					proc[detailed_change]=1
 					proc[detailed_pid]=${proc[selected_pid]}
@@ -2934,7 +2955,7 @@ process_input() { #? Process keypresses for main ui
 					proc[selected]=0
 					unset 'proc[detailed_name]' 'detail_history[@]' 'detail_mem_history[@]' 'proc[detailed_killed]'
 					calc_sizes
-					collect_processes
+					collect_processes now
 				elif ((proc[detailed]==1 & proc[detailed_pid]!=proc[selected_pid])); then
 					proc[detailed]=0
 					proc[detailed_change]=1
@@ -2953,7 +2974,7 @@ process_input() { #? Process keypresses for main ui
 			;;
 			page_down)
 				if [[ ${proc[page]} -lt ${proc[pages]} ]]; then
-					if ((proc[page]++==1)); then collect_processes; fi
+					if ((proc[page]++==1)); then collect_processes now; fi
 					proc[page_change]=1
 				elif [[ ${proc[selected]} -gt 0 ]]; then
 					proc[selected]=$((box[processes_height]-3))
@@ -2966,7 +2987,7 @@ process_input() { #? Process keypresses for main ui
 					proc[page_change]=1
 			;;
 			end)
-					if ((proc[selected]==0)); then collect_processes; fi
+					if ((proc[selected]==0)); then collect_processes now; fi
 					#proc[selected]=$((box[processes_height]-3))
 					proc[page]=${proc[pages]}
 					proc[page_change]=1
@@ -2985,8 +3006,10 @@ process_input() { #? Process keypresses for main ui
 				options_
 			;;
 			+|A|a) #* Add 100ms to update timer
-				update_ms=$((update_ms+100))
-				draw_update_string
+				if ((update_ms<86399900)); then
+					update_ms=$((update_ms+100))
+					draw_update_string
+				fi
 			;;
 			-|S|s) #* Subtract 100ms from update timer
 				if ((update_ms>100)); then
@@ -3023,7 +3046,7 @@ process_input() { #? Process keypresses for main ui
 
 	if [[ -n $filter_change ]]; then
 		unset filter_change
-		collect_processes
+		collect_processes now
 		proc[filter_change]=1
 		draw_processes now
 	elif [[ ${proc[page_change]} -eq 1 || ${proc[detailed_change]} == 1 ]]; then
@@ -3044,10 +3067,16 @@ process_input() { #? Process keypresses for main ui
 collect_and_draw() { #? Run all collect and draw functions
 
 	for task in processes cpu mem net; do
-		get_key -save
+		
+		if [[ -n $pause_screen ]]; then 
+			get_key -save
+			if [[ -n $saved_key ]]; then return; fi
+		else
+			process_input 0.05
+		fi
 		collect_${task}
 		draw_${task}
-		draw_clock "$1"
+		draw_clock "$1"	
 	done
 
 	last_screen="${draw_out}"
@@ -3080,7 +3109,7 @@ main_loop() { #? main loop...
 	collect_and_draw now
 
 	#* Echo everyting out to screen in one command to get a smooth transition between updates
-	echo -en "${draw_out}${clock_out}"
+	echo -en "${draw_out}${proc_out}${clock_out}"
 	unset draw_out
 
 	#* Reset resized variable if resized and all functions have finished redrawing
@@ -3130,6 +3159,7 @@ main_loop() { #? main loop...
 		draw_update_string
 	fi
 	
+	if ((skip_process_draw==1)); then unset skip_process_draw; fi
 }
 
 sleep_() {
