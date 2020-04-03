@@ -21,7 +21,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.6.2"
+declare version="0.6.5"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -93,16 +93,16 @@ declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu 
 declare -a pid_history detail_graph detail_history detail_mem_history
 declare time_left timestamp_start timestamp_end timestamp_input_start timestamp_input_end time_string mem_out proc_misc prev_screen pause_screen filter input_to_filter
 declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2 proc_out
-declare esc_character tab backspace update_sec saved_key sleepy late_update skip_process_draw
+declare esc_character tab backspace update_sec saved_key sleepy late_update skip_process_draw winches
 declare -a disks_free disks_total disks_name disks_free_percent
 printf -v esc_character "\u1b"
 printf -v tab "\u09"
 printf -v backspace "\u7F"
 printf -v enter_key "\x0a"
 
-tty_width="$(tput cols)"
-tty_height="$(tput lines)"
+read tty_height tty_width < <(stty size)
 
+#* Symbols for graphs
 declare -a graph_symbol
 graph_symbol=(" " "⡀" "⣀" "⣄" "⣤" "⣦" "⣴" "⣶" "⣷" "⣾" "⣿")
 graph_symbol+=( " " "⣿" "⢿" "⡿" "⠿" "⠻" "⠟"  "⠛" "⠙" "⠉" "⠈")
@@ -338,15 +338,19 @@ init_() { #? Collect needed information and set options before startig main loop
 	else
 		unset 'proc[reverse]'
 	fi
+
+	#* Wait for resize if terminal size is smaller then 80x25
+	if (($tty_width<80 | $tty_height<25)); then resized; fi
 	
 	#* Calculate sizes of boxes
 	calc_sizes
+	
 
 	#* Call init for processes data collection
 	proc[selected]=0
 	proc[page]=1
 	collect_processes init
-
+	
 }
 
 quit_() { #? Clean exit
@@ -381,27 +385,31 @@ traperr() { #? Function for reporting error line numbers
 	
 }
 
-resized() { #? Get new terminal size if terminal is resized	
-	while (( tty_width!=$(tput cols) | tty_height!=$(tput lines) )); do
-	tty_width="$(tput cols)"
-	tty_height="$(tput lines)"
+resized() { #? Get new terminal size if terminal is resized
 	resized=1
-	sleep 0.1
+	unset winches
+	while ((++winches<5)); do
+		read tty_height tty_width < <(stty size)
+		if (($tty_width<80 | $tty_height<25)); then 
+			size_error_msg
+			winches=0
+		else
+			create_box -w 30 -h 3 -c 1 -l 1 -lc "#EE3355" -title "resizing"
+			print -jc 28 "New size: ${tty_height}x${tty_width}"
+			sleep 0.2
+			if [[ $(stty size) != "$tty_height $tty_width" ]]; then winches=0; fi
+		fi
 	done
-
-	if ((tty_width<80 | tty_height<25)); then size_error="true"; else size_error="false"; fi
 }
 
 size_error_msg() { #? Shows error message if terminal size is below 80x25
 	local width=$tty_width
 	local height=$tty_height
 	tput clear
-	create_box -full -title "warning"
-	print -rs -m $((tty_height/2-2)) 2
-	print -c -fg cc -b "Resize window!"
-	print -d 1 -c "Current size: ${tty_height}x${tty_width}"
-	print -d 1 -c "Need to be atleast: 80x25"
-	while (( width==tty_width & height==tty_height )); do sleep 0.5 ; done
+	create_box -full -lc "#EE3355" -title "resize window"
+	print -rs -m $((tty_height/2-1)) 2 -fg cc -c -l 11 "Current size: " -fg dd3050 -d 1 -c "${tty_height}x${tty_width}"
+	print -d 1 -fg cc -c -l 15 "Need to be atleast:" -fg 30dd50 -d 1 -c "80x25"
+	while [[ $(stty size) == "$tty_height $tty_width" ]]; do sleep 0.2; done
 	
 }
 
@@ -518,7 +526,7 @@ sort_array_int() {	#? Copy and sort an array of integers from largest to smalles
 	out_arr=("${array[@]}")	
 }
 
-subscript() { #? Convert a integer to a string of subscript numbers
+subscript() { #? Convert an integer to a string of subscript numbers
 	local i out int=$1
 	for((i=0;i<${#int};i++)); do
 		out="${out}${subscript[${int:$i:1}]}"
@@ -765,7 +773,7 @@ create_box() { #? Draw a box with an optional titlebar and title at given locati
 		print -v box_out -m $line $((col+2)) -t "┤" -fg ee -b -t "$title" -rs -fg ${line_color:-66} -t "├"
 	fi
 
-	print -v box_out -m $((line+1)) $((col+1)) -rs
+	print -v box_out -rs -m $((line+1)) $((col+1))
 
 	if [[ -z $ext_var ]]; then echo -en "${box_out}"; fi	
 	
@@ -1529,21 +1537,22 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 				if [[ ${pid} == "${proc[detailed_pid]}" ]]; then
 					if [[ -z ${proc[detailed_name]} ]]; then
 						local det_array get_mem
-						read -r -d '' proc[detailed_name] </proc/${pid}/comm ||true
+						read -r proc[detailed_name] </proc/${pid}/comm ||true
 						proc[detailed_cmd]="$(tr '\000' ' ' </proc/${pid}/cmdline)"						
 						proc[detailed_name]="${proc[detailed_name]::15}"
-						proc[detailed_user]="${work_array[-3]}"
 						proc[detailed_threads]="${work_array[-4]}"
-						det_array=($(ps -o etime,ppid --no-headers -p $pid || true))
+						det_array=($(ps -o etime,ppid,euser:15 --no-headers -p $pid || true))
 						proc[detailed_runtime]="${det_array[0]}"	
 						proc[detailed_parent_pid]="${det_array[1]}"
+						proc[detailed_user]="${det_array[*]:2}"
 						proc[detailed_parent_name]="$(ps -o comm --no-headers -p ${det_array[1]} || true)"
 						get_mem=1
 					fi
 					proc[detailed_cpu]="${cpu_percent_string// /}"
 					proc[detailed_cpu_int]="${cpu_int}"
 
-					if [[ ${proc[detailed_mem]} != "${work_array[-2]}" || -n $get_mem ]]; then
+					if [[ ${proc[detailed_mem]} != "${work_array[-2]}" || -n $get_mem ]] || ((++proc[detailed_mem_count]>5)); then
+						proc[detailed_mem_count]=0
 						proc[detailed_mem]="${work_array[-2]}"
 						proc[detailed_mem_int]="${proc[detailed_mem]/./}"
 						if [[ ${proc[detailed_mem_int]::1} == "0" ]]; then proc[detailed_mem_int]="${proc[detailed_mem_int]:1}0"; fi
@@ -1625,6 +1634,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 		for ((i=0;i<${#pid_history[@]};i++)); do
 			if [[ -n ${pid_history[$i]} && ! -e /proc/${pid_history[$i]} ]]; then
 				unset "pid_${pid_history[i]}_graph"
+				unset "pid_${pid_history[i]}_count"
 				unset "proc[new_${pid_history[i]}_ticks]"
 				unset "proc[old_${pid_history[i]}_ticks]"
 				unset "pid_history[${i}]"
@@ -2071,7 +2081,7 @@ draw_mem() { #? Draw mem, swap and disk statistics
 		((++disk_num))
 	done
 
-
+	if ((resized>0)); then ((resized++)); fi
 	#* Print created text, graph and meters to output variable
 	draw_out="${draw_out}${mem_graph[*]}${swap_graph[*]}${mem_out}"
 
@@ -2317,6 +2327,8 @@ draw_processes() { #? Draw processes and values to screen
 
 	proc_out="${detail_graph[*]}${proc_out}"
 
+	if ((resized>0)); then ((resized++)); fi
+
 	if [[ $argument == "now" ]]; then
 		echo -en "${proc_out}"
 	#else
@@ -2378,10 +2390,11 @@ draw_net() { #? Draw net information and graphs to screen
 
 draw_clock() { #? Draw a clock at top of screen
 	if [[ -z $draw_clock ]]; then return; fi
+	if [[ $resized -gt 0 && $resized -lt 5 ]]; then unset clock_out; return; fi
 	local width=${box[cpu_width]} color=${box[cpu_color]} old_time_string="${time_string}"
 	#time_string="$(date ${draw_clock})"
 	printf -v time_string "%(${draw_clock})T"
-	if [[ $old_time_string != "$time_string" || $resized -gt 0 ]]; then
+	if [[ $old_time_string != "$time_string" || -z $clock_out ]]; then
 		unset clock_out
 		print -v clock_out -m 1 $((width/2-${#time_string}/2)) -rs -fg ${color} -t "┤" -fg ee -b -t "${time_string}" -fg ${color} -t "├"
 	fi
@@ -2472,8 +2485,8 @@ menu_() { #? Shows the main menu overlay
 		else wait_string="0.001"; time_left=0; fi
 		
 		get_key -v keypress -w ${wait_string}
+		if [[ $(stty size) != "$tty_height $tty_width" ]]; then resized; fi
 		if ((resized>0)); then 
-			while [[ $size_error == true ]] ; do size_error_msg; done
 			calc_sizes; draw_bg quiet; time_left=0; unset menu_out
 			unset bannerd
 		fi
@@ -2493,7 +2506,7 @@ menu_() { #? Shows the main menu overlay
 		esac
 		
 		if ((time_left==0)); then get_ms timestamp_start; collect_and_draw; fi
-		if ((resized>0)); then resized=0; fi
+		if ((resized>=5)); then resized=0; fi
 
 	done				
 	unpause_
@@ -2576,8 +2589,8 @@ help_() { #? Shows the help overlay
 		else wait_string="0.001"; time_left=0; fi
 		
 		get_key -v tmp -w "${wait_string}"
+		if [[ $(stty size) != "$tty_height $tty_width" ]]; then resized; fi
 		if ((resized>0)); then 
-			while [[ $size_error == true ]] ; do size_error_msg; done
 			sleep 0.5
 			calc_sizes; draw_bg quiet; redraw=1
 			d_banner=1
@@ -2611,7 +2624,7 @@ options_() { #? Shows the options overlay
 							"and updates top process over a period of time."
 							" "
 							"\"cpu responsive\" updates sorting directly at a"
-							"significant cost of cpu time.")
+							"cost of cpu time.")
 		desc_proc_reversed=("Reverse sorting order."
 							" "
 							"True or false.")
@@ -2817,8 +2830,9 @@ options_() { #? Shows the options overlay
 			draw_bg quiet
 		fi
 
+		if [[ $(stty size) != "$tty_height $tty_width" ]]; then resized; fi
+
 		if ((resized>0)); then 
-			while [[ $size_error == true ]] ; do size_error_msg; done
 			calc_sizes; draw_bg quiet
 			redraw_misc=1; time_left=0
 			unset options_out bannerd menu_out
@@ -3065,9 +3079,9 @@ process_input() { #? Process keypresses for main ui
 }
 
 collect_and_draw() { #? Run all collect and draw functions
-
+	local task_int=1
 	for task in processes cpu mem net; do
-		
+		((++task_int))
 		if [[ -n $pause_screen ]]; then 
 			get_key -save
 			if [[ -n $saved_key ]]; then return; fi
@@ -3075,8 +3089,11 @@ collect_and_draw() { #? Run all collect and draw functions
 			process_input 0.05
 		fi
 		collect_${task}
+		get_key -save
 		draw_${task}
-		draw_clock "$1"	
+		get_key -save
+		draw_clock "$1"
+		if ((resized>0 & resized<task_int)); then return; fi
 	done
 
 	last_screen="${draw_out}"
@@ -3093,27 +3110,23 @@ main_loop() { #? main loop...
 	#* Timestamp for accurate timer
 	get_ms timestamp_start
 
-	#* Loop a error message if terminal resized below 80x25
-	while [[ $size_error == true ]] ; do size_error_msg; done
-	
-	if ((resized>0)); then 
-		if (( tty_width!=$(tput cols) | tty_height!=$(tput lines) )); then
-			tty_width="$(tput cols)"
-			tty_height="$(tput lines)"
-		fi
-	calc_sizes
-	draw_bg
+	if [[ $(stty size) != "$tty_height $tty_width" ]]; then resized; fi
+
+	if ((resized>0)); then
+		calc_sizes
+		draw_bg
 	fi
 
 	#* Run all collect and draw functions
 	collect_and_draw now
 
+	#* Reset resized variable if resized and all functions have finished redrawing
+	if ((resized>=5)); then resized=0
+	elif ((resized>0)); then unset draw_out proc_out clock_out; return; fi
+	
 	#* Echo everyting out to screen in one command to get a smooth transition between updates
 	echo -en "${draw_out}${proc_out}${clock_out}"
 	unset draw_out
-
-	#* Reset resized variable if resized and all functions have finished redrawing
-	if ((resized>=3)); then resized=0; fi
 	
 	#* Compare timestamps to get exact time needed to wait until next loop
 	get_ms timestamp_end
@@ -3179,11 +3192,7 @@ resume_() {
 	stty -echo
 	tput civis
 
-	if (( tty_width!=$(tput cols) | tty_height!=$(tput lines) )); then
-		tty_width="$(tput cols)"
-		tty_height="$(tput lines)"
-		resized=1
-	fi
+	
 
 	if [[ -n $pause_screen ]]; then
 		echo -en "$pause_screen"
@@ -3220,7 +3229,7 @@ fi
 
 #* Set up traps for ctrl-c, soft kill, window resize and resume from ctrl-z
 trap 'quit_' SIGINT SIGQUIT SIGTERM
-trap 'resized' SIGWINCH
+trap 'resized=1' SIGWINCH
 trap 'sleepy=1; time_left=0' SIGTSTP
 trap 'resume_' SIGCONT
 
