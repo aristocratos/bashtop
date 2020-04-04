@@ -1445,9 +1445,6 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 
 	unset 'proc[detailed_cpu]'
 
-	# if [[ -z $filter && $proc_sorting != "cpu responsive" && ${proc[selected]} == 0 && ${proc[page]} -eq 1 ]]; then
-	# 	#options="-n $((height-2)) -t"
-	# 	options="-t"
 	if [[ -z $filter ]]; then
 	 	options="-t"
 	fi
@@ -1468,7 +1465,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 
 
 	#* Get accurate cpu usage by fetching and comparing values in /proc/"pid"/stat
-	local operations operation utime stime count time_elapsed cpu_percent_string rgb=231 step add proc_out tmp_value_array i pcpu_usage cpu_int tmp_percent
+	local operations operation utime stime count time_elapsed cpu_percent_string rgb=231 step add proc_out tmp_value_array i pcpu_usage cpu_int tmp_percent breaking
 	local -a cpu_percent statfile work_array
 
 	#* Timestamp the values in milliseconds to accurately calculate cpu usage
@@ -1477,9 +1474,9 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 	for readline in "${proc_array[@]:1}"; do
 		 ((++count))
 
-		if ((count==height-2)); then
-			if [[ -n $filter || $proc_sorting == "cpu responsive" || ${proc[selected]} -gt 0 || ${proc[page]} -gt 1 ]] || [[ ${proc[detailed]} -eq 1 && -z ${proc[detailed_killed]} ]]; then :
-			else break; fi
+		if ((count==height-3)); then
+			if [[ -n $filter || $proc_sorting == "cpu responsive" || ${proc[selected]} -gt 0 || ${proc[page]} -gt 1 ]]; then :
+			else breaking=1; fi
 		fi
 
 		get_key -save
@@ -1538,7 +1535,8 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 				#* Get info for detailed box if enabled
 				if [[ ${pid} == "${proc[detailed_pid]}" ]]; then
 					if [[ -z ${proc[detailed_name]} ]]; then
-						local det_array get_mem
+						local get_mem
+						local -a det_array
 						read -r proc[detailed_name] </proc/${pid}/comm ||true
 						proc[detailed_cmd]="$(tr '\000' ' ' </proc/${pid}/cmdline)"						
 						proc[detailed_name]="${proc[detailed_name]::15}"
@@ -1583,7 +1581,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 						detail_mem_history+=("${proc[detailed_mem_int]}")
 					fi
 
-					#* Remove selected process from array if process is excluded by filtering
+					#* Remove selected process from array if process is excluded by filtering or not on first page
 					if [[ -n $filter && ! ${proc[detailed_name]} =~ $filter ]]; then
 						unset 'proc_array[count]'
 						cpu_int=0; pid_count=0
@@ -1618,6 +1616,15 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 			proc[old_${pid}_ticks]=${proc[new_${pid}_ticks]}
 			
 		fi
+
+		if ((breaking==1)); then 
+			if [[ ${proc[detailed]} == "1" && -z ${proc[detailed_cpu]} ]] && ps ${proc[detailed_pid]} >/dev/null 2>&1; then
+				readarray ${options} -O ${#proc_array[@]} proc_array < <(ps -o pid:${proc[pid_len]}=Pid:,comm:${format_cmd}=Program:${format_args},thcount:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --no-headers -p ${proc[detailed_pid]})
+			else
+				break
+			fi
+		fi
+
 	done
 
 
