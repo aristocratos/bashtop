@@ -93,8 +93,8 @@ declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu 
 declare -a pid_history detail_graph detail_history detail_mem_history
 declare time_left timestamp_start timestamp_end timestamp_input_start timestamp_input_end time_string mem_out proc_misc prev_screen pause_screen filter input_to_filter
 declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2 proc_out
-declare esc_character tab backspace update_sec saved_key sleepy late_update skip_process_draw winches
-declare -a disks_free disks_total disks_name disks_free_percent
+declare esc_character tab backspace update_sec sleepy late_update skip_process_draw winches
+declare -a disks_free disks_total disks_name disks_free_percent saved_key
 printf -v esc_character "\u1b"
 printf -v tab "\u09"
 printf -v backspace "\u7F"
@@ -1482,6 +1482,8 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 			else break; fi
 		fi
 
+		get_key -save
+		if ((${#saved_key[@]}>0)); then return; fi
 
 		work_array=(${readline})
 
@@ -1540,16 +1542,16 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 						read -r proc[detailed_name] </proc/${pid}/comm ||true
 						proc[detailed_cmd]="$(tr '\000' ' ' </proc/${pid}/cmdline)"						
 						proc[detailed_name]="${proc[detailed_name]::15}"
-						proc[detailed_threads]="${work_array[-4]}"
-						det_array=($(ps -o etime,ppid,euser:15 --no-headers -p $pid || true))
-						proc[detailed_runtime]="${det_array[0]}"	
-						proc[detailed_parent_pid]="${det_array[1]}"
-						proc[detailed_user]="${det_array[*]:2}"
-						proc[detailed_parent_name]="$(ps -o comm --no-headers -p ${det_array[1]} || true)"
+						det_array=($(ps -o ppid:4,euser:15 --no-headers -p $pid || true))	
+						proc[detailed_parent_pid]="${det_array[0]}"
+						proc[detailed_user]="${det_array[*]:1}"
+						proc[detailed_parent_name]="$(ps -o comm --no-headers -p ${det_array[0]} || true)"
 						get_mem=1
 					fi
 					proc[detailed_cpu]="${cpu_percent_string// /}"
 					proc[detailed_cpu_int]="${cpu_int}"
+					proc[detailed_threads]="${work_array[-4]}"
+					proc[detailed_runtime]="$(ps -o etime:4 --no-headers -p $pid || true)"
 
 					if [[ ${proc[detailed_mem]} != "${work_array[-2]}" || -n $get_mem ]] || ((++proc[detailed_mem_count]>5)); then
 						proc[detailed_mem_count]=0
@@ -1579,6 +1581,12 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 						detail_mem_history=( "${detail_mem_history[@]:$((box[details_width]/2))}" "${proc[detailed_mem_int]}")
 					else
 						detail_mem_history+=("${proc[detailed_mem_int]}")
+					fi
+
+					#* Remove selected process from array if process is excluded by filtering
+					if [[ -n $filter && ! ${proc[detailed_name]} =~ $filter ]]; then
+						unset 'proc_array[count]'
+						cpu_int=0; pid_count=0
 					fi
 				fi
 
@@ -2176,7 +2184,9 @@ draw_processes() { #? Draw processes and values to screen
 	fi
 
 	if [[ ${proc[detailed]} -eq 1 ]]; then
-		local det_status status_color
+		local det_status status_color det_columns=3
+		if ((tty_width>140)); then ((det_columns++)); fi
+		if ((tty_width>150)); then ((det_columns++)); fi
 		if [[ -z $det_no_add && $1 != "now" && -z ${proc[detailed_killed]} ]]; then 
 			create_graph -add-last detail_graph detail_history
 			if ((tty_width>120)); then create_mini_graph -w $((right_width/3-3)) -nc -add-last detail_mem_graph detail_mem_history; fi
@@ -2191,8 +2201,12 @@ draw_processes() { #? Draw processes and values to screen
 		
 		if [[ -n ${proc[detailed_killed]} ]]; then det_status="stopped"; status_color="ee3030"
 		else det_status="running"; status_color="30ee30"; fi
-		print -v proc_out -m $((d_line+1)) ${right_col} -fg ee -b -jc $((right_width/3-1)) -t "Status:" -jc $((right_width/3-1)) -t "User:" -jc $((right_width/3-1)) -t "Threads:"
-		print -v proc_out -m $((d_line+2)) ${right_col} -rs -fg ${status_color} -jc $((right_width/3-1)) -t "${det_status}" -jc $((right_width/3-1)) -fg ee -t "${proc[detailed_user]}" -jc $((right_width/3-1)) -t "${proc[detailed_threads]}"
+		print -v proc_out -m $((d_line+1)) ${right_col} -fg ee -b -jc $((right_width/det_columns-1)) -t "Status:" -jc $((right_width/det_columns)) -t "Elapsed:" -jc $((right_width/det_columns)) -t "Parent:"
+		if ((det_columns>=4)); then print -v proc_out -jc $((right_width/det_columns-1)) -t "User:"; fi
+		if ((det_columns>=5)); then print -v proc_out -jc $((right_width/det_columns-1)) -t "Threads:"; fi
+		print -v proc_out -m $((d_line+2)) ${right_col} -rs -fg ${status_color} -jc $((right_width/det_columns-1)) -t "${det_status}" -jc $((right_width/det_columns)) -fg ee -t "${proc[detailed_runtime]::$((right_width/det_columns-1))}" -jc $((right_width/det_columns)) -t "${proc[detailed_parent_name]::$((right_width/det_columns-1))}"
+		if ((det_columns>=4)); then print -v proc_out -jc $((right_width/det_columns-1)) -t "${proc[detailed_user]::$((right_width/det_columns-1))}"; fi
+		if ((det_columns>=5)); then print -v proc_out -jc $((right_width/det_columns-1)) -t "${proc[detailed_threads]}"; fi
 
 		print -v proc_out -m $((d_line+4)) ${right_col} -fg ee -b -jr $((right_width/3+2)) -t "Memory: ${proc[detailed_mem]}%" -t " " 
 		if ((tty_width>120)); then print -v proc_out -rs -fg 30 -rp $((right_width/3-3)) "⡀" -l $((right_width/3-3)) -fg 13 231 86 -t "${detail_mem_graph}" -t " "; fi
@@ -2719,10 +2733,10 @@ options_() { #? Shows the options overlay
 		
 		get_ms timestamp_end
 		time_left=$((timestamp_start+update_ms-timestamp_end))
-		if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
-		elif ((time_left>0)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
+		if ((time_left>500)); then wait_string=0.5
+		elif ((time_left>0)); then printf -v wait_string ".%03d" "${time_left}"
 		else wait_string="0.001"; time_left=0; fi
-	
+				
 		get_key -v keypress -w ${wait_string}
 		
 		if [[ -n $inputting ]]; then
@@ -2827,6 +2841,7 @@ options_() { #? Shows the options overlay
 		if [[ -n $changed_cpu_name ]]; then
 			changed_cpu_name=0
 			get_cpu_info
+			calc_sizes
 			draw_bg quiet
 		fi
 
@@ -2838,7 +2853,9 @@ options_() { #? Shows the options overlay
 			unset options_out bannerd menu_out
 		fi
 
-		if ((time_left==0)); then get_ms timestamp_start; collect_and_draw; fi
+		get_ms timestamp_end
+		time_left=$((timestamp_start+update_ms-timestamp_end))
+		if ((time_left<=0)); then get_ms timestamp_start; collect_and_draw; fi
 		if ((resized>0)); then resized=0; fi
 
 		if  [[ -n $updated_ms ]] && ((updated_ms++==2)); then
@@ -2864,10 +2881,9 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 		shift
 	done
 		
-	if [[ -n $save && -n $saved_key ]]; then return
-	elif [[ -n $saved_key ]]; then key="${saved_key}"; unset saved_key
+	if [[ -z $save && -n ${saved_key[0]} ]]; then key="${saved_key[0]}"; unset 'saved_key[0]'; saved_key=("${saved_key[@]}")
 	else
-		if ! IFS= read -rst ${wait_time:-0.05} -n 1 key >/dev/null 2>&1; then key_out=""; return; fi
+		if ! IFS= read -rst ${wait_time:-0.001} -n 1 key >/dev/null 2>&1; then key_out=""; return; fi
 		
 		
 		#* Read 3 more characters if a leading escape character is detected
@@ -2908,7 +2924,7 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 
 		read -srd '' -t 0.0001 -n 10000 || true
 
-		if [[ -n $save ]]; then saved_key="${key}"; return; fi
+		if [[ -n $save ]]; then saved_key+=("${key}"); return; fi
 
 	fi
 	if [[ -n $ext_out ]]; then key_out="${key}"
@@ -2955,7 +2971,7 @@ process_input() { #? Process keypresses for main ui
 			;;
 			down|tab)
 				if ! ((proc[page]==proc[pages] & proc[selected]>=box[processes_height]-3)); then
-					if ! ((proc[selected]++)); then collect_processes now; proc[detailed_change]=1; fi
+					if ((++proc[selected]==1)); then collect_processes now; proc[detailed_change]=1; fi
 					if ((proc[selected]>box[processes_height]-3)); then ((proc[page]++)); proc[selected]=1; fi
 					proc[page_change]=1
 				fi
@@ -3070,7 +3086,7 @@ process_input() { #? Process keypresses for main ui
 
 	#* Subtract time since input start from time left if timer is interrupted
 	get_ms timestamp_input_end
-	time_left=$(( (timestamp_start+update_ms-1)-timestamp_input_end ))
+	time_left=$(( (timestamp_start+update_ms)-timestamp_input_end ))
 
 	# #* Clear any remaining input from last keypress
 	# read -srd '' -t 0.001 -n 10000 || true
@@ -3084,9 +3100,11 @@ collect_and_draw() { #? Run all collect and draw functions
 		((++task_int))
 		if [[ -n $pause_screen ]]; then 
 			get_key -save
-			if [[ -n $saved_key ]]; then return; fi
+			if [[ -n ${saved_key[0]} ]]; then return; fi
 		else
-			process_input 0.05
+			while ((${#saved_key[@]}>0)); do
+				process_input
+			done
 		fi
 		collect_${task}
 		get_key -save
@@ -3137,8 +3155,6 @@ main_loop() { #? main loop...
 
 		#* Divide waiting time in chunks of 500ms and below to keep program responsive while reading input
 		while ((time_left>0 & resized==0)); do
-			#if ((resized>0)); then break; fi
-			#timestamp_input_start=${timestamp_end}
 
 			#* If NOT waiting for input and time left is greater than 500ms, wait 500ms and loop
 			if [[ -z $input_to_filter ]] && ((time_left>=500)); then
