@@ -2883,7 +2883,7 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 		
 	if [[ -z $save && -n ${saved_key[0]} ]]; then key="${saved_key[0]}"; unset 'saved_key[0]'; saved_key=("${saved_key[@]}")
 	else
-		if ! IFS= read -rst ${wait_time:-0.001} -n 1 key >/dev/null 2>&1; then key_out=""; return; fi
+		if ! IFS= read -rst ${wait_time:-0.0001} -n 1 key >/dev/null 2>&1; then key_out=""; return; fi
 		
 		
 		#* Read 3 more characters if a leading escape character is detected
@@ -2922,7 +2922,7 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 			esac
 		fi
 
-		read -srd '' -t 0.0001 -n 10000 || true
+		read -srd '' -t 0.00001 -n 10000 || true
 
 		if [[ -n $save ]]; then saved_key+=("${key}"); return; fi
 
