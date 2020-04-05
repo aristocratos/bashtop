@@ -1630,8 +1630,8 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 
 	proc[old_timestamp]=${proc[new_timestamp]}
 
-	if ((proc[detailed]==1)) && [[ -z ${proc[detailed_cpu]} ]]; then proc[detailed_killed]=1
-	else unset 'proc[detailed_killed]'; fi
+	if ((proc[detailed]==1)) && [[ -z ${proc[detailed_cpu]} && -z ${proc[detailed_killed]} ]]; then proc[detailed_killed]=1; proc[detailed_change]=1
+	elif [[ -n ${proc[detailed_cpu]} ]]; then unset 'proc[detailed_killed]'; fi
 
 	#* Sort output array based on cpu usage if "cpu responsive" is selected
 	if [[ ${proc_sorting} == "cpu responsive" ]]; then
@@ -2128,7 +2128,7 @@ draw_processes() { #? Draw processes and values to screen
 		proc[page_change]=1
 		if ((proc[detailed]==1)); then
 			unset proc_det
-			local enter_fg enter_a_fg i det_y=6 dets cmd_y
+			local enter_fg enter_a_fg misc_fg misc_a_fg i det_y=6 dets cmd_y
 
 			if [[ ${#detail_history[@]} -eq 1 ]] || ((resized>0)); then
 				unset proc_det2 
@@ -2173,13 +2173,15 @@ draw_processes() { #? Draw processes and values to screen
 			
 			
 			if ((proc[selected]>0)); then enter_fg="50"; enter_a_fg="50"; else enter_fg="ee"; enter_a_fg="90"; fi
+			if [[ -n ${proc[detailed_killed]} ]]; then misc_fg="50"; misc_a_fg="50"
+			else misc_fg=$enter_fg; misc_a_fg=$enter_a_fg; fi
 			print -v proc_det -m ${d_line} $((d_col+d_width-11)) -fg ${box[processes_color]} -t "┤" -fg $enter_fg -b -t "close " -fg $enter_a_fg -t "↲" -rs -fg ${box[processes_color]} -t "├"
 			if ((tty_width<129)); then det_mod="-8"; fi
-			if [[ -z ${proc[detailed_killed]} ]]; then
-				print -v proc_det -m ${d_line} $((d_col+detail_graph_width+4+det_mod)) -t "┤" -fg $enter_a_fg -b -t "t" -fg $enter_fg -t "erminate" -rs -fg ${box[processes_color]} -t "├"
-				print -v proc_det -r 1 -t "┤" -fg $enter_a_fg -b -t "k" -fg $enter_fg -t "ill" -rs -fg ${box[processes_color]} -t "├"
-				if ((tty_width>104)); then print -v proc_det -r 1 -t "┤" -fg $enter_a_fg -b -t "i" -fg $enter_fg -t "nterrupt" -rs -fg ${box[processes_color]} -t "├"; fi
-			fi
+			
+			print -v proc_det -m ${d_line} $((d_col+detail_graph_width+4+det_mod)) -t "┤" -fg $misc_a_fg -b -t "t" -fg $misc_fg -t "erminate" -rs -fg ${box[processes_color]} -t "├"
+			print -v proc_det -r 1 -t "┤" -fg $misc_a_fg -b -t "k" -fg $misc_fg -t "ill" -rs -fg ${box[processes_color]} -t "├"
+			if ((tty_width>104)); then print -v proc_det -r 1 -t "┤" -fg $misc_a_fg -b -t "i" -fg $misc_fg -t "nterrupt" -rs -fg ${box[processes_color]} -t "├"; fi
+			
 
 			proc_det="${proc_det2}${proc_det}"
 			proc_out="${proc_det}"
@@ -2211,8 +2213,8 @@ draw_processes() { #? Draw processes and values to screen
 		print -v proc_out -m $((d_line+1)) ${right_col} -fg ee -b -jc $((right_width/det_columns-1)) -t "Status:" -jc $((right_width/det_columns)) -t "Elapsed:" -jc $((right_width/det_columns)) -t "Parent:"
 		if ((det_columns>=4)); then print -v proc_out -jc $((right_width/det_columns-1)) -t "User:"; fi
 		if ((det_columns>=5)); then print -v proc_out -jc $((right_width/det_columns-1)) -t "Threads:"; fi
-		print -v proc_out -m $((d_line+2)) ${right_col} -rs -fg ${status_color} -jc $((right_width/det_columns-1)) -t "${det_status}" -jc $((right_width/det_columns)) -fg ee -t "${proc[detailed_runtime]::$((right_width/det_columns-1))}" -jc $((right_width/det_columns)) -t "${proc[detailed_parent_name]::$((right_width/det_columns-1))}"
-		if ((det_columns>=4)); then print -v proc_out -jc $((right_width/det_columns-1)) -t "${proc[detailed_user]::$((right_width/det_columns-1))}"; fi
+		print -v proc_out -m $((d_line+2)) ${right_col} -rs -fg ${status_color} -jc $((right_width/det_columns-1)) -t "${det_status}" -jc $((right_width/det_columns)) -fg ee -t "${proc[detailed_runtime]::$((right_width/det_columns-1))}" -jc $((right_width/det_columns)) -t "${proc[detailed_parent_name]::$((right_width/det_columns-2))}"
+		if ((det_columns>=4)); then print -v proc_out -jc $((right_width/det_columns-1)) -t "${proc[detailed_user]::$((right_width/det_columns-2))}"; fi
 		if ((det_columns>=5)); then print -v proc_out -jc $((right_width/det_columns-1)) -t "${proc[detailed_threads]}"; fi
 
 		print -v proc_out -m $((d_line+4)) ${right_col} -fg ee -b -jr $((right_width/3+2)) -t "Memory: ${proc[detailed_mem]}%" -t " " 
@@ -2565,7 +2567,7 @@ help_() { #? Shows the help overlay
 		"Select in process list."
 		"Show detailed information for selected process."
 		"Jump 1 page in process list."
-		"Jump to first or last entry in process list."
+		"Jump to first or last page in process list."
 		"Select previous/next sorting column."
 		"Reverse sorting order in processes box."
 		"Input a string to filter processes with."
