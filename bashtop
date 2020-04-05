@@ -21,7 +21,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.6.5"
+declare version="0.6.8"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -93,7 +93,7 @@ declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu 
 declare -a pid_history detail_graph detail_history detail_mem_history
 declare time_left timestamp_start timestamp_end timestamp_input_start timestamp_input_end time_string mem_out proc_misc prev_screen pause_screen filter input_to_filter
 declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2 proc_out
-declare esc_character tab backspace update_sec sleepy late_update skip_process_draw winches
+declare esc_character tab backspace update_sec sleepy late_update skip_process_draw winches quitting
 declare -a disks_free disks_total disks_name disks_free_percent saved_key
 printf -v esc_character "\u1b"
 printf -v tab "\u09"
@@ -2878,8 +2878,109 @@ options_() { #? Shows the options overlay
 	elif [[ -n ${pause_screen} ]]; then unpause_; draw_update_string; fi
 }
 
+killer_() { #? Kill process with selected signal
+	local kill_op="$1" kill_pid="$2" killer_out killer_box col line program keypress selected selected_int=0 sig confirmed=0 option killer_pause status status_fg msg
+	local -a options=("yes" "no")
+	
+	if ! program="$(ps -o comm --no-header -p ${kill_pid})"; then return; fi
+
+	case $kill_op in
+		t|T) kill_op="terminate"; sig="SIGTERM" ;;
+		k|K) kill_op="kill"; sig="SIGKILL" ;;
+		i|I) kill_op="interrupt"; sig="SIGINT" ;;
+	esac
+	
+	until false; do
+
+		#* Put program to sleep if caught ctrl-z
+		if ((sleepy==1)); then sleep_; fi
+
+		draw_clock
+		pause_ killer_pause
+
+		if [[ -z $killer_box ]]; then
+			col=$((tty_width/2-15)); line=$((tty_height/2-4)); y=1
+			unset redraw killer_box
+			create_box -v killer_box -w 40 -h 9 -l $line -c $((col++)) -fill -lc "#923535" -title "${kill_op}"	
+		fi
+
+		if ((confirmed==0)); then
+			selected="${options[selected_int]}"
+			print -v killer_out -m $((line+2)) $col -fg ee -b -jc 38 -t "${kill_op^} ${program::20}?" -m $((line+4)) $((col+3))
+			for option in "${options[@]}"; do
+				if [[ $option == "${selected}" ]]; then print -v killer_out -bg "#923535"; fi
+				print -v killer_out -fg cc -b -r 5 -t "[  ${option^}  ]" -rs
+			done
+
+		elif ((confirmed==1)); then
+			selected="ok"
+			print -v killer_out -m $((line+2)) $col -fg ee -b -jc 38 -t "Sending signal ${sig} to pid ${kill_pid}!"
+			print -v killer_out -m $((line+4)) $col -fg ${status_fg} -jc 38 -t "${status^}!" -m $((line+6)) $col
+			if [[ -n $msg ]]; then print -v killer_out -m $((line+5)) $col -fg ee -jc 38 -t "${msg}" -m $((line+7)) $col; fi
+			print -v killer_out -fg cc -bg "#923535" -b -r 15 -t "[  Ok  ]" -rs
+		fi
+	
+		echo -en "${killer_pause}${killer_box}${killer_out}"
+		unset killer_out draw_out
+		
+		
+		get_ms timestamp_end
+		time_left=$((timestamp_start+update_ms-timestamp_end))
+		if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
+		elif ((time_left>1)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
+		else wait_string="0.001"; time_left=0; fi
+		
+		get_key -v keypress -w ${wait_string}
+		if [[ $(stty size) != "$tty_height $tty_width" ]]; then resized; fi
+		if ((resized>0)); then 
+			calc_sizes; draw_bg quiet; time_left=0; unset killer_out killer_box
+		fi
+
+		case "$keypress" in
+			right|shift_tab) if ((selected_int>0)); then ((selected_int--)); else selected_int=$((${#options[@]}-1)); fi ;;
+			left|tab) if ((selected_int<${#options[@]}-1)); then ((++selected_int)); else selected_int=0; fi ;;
+			enter)
+				case "$selected" in
+					yes) confirmed=1 ;;
+					no|ok) confirmed=-1 ;;
+				esac
+			;;
+			q|Q) quit_ ;;
+		esac
+		
+		
+
+		if ((confirmed<0)); then
+			unpause_
+			break
+		elif ((confirmed>0)) && [[ -z $status ]]; then
+			if kill -${sig} ${kill_pid} >/dev/null 2>&1; then 
+				status="success"
+				status_fg="30ee20"
+			else 
+				if ! ps -p ${kill_pid} >/dev/null 2>&1; then
+					msg="Process not running."
+				elif [[ $UID != 0 ]]; then
+					msg="Try restarting with sudo."
+				else
+					msg="Unknown error."
+				fi
+				status="failed"; status_fg="ee3020"; fi
+		fi
+				
+
+		if ((time_left==0)); then get_ms timestamp_start; unset draw_out; collect_and_draw; fi
+		if ((resized>=5)); then resized=0; fi
+
+	done				
+	
+	
+}
+
 get_key() { #? Get one key from standard input and translate key code to readable format
 	local key key_out wait_time esc ext_out save
+
+	if ((quitting==1)); then quit_; fi
 
 	until (($#==0)); do
 		case "$1" in
@@ -3075,6 +3176,14 @@ process_input() { #? Process keypresses for main ui
 					unset input_to_filter filter
 					filter_change=1
 				fi
+			;;
+			t|T|k|K|i|I)
+				if [[ ${proc[selected]} -gt 0 ]]; then
+					killer_ "$keypress" "${proc[selected_pid]}"
+				elif [[ ${proc[detailed]} -eq 1 && -z ${proc[detailed_killed]} ]]; then
+					killer_ "$keypress" "${proc[detailed_pid]}"
+				fi
+			;;
 			# *)
 			# 	#if [[ $keypress == "" ]]; then keypress="enter"; fi
 			# 	printf -v letter_hex '%X\n' "'$keypress"
@@ -3253,9 +3362,9 @@ else
 fi
 
 #* Set up traps for ctrl-c, soft kill, window resize and resume from ctrl-z
-trap 'quit_' SIGINT SIGQUIT SIGTERM
-trap 'resized=1' SIGWINCH
-trap 'sleepy=1; time_left=0' SIGTSTP
+trap 'quitting=1; time_left=0' SIGINT SIGQUIT SIGTERM
+trap 'resized=1; time_left=0' SIGWINCH
+trap 'sleepy=1; time_left=0' SIGTSTP 
 trap 'resume_' SIGCONT
 
 
@@ -3263,7 +3372,7 @@ trap 'resume_' SIGCONT
 #* Set up error logging to file if enabled
 if [[ $error_logging == true ]]; then
 	set -o errtrace
-	trap traperr ERR
+	trap 'traperr' ERR
 	( echo " " ; echo "New instance of $0 Pid: $$" ) >> "${config_dir}/error.log"
 	exec 2>>"${config_dir}/error.log"
 	# exec 19>"${config_dir}/tracing.log"
