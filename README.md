@@ -38,6 +38,10 @@ Main menu.
 Options menu.  
 ![Screenshot 3](options.png)
 
+## Installation
+
+Copy or link "bashtop" into PATH, or just run from cloned directory...
+
 ## Configurability
 
 All options changeable from within UI.

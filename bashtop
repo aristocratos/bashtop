@@ -3346,7 +3346,7 @@ if [[ -d "$HOME/.config/bashtop" && -w "$HOME/.config/bashtop" ]] || mkdir -p "$
 	if [[ -e $config_file ]]; then
 		source "$config_file"
 
-		#* If current config is from and older version recreate config file and save user changes
+		#* If current config is from an older version recreate config file and save user changes
 		if [[ $(get_value -sf "${config_file}" -k "bashtop v." -mk 1) != "${version}" ]]; then
 			create_config
 			save_config "${save_array[@]}"
