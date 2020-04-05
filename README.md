@@ -18,6 +18,15 @@ Resource monitor that shows usage and stats for processor, memory, disks, networ
 * UI menu for changing all config file options.
 * Auto scaling graph for network usage.
 
+## Compability
+
+Should work on most modern linux distributions with a truecolor capable terminal.
+
+## Dependencies
+
+**bash** (v4.4 or later) Script functionality will most probably brake with earlier versions.  
+Bash version 5 is higly recommended to make use of $EPOCHREALTIME variable instead of alot of external date command calls.
+
 ## Screenshots
 
 Main UI showing details for a selected process.  
@@ -28,7 +37,6 @@ Main menu.
 
 Options menu.  
 ![Screenshot 3](options.png)
-
 
 ## Configurability
 
@@ -70,23 +78,14 @@ USAGE: bashtop
 
 ```
 
-## Compability  
-
-Should work on most modern linux distributions.
-
-
-
-## Dependencies
-
-**bash** (v4.4 or later) Script functionality will most probably brake with earlier versions.  
-Bash version 5 is higly recommended to make use of $EPOCHREALTIME variable instead of alot of external date command calls.
 
 
 ## TODO
 
 
 - [ ] TODO Add command line argument parsing.
-- [ ] TODO Miscellaneous optimizations and code cleanup
+- [ ] TODO Miscellaneous optimizations and code cleanup.
+- [ ] TODO Add more commenting where it's sparse.
 
 
 ## LICENSE
