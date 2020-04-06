@@ -3394,6 +3394,13 @@ trap 'resume_' SIGCONT
 if [[ $error_logging == true ]]; then
 	set -o errtrace
 	trap 'traperr' ERR
+	
+	#* Remove everything but the last 500 lines of error log if larger than 500 lines
+	if [[ -e "${config_dir}/error.log" && $(wc -l <"${config_dir}/error.log") -gt 500 ]]; then
+		tail -n 500 "${config_dir}/error.log" > "${config_dir}/tmp"
+		rm "${config_dir}/error.log"
+		mv "${config_dir}/tmp" "${config_dir}/error.log"
+	fi
 	( echo " " ; echo "New instance of $0 Pid: $$" ) >> "${config_dir}/error.log"
 	exec 2>>"${config_dir}/error.log"
 	# exec 19>"${config_dir}/tracing.log"
