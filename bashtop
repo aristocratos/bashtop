@@ -155,7 +155,7 @@ box[double_title_right]="╢"
 if [[ -n $EPOCHREALTIME ]]; then
 	get_ms() { #? Set given variable to current epoch millisecond with EPOCHREALTIME varialble
 		local -n ms_out=$1
-		ms_out=$((${EPOCHREALTIME/,/}/1000))
+		ms_out=$((${EPOCHREALTIME/[.,]/}/1000))
 	}
 
 #* If not, use date command
