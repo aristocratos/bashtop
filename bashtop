@@ -27,7 +27,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-declare LC_MESSAGES="C.UTF8" LC_NUMERIC="C"
+declare LC_MESSAGES="C" LC_NUMERIC="C"
 
 declare -a banner banner_colors
 
