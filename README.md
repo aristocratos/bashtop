@@ -68,6 +68,9 @@ check_temp="true"
 #* Draw a clock at top of screen, formatting according to strftime, empty string to disable
 draw_clock="%X"
 
+#* Update main ui when menus are showing, set this to false if the menus is flickering too much for comfort
+background_update="true"
+
 #* Custom cpu model name, empty string to disable
 custom_cpu_name=""
 
