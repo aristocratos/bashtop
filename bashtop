@@ -182,8 +182,12 @@ init_() { #? Collect needed information and set options before startig main loop
 
 	#* Get processor BCLK
 	local param_var
-	param_var="$(</usr/include/asm*/param.h)"
-	get_value -v cpu[hz] -sv "param_var" -k "define HZ" -i
+	if [[ -e /usr/include/asm-generic/param.h ]]; then
+		param_var="$(</usr/include/asm-generic/param.h)"
+		get_value -v cpu[hz] -sv "param_var" -k "define HZ" -i
+	else 
+		cpu[hz]="100"
+	fi
 
 	#* Get max pid value and length
 	proc[pid_max]="$(</proc/sys/kernel/pid_max)"
