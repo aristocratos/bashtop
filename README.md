@@ -24,7 +24,7 @@ Should work on most modern linux distributions with a truecolor capable terminal
 
 ## Dependencies
 
-**bash** (v4.4 or later) Script functionality will most probably brake with earlier versions.  
+**bash** (v4.4 or later) Script functionality will most probably break with earlier versions.  
 Bash version 5 is higly recommended to make use of $EPOCHREALTIME variable instead of alot of external date command calls.
 
 ## Screenshots
