@@ -824,7 +824,7 @@ create_meter() { 	#? Create a horizontal percentage meter, usage; create_meter <
 
 	#* Set default width if not given and set block size
 	width=${width:-10}
-	if [[ $block_size == "big" ]]; then block="⯀"; bg_color=30
+	if [[ $block_size == "big" ]]; then block="■"; bg_color=30
 	else block="￭"; bg_color=30; fi
 
 	#* If no color array was given, create a simple greyscale array
