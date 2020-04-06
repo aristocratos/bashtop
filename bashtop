@@ -38,7 +38,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.6.8"
+declare version="0.6.9"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -62,6 +62,9 @@ check_temp="true"
 
 #* Draw a clock at top of screen, formatting according to strftime, empty string to disable
 draw_clock="%X"
+
+#* Update main ui when menus are showing, set this to false if the menus is flickering too much for comfort
+background_update="true"
 
 #* Custom cpu model name, empty string to disable
 custom_cpu_name=""
@@ -104,7 +107,7 @@ declare -A cpu mem swap proc net box
 declare -a cpu_usage cpu_graph_a cpu_graph_b color_meter color_temp color_cpu color_cpu_graph cpu_history color_mem_graph color_swap_graph
 declare -a mem_history swap_history net_history_download net_history_upload mem_graph swap_graph proc_array download_graph upload_graph trace_array
 declare resized=1 size_error clock tty_width tty_height hex="16#" cpu_p_box swap_on=1 draw_out esc_character boxes_out last_screen clock_out update_string
-declare -a options_array=("update_ms" "proc_sorting" "proc_reversed" "check_temp" "draw_clock" "error_logging" "custom_cpu_name")
+declare -a options_array=("update_ms" "proc_sorting" "proc_reversed" "check_temp" "draw_clock" "background_update" "error_logging" "custom_cpu_name")
 declare -a save_array=("${options_array[@]}")
 declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" )
 declare -a pid_history detail_graph detail_history detail_mem_history
@@ -2488,8 +2491,13 @@ menu_() { #? Shows the main menu overlay
 		#* Put program to sleep if caught ctrl-z
 		if ((sleepy==1)); then sleep_; fi
 
-		draw_clock
-		pause_ menu_pause
+		if [[ $background_update == true || -z $menu_out ]]; then
+			draw_clock
+			pause_ menu_pause
+		else
+			unset menu_pause
+		fi
+
 		unset draw_out
 
 		if [[ -z ${bannerd} ]]; then
@@ -2605,6 +2613,14 @@ help_() { #? Shows the help overlay
 		#* Put program to sleep if caught ctrl-z
 		if ((sleepy==1)); then sleep_; redraw=1; fi
 
+		if [[ $background_update == true || -n $redraw ]]; then
+			draw_clock
+			pause_ help_pause
+		else
+			unset help_pause
+		fi
+
+
 		if [[ -n $redraw ]]; then
 			col=$((tty_width/2-36)); line=$((tty_height/2-4)); y=1
 			unset redraw help_out
@@ -2620,8 +2636,7 @@ help_() { #? Shows the help overlay
 			done
 		fi
 
-		draw_clock
-		pause_ help_pause
+
 		unset draw_out
 		echo -en "${help_pause}${help_out}"
 		
@@ -2650,7 +2665,7 @@ help_() { #? Shows the help overlay
 
 options_() { #? Shows the options overlay
 	local keypress from_menu col line y=1 i options_out selected_int=0 ypos option_string options_misc option_value bg fg skipped start_t end_t left_t changed_cpu_name
-	local desc_col right left enter lr inp valid updated_ms local_rez redraw_misc=1 desc_pos options_pause updated_proc inputting inputting_value inputting_key
+	local desc_col right left enter lr inp valid updated_ms local_rez redraw_misc=1 desc_pos desc_height options_pause updated_proc inputting inputting_value inputting_key
 		desc_update_ms=(	"Update time in milliseconds."
 							"Recommended 2000 ms or above for better sample"
 							"times for graphs."
@@ -2686,6 +2701,12 @@ options_() { #? Shows the options overlay
 							"\"%H\" 24h hour, \"%I\" 12h hour"
 							"\"%M\" minute, \"%S\" second"
 							"\"%d\" day, \"%m\" month, \"%y\" year")
+		desc_background_update=( "Update main ui when menus are showing."
+								" "
+								"True or false."
+								" "
+								"Set this to false if the menus is flickering"
+								"too much for a comfortable experience.")
 		desc_custom_cpu_name=(	"Custom cpu model name in cpu percentage box."
 								" "
 								"Empty string to disable.")
@@ -2703,8 +2724,13 @@ options_() { #? Shows the options overlay
 		#* Put program to sleep if caught ctrl-z
 		if ((sleepy==1)); then sleep_; fi
 		
-		draw_clock
-		pause_ options_pause
+		
+		if [[ $background_update == true || -n $redraw_misc ]]; then
+			draw_clock
+			pause_ options_pause
+		else
+			unset options_pause
+		fi
 
 		if [[ -n $redraw_misc ]]; then
 			unset options_misc
@@ -2718,13 +2744,14 @@ options_() { #? Shows the options overlay
 		
 		
 		if [[ -n $keypress || -z $options_out ]]; then
-			unset options_out 
+			unset options_out desc_height
 			selected="${options_array[selected_int]}"
 			local -n selected_desc="desc_${selected}"
 			unset lr inp valid
-			if ((selected_int*2+${#selected_desc[@]}<${#options_array[@]}*2)); then desc_pos=$((line+selected_int*2))
+			if [[ $background_update == false ]]; then desc_pos=$line; desc_height=$((${#options_array[@]}*2+2))
+			elif ((selected_int*2+${#selected_desc[@]}<${#options_array[@]}*2)); then desc_pos=$((line+selected_int*2))
 			else desc_pos=$((line+${#options_array[@]}*2-${#selected_desc[@]})); fi
-			create_box -v options_out -w 50 -h $((${#selected_desc[@]}+2)) -l $desc_pos -c $((desc_col-1)) -fill -lc 40 -title "description"
+			create_box -v options_out -w 50 -h ${desc_height:-$((${#selected_desc[@]}+2))} -l $desc_pos -c $((desc_col-1)) -fill -lc 40 -title "description"
 			for((i=0,ypos=1;i<${#options_array[@]};i++,ypos=ypos+2)); do
 				option_string="${options_array[i]}"
 				if [[ -n $inputting && ${option_string} == "${selected}" ]]; then 
@@ -2841,7 +2868,7 @@ options_() { #? Shows the options overlay
 				"custom_cpu_name"*)
 						inputting_value="${inputting_value}${keypress//[\\\$\"\']/}"
 					;;		
-				"proc_reversed"*|"check_temp"*|"error_logging"*)
+				"proc_reversed"*|"check_temp"*|"error_logging"*|"background_update"*)
 						local -n selected_var=${selected}
 						if [[ ${selected_var} == "true" ]]; then
 							selected_var="false"
@@ -2916,8 +2943,12 @@ killer_() { #? Kill process with selected signal
 		#* Put program to sleep if caught ctrl-z
 		if ((sleepy==1)); then sleep_; fi
 
-		draw_clock
-		pause_ killer_pause
+		if [[ $background_update == true || -z $killer_box ]]; then
+			draw_clock
+			pause_ killer_pause
+		else
+			unset killer_pause
+		fi
 
 		if [[ -z $killer_box ]]; then
 			col=$((tty_width/2-15)); line=$((tty_height/2-4)); y=1
@@ -3394,7 +3425,7 @@ trap 'resume_' SIGCONT
 if [[ $error_logging == true ]]; then
 	set -o errtrace
 	trap 'traperr' ERR
-	
+
 	#* Remove everything but the last 500 lines of error log if larger than 500 lines
 	if [[ -e "${config_dir}/error.log" && $(wc -l <"${config_dir}/error.log") -gt 500 ]]; then
 		tail -n 500 "${config_dir}/error.log" > "${config_dir}/tmp"
