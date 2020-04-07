@@ -28,6 +28,8 @@
 #    limitations under the License.
 
 declare LC_MESSAGES="C" LC_NUMERIC="C"
+shopt -qu failglob globstar
+shopt -qs extglob globasciiranges
 
 declare -a banner banner_colors
 
@@ -405,7 +407,7 @@ traperr() { #? Function for reporting error line numbers
 	fi
 	if ((len>100)); then unset 'trace_array[@]'; fi
 	trace_array+=("$err")
-	printf "%(%X)T  %s" "" "ERROR: On line $err $trap_muted" >> "${config_dir}/error.log"
+	echo "$(printf "%(%X)T") ERROR: On line $err $trap_muted" >> "${config_dir}/error.log"
 	
 }
 
