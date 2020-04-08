@@ -199,6 +199,7 @@ init_() { #? Collect needed information and set options before startig main loop
 	#* Get max pid value and length
 	proc[pid_max]="$(</proc/sys/kernel/pid_max)"
 	proc[pid_len]=${#proc[pid_max]}
+	if [[ ${proc[pid_len]} -lt 5 ]]; then proc[pid_len]=5; fi
 
 	#* Call init for cpu data collection
 	collect_cpu init
@@ -1482,7 +1483,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 
 	if [[ -n $filter ]]; then
 		grep_array[0]="${proc_array[0]}"
-	 	readarray -O 1 -t grep_array < <(echo -e "${proc_array[@]:1}" | grep -e "${filter}" ${proc[detailed_pid]:+-e ${proc[detailed_pid]}} || true)
+	 	readarray -O 1 -t grep_array < <(echo -e " ${proc_array[*]:1}" | grep -e "${filter}" ${proc[detailed_pid]:+-e ${proc[detailed_pid]}} | cut -c 2- || true)
 		proc_array=("${grep_array[@]}")
 	fi
 
@@ -1518,10 +1519,10 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 			pid_history+=("${pid}")
 		fi
 
-		if [[ -n $filter || $proc_sorting == "cpu responsive" ]] && [[ ${proc_array[count]::$((proc[pid_len]+1))} != " " ]]; then
+		if [[ -n $filter || $proc_sorting == "cpu responsive" ]] && [[ ${proc_array[count]:${proc[pid_len]}:1} != " " ]]; then
 			unset pid_string
-			print -v pid_string -jr ${proc[pid_len]} -t "${pid}"
-			proc_array[count]="${pid_string}${proc_array[count]#*$pid}"
+			printf -v pid_string "%${proc[pid_len]}s" "${pid}"
+			proc_array[count]="${pid_string}${proc_array[count]#*${pid}}"
 		fi
 
 		if [[ -r "/proc/${pid}/stat" ]] && read -ra statfile </proc/${pid}/stat 2>/dev/null; then
@@ -2268,18 +2269,18 @@ draw_processes() { #? Draw processes and values to screen
  
 	current_num=1
 	
-	print -v proc_out -rs -m $((line+y++)) $((col+1)) -fg 235 235 235 -b -t "${proc_array[0]} " -rs
+	print -v proc_out -rs -m $((line+y++)) $((col+1)) -fg 235 235 235 -b -t "${proc_array[0]::$((width-3))} " -rs
 
 
 	for out_line in "${proc_array[@]:$proc_start}"; do
-		pid="${out_line::${proc[pid_len]}}"; pid="${pid##* }"
+		pid="${out_line::$((proc[pid_len]+1))}"; pid="${pid// /}"
 		pid_graph="pid_${pid}_graph"
 
 		if ((current_num==proc[selected])); then print -v proc_out -bg "#7e2626" -b; proc[selected_pid]="$pid"
 
 		else print -v proc_out -rs; fi
 
-		print -v proc_out -m $((line+y)) $((col+1)) -fg $((rgb-step)) $((rgb-step)) $((rgb-step)) -t "${out_line} "
+		print -v proc_out -m $((line+y)) $((col+1)) -fg $((rgb-step)) $((rgb-step)) $((rgb-step)) -t "${out_line::$((width-3))} "
 		
 		if ((current_num==proc[selected])); then print -v proc_out -rs -bg "#7e2626"; fi
 		print -v proc_out -m $((line+y)) $((col+width-12)) -fg $((rgb_d-d_step)) $((rgb_d-d_step)) $((rgb_d-d_step)) -t "⡀⡀⡀⡀⡀"
