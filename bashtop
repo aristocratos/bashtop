@@ -610,7 +610,7 @@ get_cpu_info() {
 	lscpu_var="$(lscpu)"
 	if [[ -z ${cpu[threads]} || -z ${cpu[cores]} ]]; then
 		get_value -v cpu[threads] -sv "lscpu_var" -k "CPU(s):" -i
-		get_value -v cpu[cores] -sv "lscpu_var" -k "Core(s)*:" -i
+		get_value -v cpu[cores] -sv "lscpu_var" -k "Core(s)" -i
 	fi
 	if [[ -z $custom_cpu_name ]]; then
 		if ! get_value -v cpu[model] -sv "lscpu_var" -k "Model name:" -a -b -k "CPU" -mk -1; then
