@@ -3086,7 +3086,7 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 			esac
 		fi
 
-		read -srd '' -t 0.00001 -n 10000 || true
+		#read -srd '' -t 0.00001 -n 10000 || true
 
 		if [[ -n $save ]]; then saved_key+=("${key}"); return; fi
 
