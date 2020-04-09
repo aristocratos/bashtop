@@ -40,7 +40,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.6.11"
+declare version="0.6.12"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -1506,8 +1506,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 			else breaking=1; fi
 		fi
 
-		get_key -save
-		if ((${#saved_key[@]}>0)); then return; fi
+		if get_key -save && [[ ${#saved_key[@]} -gt 0 ]]; then return; fi
 
 		work_array=(${readline})
 
@@ -3047,14 +3046,20 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 		
 	if [[ -z $save && -n ${saved_key[0]} ]]; then key="${saved_key[0]}"; unset 'saved_key[0]'; saved_key=("${saved_key[@]}")
 	else
-		if ! IFS= read -rsd '' -t ${wait_time:-0.0001} -n 1 key >/dev/null 2>&1; then key_out=""; return; fi
-		
+		unset key
+		IFS= read -rsd '' -t ${wait_time:-0.001} -n 1 key >/dev/null 2>&1 ||true
+
+		if [[ -z ${key+s} ]]; then 
+			key_out=""
+			if [[ -z $save ]]; then return 0
+			else return 1; fi
+		fi
 		
 		#* Read 3 more characters if a leading escape character is detected
 		if [[ $key == "${enter_key}" ]]; then key="enter"
 		elif [[ $key == "${backspace}" ]]; then key="backspace"
 		elif [[ $key == "${tab}" ]]; then key="tab"
-		elif [[ $key == "$esc_character" ]]; then esc=1; read -rsn3 -t 0.001 key || true; fi		
+		elif [[ $key == "$esc_character" ]]; then esc=1; read -rsn3 -t 0.0001 key || true; fi
 		if [[ -z $key && $esc -eq 1 ]]; then key="escape"
 		elif [[ $esc -eq 1 ]]; then
 			case "${key}" in
@@ -3085,11 +3090,10 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 			esac
 		fi
 
-		read -srd '' -t 0.00001 -n 10000 || true
-
-		if [[ -n $save ]]; then saved_key+=("${key}"); return; fi
-
 	fi
+	
+	if [[ -n $save && -n $key ]]; then saved_key+=("${key}"); return 0; fi
+
 	if [[ -n $ext_out ]]; then key_out="${key}"
 	else echo -n "${key}"; fi
 }
@@ -3258,21 +3262,21 @@ process_input() { #? Process keypresses for main ui
 }
 
 collect_and_draw() { #? Run all collect and draw functions
-	local task_int=1
+	local task_int=0
 	for task in processes cpu mem net; do
 		((++task_int))
-		if [[ -n $pause_screen ]]; then 
-			get_key -save
-			if [[ -n ${saved_key[0]} ]]; then return; fi
+		if [[ -n $pause_screen && -n ${saved_key[0]} ]]; then 
+			return
 		else
-			while ((${#saved_key[@]}>0)); do
-				process_input
+			while [[ -n ${saved_key[0]} ]]; do
+				process_input 0.001
+				unset late_update
 			done
 		fi
 		collect_${task}
-		get_key -save
+		if get_key -save; then process_input; fi
 		draw_${task}
-		get_key -save
+		if get_key -save; then process_input; fi
 		draw_clock "$1"
 		if ((resized>0 & resized<task_int)); then return; fi
 	done
@@ -3335,7 +3339,11 @@ main_loop() { #? main loop...
 				time_left=0
 			fi
 
-			#* Wait while reading input			
+			#* Wait while reading input
+			while [[ -n ${saved_key[0]} ]]; do
+				process_input
+				unset late_update
+			done	
 			process_input "${wait_string}"
 
 			#* Draw clock if set	
