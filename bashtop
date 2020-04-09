@@ -120,7 +120,7 @@ declare -a disks_free disks_total disks_name disks_free_percent saved_key
 printf -v esc_character "\u1b"
 printf -v tab "\u09"
 printf -v backspace "\u7F"
-printf -v enter_key "\x0a"
+printf -v enter_key "\uA"
 
 read tty_height tty_width < <(stty size)
 
@@ -3047,14 +3047,16 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 		
 	if [[ -z $save && -n ${saved_key[0]} ]]; then key="${saved_key[0]}"; unset 'saved_key[0]'; saved_key=("${saved_key[@]}")
 	else
-		if ! IFS= read -rst ${wait_time:-0.0001} -n 1 key >/dev/null 2>&1; then key_out=""; return; fi
+		if ! IFS= read -rsd '' -t ${wait_time:-0.0001} -n 1 key >/dev/null 2>&1; then key_out=""; return; fi
 		
 		
 		#* Read 3 more characters if a leading escape character is detected
-		if [[ $key == "$esc_character" ]]; then esc=1; read -rsn3 -t 0.001 key || true; fi
-		if [[ -z $key && $esc -eq 0 ]]; then key="enter"
-		elif [[ -z $key && $esc -eq 1 ]]; then key="escape"
-		else
+		if [[ $key == "${enter_key}" ]]; then key="enter"
+		elif [[ $key == "${backspace}" ]]; then key="backspace"
+		elif [[ $key == "${tab}" ]]; then key="tab"
+		elif [[ $key == "$esc_character" ]]; then esc=1; read -rsn3 -t 0.001 key || true; fi		
+		if [[ -z $key && $esc -eq 1 ]]; then key="escape"
+		elif [[ $esc -eq 1 ]]; then
 			case "${key}" in
 				'[A') key="up" ;;
 				'[B') key="down" ;;
@@ -3062,13 +3064,10 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 				'[C') key="right" ;;
 				'[2~') key="insert" ;;
 				'[3~') key="delete" ;;
-				"${backspace}") key="backspace";;
-				#' ') key="space";;
 				'[H') key="home" ;;
 				'[F') key="end" ;;
 				'[5~') key="page_up" ;;
 				'[6~') key="page_down" ;;
-				"${tab}") key="tab" ;;
 				'[Z') key="shift_tab" ;;
 				'OP') key="f1";;
 				'OQ') key="f2";;
@@ -3082,11 +3081,11 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 				'[21') key="f10";;
 				'[23') key="f11";;
 				'[24') key="f12";;
-				\\*) key="" ;;
+				*) key="" ;;
 			esac
 		fi
 
-		#read -srd '' -t 0.00001 -n 10000 || true
+		read -srd '' -t 0.00001 -n 10000 || true
 
 		if [[ -n $save ]]; then saved_key+=("${key}"); return; fi
 
@@ -3238,11 +3237,6 @@ process_input() { #? Process keypresses for main ui
 					killer_ "$keypress" "${proc[detailed_pid]}"
 				fi
 			;;
-			# *)
-			# 	#if [[ $keypress == "" ]]; then keypress="enter"; fi
-			# 	printf -v letter_hex '%X\n' "'$keypress"
-			# 	echo "\"${keypress}\" \"${letter_hex}\"" >> "${config_dir}/error.log"
-			# ;;
 		esac
 	fi
 
@@ -3259,9 +3253,6 @@ process_input() { #? Process keypresses for main ui
 	#* Subtract time since input start from time left if timer is interrupted
 	get_ms timestamp_input_end
 	time_left=$(( (timestamp_start+update_ms)-timestamp_input_end ))
-
-	# #* Clear any remaining input from last keypress
-	# read -srd '' -t 0.001 -n 10000 || true
 
 	return 0
 }
