@@ -1289,7 +1289,7 @@ collect_cpu() { #? Collects cpu stats from /proc/stat and compares with previous
 	while ((thread<threads+1)) && read -ra stat_array; do
 	cpu[new_${thread}]=$((stat_array[1]+stat_array[2]+stat_array[3]+stat_array[4]))
 	cpu[idle_new_${thread}]=${stat_array[4]}
-	if [[ -n ${cpu[old_${thread}]} ]]; then cpu_usage[${thread}]=$(( ( 100*(${cpu[old_${thread}]}-${cpu[new_${thread}]}-${cpu[idle_old_${thread}]}+${cpu[idle_new_${thread}]}) ) / (${cpu[old_${thread}]}-${cpu[new_${thread}]}) )); fi
+	if [[ -n ${cpu[old_${thread}]} && -n ${cpu[idle_new_${thread}]} ]]; then cpu_usage[${thread}]=$(( ( 100*(${cpu[old_${thread}]}-${cpu[new_${thread}]}-${cpu[idle_old_${thread}]}+${cpu[idle_new_${thread}]}) ) / (${cpu[old_${thread}]}-${cpu[new_${thread}]}) )); fi
 	cpu[old_${thread}]=${cpu[new_${thread}]}
 	cpu[idle_old_${thread}]=${cpu[idle_new_${thread}]}
 	((++thread))
