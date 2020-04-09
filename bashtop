@@ -1459,8 +1459,8 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 
 
 	#* Collect output from ps command to array
-	if ((width>60)); then format_args=",args:$((width-57+proc[pid_len]))=Arguments:"; format_cmd=15
-	else format_cmd=$((width-41+proc[pid_len])); fi
+	if ((width>60)); then format_args=",args:$(( width-(36+proc[pid_len]) ))=Arguments:"; format_cmd=15
+	else format_cmd=$(( width-(31+proc[pid_len]) )); fi
 	unset 'proc_array[@]' 'pid_array[@]'
 
 	if ((proc[detailed]==0)) && [[ -n ${proc[detailed_name]} ]]; then
