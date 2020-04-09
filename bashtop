@@ -3436,9 +3436,11 @@ if [[ $error_logging == true ]]; then
 	fi
 	( echo " " ; echo "New instance of bashtop version: ${version} Pid: $$" ) >> "${config_dir}/error.log"
 	exec 2>>"${config_dir}/error.log"
-	# exec 19>"${config_dir}/tracing.log"
-	# BASH_XTRACEFD=19
-	# set -x
+	if [[ $1 == "--debug" ]]; then
+		exec 19>"${config_dir}/tracing.log"
+		BASH_XTRACEFD=19
+		set -x
+	fi
 else
 	exec 2>/dev/null
 fi
