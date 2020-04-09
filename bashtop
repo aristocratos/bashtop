@@ -40,7 +40,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.6.9"
+declare version="0.6.10"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -115,7 +115,7 @@ declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu 
 declare -a pid_history detail_graph detail_history detail_mem_history
 declare time_left timestamp_start timestamp_end timestamp_input_start timestamp_input_end time_string mem_out proc_misc prev_screen pause_screen filter input_to_filter
 declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2 proc_out
-declare esc_character tab backspace update_sec sleepy late_update skip_process_draw winches quitting
+declare esc_character tab backspace sleepy late_update skip_process_draw winches quitting
 declare -a disks_free disks_total disks_name disks_free_percent saved_key
 printf -v esc_character "\u1b"
 printf -v tab "\u09"
@@ -2454,7 +2454,6 @@ draw_clock() { #? Draw a clock at top of screen
 
 draw_update_string() {
 	unset update_string
-	update_sec="$(bc <<<"scale=3; ${update_ms}/1000")"
 	print -v update_string -m ${box[cpu_line]} $((box[cpu_col]+box[cpu_width]-${#update_ms}-14)) -rs -fg ${box[cpu_color]} -t "────┤"  -fg "aa" -b -t "+" -fg "ee" -b -t " ${update_ms}ms "  -fg "aa" -b -t "-" -rs -fg ${box[cpu_color]} -t "├"
 	if [[ $1 == "quiet" ]]; then draw_out="${draw_out}${update_string}"
 	else echo -en "${update_string}"; fi
@@ -3435,7 +3434,7 @@ if [[ $error_logging == true ]]; then
 		rm "${config_dir}/error.log"
 		mv "${config_dir}/tmp" "${config_dir}/error.log"
 	fi
-	( echo " " ; echo "New instance of $0 Pid: $$" ) >> "${config_dir}/error.log"
+	( echo " " ; echo "New instance of bashtop version: ${version} Pid: $$" ) >> "${config_dir}/error.log"
 	exec 2>>"${config_dir}/error.log"
 	# exec 19>"${config_dir}/tracing.log"
 	# BASH_XTRACEFD=19
