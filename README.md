@@ -44,6 +44,8 @@ Copy or link "bashtop" into PATH, or just run from cloned directory...
 
 Also available in the AUR as [bashtop-git](https://aur.archlinux.org/packages/bashtop-git/)
 
+Also available for debian/ubuntu from [Azlux's repository](http://packages.azlux.fr/)
+
 ## Configurability
 
 All options changeable from within UI.
