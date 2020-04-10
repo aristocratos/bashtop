@@ -808,10 +808,10 @@ create_box() { #? Draw a box with an optional titlebar and title at given locati
 }
 
 create_meter() { 	#? Create a horizontal percentage meter, usage; create_meter <value 0-100>
-					#? Optional arguments: [-p, -place <line> <col>] [-w, -width <columns>] [-b, -block-size "small"|"big"] [-f, -fill-empty] 
+					#? Optional arguments: [-p, -place <line> <col>] [-w, -width <columns>] [-f, -fill-empty] 
 					#? [-c, -color "array-name"] [-i, -invert-color] [-v, -variable "variable-name"]
 	if [[ -z $1 ]]; then return; fi
-	local val width colors color block_size block i fill_empty col line var ext_var out meter_var print_var invert
+	local val width colors color block="■" i fill_empty col line var ext_var out meter_var print_var invert bg_color=30
 
 	#* Argument parsing
 	until (($#==0)); do
@@ -820,7 +820,6 @@ create_meter() { 	#? Create a horizontal percentage meter, usage; create_meter <
 			-w|-width) width=$2; shift;;																		#? Width of meter in columns
 			-c|-color) local -n colors=$2; shift;;																#? Name of an array containing colors from index 0-100
 			-i|-invert) invert=1;;																				#? Invert meter
-			-b|-block-size) block_size=$2; shift;;																#? Size of blocks used, small or big
 			-f|-fill-empty) fill_empty=1;;																		#? Fill unused space with dark blocks
 			-v|-variable) local -n meter_var=$2; ext_var=1; shift;;												#? Output meter to a variable
 			*) if [[ $1 =~ ^[0-9]+$ ]]; then val=$1; fi;;
@@ -830,10 +829,8 @@ create_meter() { 	#? Create a horizontal percentage meter, usage; create_meter <
 
 	if [[ -z $val ]]; then return; fi
 
-	#* Set default width if not given and set block size
+	#* Set default width if not given
 	width=${width:-10}
-	if [[ $block_size == "big" ]]; then block="■"; bg_color=30
-	else block="￭"; bg_color=30; fi
 
 	#* If no color array was given, create a simple greyscale array
 	if [[ -z $colors ]]; then
@@ -1980,14 +1977,13 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 		fi
 
 		if ((i==0 & p_width>24+temp_width)); then 
-			name="CPU Total "; meter_width=$((p_width-17-temp_width)); meter_size="big"
-		elif ((i==0)); then meter_size="big"
+			name="CPU Total "; meter_width=$((p_width-17-temp_width))
 		fi
 		
 
 		#* Create cpu usage meter
 		if ((i==0)); then
-			create_meter -v meter -b $meter_size -w $meter_width -f -c color_cpu ${cpu_usage[i]}
+			create_meter -v meter -w $meter_width -f -c color_cpu ${cpu_usage[i]}
 		else
 			core_name="cpu_core_graph_$i"
 			meter="${!core_name}"
