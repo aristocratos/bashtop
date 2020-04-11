@@ -94,6 +94,8 @@ USAGE: bashtop
 ## TODO
 
 
+- [ ] TODO Add options to change colors for text, graphs and meters.
+- [ ] TODO Add options for resizing all boxes.
 - [ ] TODO Add command line argument parsing.
 - [ ] TODO Miscellaneous optimizations and code cleanup.
 - [ ] TODO Add more commenting where it's sparse.
