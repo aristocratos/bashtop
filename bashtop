@@ -40,7 +40,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.7.0"
+declare version="0.7.1"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -392,6 +392,27 @@ quit_() { #? Clean exit
 	fi
 	
 	exit 0
+}
+
+sleep_() { #? Restore terminal options, stop and send to background if caught SIGTSTP (ctrl+z)
+	tput rmcup
+	stty echo
+	tput cnorm
+	
+	kill -s SIGSTOP $$
+}
+
+resume_() { #? Set terminal options and resume if caught SIGCONT ('fg' from terminal)
+	sleepy=0
+	tput smcup
+	stty -echo
+	tput civis
+
+	if [[ -n $pause_screen ]]; then
+		echo -en "$pause_screen"
+	else
+		echo -en "${boxes_out}${proc_det}${last_screen}${mem_out}${proc_misc}${proc_misc2}${update_string}${clock_out}"
+	fi
 }
 
 traperr() { #? Function for reporting error line numbers
@@ -2007,7 +2028,7 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 	print -v cpu_out_var -m $((p_line-1)) $((p_col+p_width-5-${#cpu[freq_string]})) -fg 30 -t "┤" -fg ee -b -t "${cpu[freq_string]}" -rs -fg 30 -t "├"
 	
 	#* Print created text, graph and meters to output variable
-	draw_out="${draw_out}${cpu_graph_a[*]}${cpu_graph_b[*]}${cpu_out_var}"
+	draw_out+="${cpu_graph_a[*]}${cpu_graph_b[*]}${cpu_out_var}"
 
 }
 
@@ -2120,7 +2141,7 @@ draw_mem() { #? Draw mem, swap and disk statistics
 
 	if ((resized>0)); then ((resized++)); fi
 	#* Print created text, graph and meters to output variable
-	draw_out="${draw_out}${mem_graph[*]}${swap_graph[*]}${mem_out}"
+	draw_out+="${mem_graph[*]}${swap_graph[*]}${mem_out}"
 
 }
 
@@ -2178,9 +2199,6 @@ draw_processes() { #? Draw processes and values to screen
 				if ((${#proc[detailed_cmd]}>(right_width-6)*2)); then ((det_y--)); dets=2
 				elif ((${#proc[detailed_cmd]}>right_width-6)); then dets=1; fi
 				
-
-
-				#print -v proc_det2 -m $((d_line+det_y++)) ${right_col} -fg ee -b -jc $((right_width-4)) -t "Start command:"
 				print -v proc_det2 -fg ee -b
 				for i in C M D; do
 					print -v proc_det2 -m $((d_line+5+cmd_y++)) $right_col -t "$i"
@@ -2242,13 +2260,8 @@ draw_processes() { #? Draw processes and values to screen
 		print -v proc_out -m $((d_line+4)) ${right_col} -fg ee -b -jr $((right_width/3+2)) -t "Memory: ${proc[detailed_mem]}%" -t " " 
 		if ((tty_width>120)); then print -v proc_out -rs -fg 30 -rp $((right_width/3-3)) "⡀" -l $((right_width/3-3)) -fg 13 231 86 -t "${detail_mem_graph}" -t " "; fi
 		print -v proc_out -fg ee -b -t "${proc[detailed_mem_string]}"
-		#if ((tty_width>120)); then print -v proc_out -m $((d_line+4)) ${right_col} -r $((right_width/3-2)) -rs -t "${detail_mem_graph}"; fi
-
 	fi
 
-	#*	proc[detailed_name] proc[detailed_cpu] proc[detailed_cpu_int] proc[detailed_cmd] detail_history
-	#*	proc[detailed_mem] proc[detailed_mem_int] proc[detailed_user] proc[detailed_threads]
-	#* proc[detailed_runtime] proc[detailed_mem_string] proc[detailed_parent_pid] proc[detailed_parent_name]
 
 	if ((proc[page]==1)); then proc_start=1
 	else proc_start=$(( (height-3)*(proc[page]-1)+1 )); fi
@@ -2338,7 +2351,7 @@ draw_processes() { #? Draw processes and values to screen
 
 		
 	
-		proc_out="${proc_out}${proc_misc}"
+		proc_out+="${proc_misc}"
 	fi
 
 	if ((proc[page_change]==1 | resized>0)); then
@@ -2362,7 +2375,7 @@ draw_processes() { #? Draw processes and values to screen
 
 
 
-		proc_out="${proc_out}${proc_misc2}"
+		proc_out+="${proc_misc2}"
 	fi
 
 	#page_string="1/$((${#proc_array[@]}/(height-2)))"
@@ -2376,8 +2389,6 @@ draw_processes() { #? Draw processes and values to screen
 
 	if [[ $argument == "now" ]]; then
 		echo -en "${proc_out}"
-	#else
-	#	draw_out="${draw_out}${detail_graph[*]}${proc_out}"
 	fi
 
 }
@@ -2430,7 +2441,7 @@ draw_net() { #? Draw net information and graphs to screen
 	
 
 	#* Print graphs and text to output variable
-	draw_out="${draw_out}${download_graph[*]}${upload_graph[*]}${net_out}"
+	draw_out+="${download_graph[*]}${upload_graph[*]}${net_out}"
 }
 
 draw_clock() { #? Draw a clock at top of screen
@@ -2444,13 +2455,12 @@ draw_clock() { #? Draw a clock at top of screen
 		print -v clock_out -m 1 $((width/2-${#time_string}/2)) -rs -fg ${color} -t "┤" -fg ee -b -t "${time_string}" -fg ${color} -t "├"
 	fi
 	if [[ $1 == "now" ]]; then echo -en "${clock_out}"; fi
-	#print -v draw_out -t "${clock_out}"
 }
 
 draw_update_string() {
 	unset update_string
 	print -v update_string -m ${box[cpu_line]} $((box[cpu_col]+box[cpu_width]-${#update_ms}-14)) -rs -fg ${box[cpu_color]} -t "────┤"  -fg "aa" -b -t "+" -fg "ee" -b -t " ${update_ms}ms "  -fg "aa" -b -t "-" -rs -fg ${box[cpu_color]} -t "├"
-	if [[ $1 == "quiet" ]]; then draw_out="${draw_out}${update_string}"
+	if [[ $1 == "quiet" ]]; then draw_out+="${update_string}"
 	else echo -en "${update_string}"; fi
 }
 
@@ -2460,7 +2470,7 @@ pause_() { #? Pause input and draw a darkened version of main ui
 	if [[ $1 != "off" ]]; then
 		prev_screen="${boxes_out}${proc_det}${last_screen}${mem_out}${detail_graph[*]}${proc_out}${proc_misc}${proc_misc2}${update_string}${clock_out}"
 		if [[ -n $skip_process_draw ]]; then
-			prev_screen="${prev_screen}${proc_out}"
+			prev_screen+="${proc_out}"
 			unset skip_process_draw proc_out
 		fi
 		
@@ -2831,40 +2841,22 @@ options_() { #? Shows the options overlay
 							unset inputting inputting_value
 						fi
 					;;
-				"update_ms backspace")
+				"update_ms backspace"|"draw_clock backspace"|"custom_cpu_name backspace")
 						if [[ ${#inputting_value} -gt 0 ]]; then
 							inputting_value="${inputting_value::-1}"
 						fi
 					;;
 				"update_ms"*)
-						#if [[ $keypress =~ ^[0-9]$ ]]; then
-							inputting_value="${inputting_value}${keypress//[^0-9]/}"
-						#fi
+						inputting_value+="${keypress//[^0-9]/}"
 					;;
 				"draw_clock enter")
 						if [[ -z $inputting ]]; then inputting=1; inputting_value="${draw_clock}"
 						else draw_clock="${inputting_value}"; unset inputting inputting_value clock_out; fi
 					;;
-				"draw_clock backspace")
-						if [[ ${#inputting_value} -gt 0 ]]; then
-							inputting_value="${inputting_value::-1}"
-						fi
-					;;
-				"draw_clock"*)
-						inputting_value="${inputting_value}${keypress//[\\\$\"\']/}"
-					;;
 				"custom_cpu_name enter")
 						if [[ -z $inputting ]]; then inputting=1; inputting_value="${custom_cpu_name}"
 						else custom_cpu_name="${inputting_value}"; changed_cpu_name=1; unset inputting inputting_value; fi
-					;;
-				"custom_cpu_name backspace")
-						if [[ ${#inputting_value} -gt 0 ]]; then
-							inputting_value="${inputting_value::-1}"
-						fi
-					;;
-				"custom_cpu_name"*)
-						inputting_value="${inputting_value}${keypress//[\\\$\"\']/}"
-					;;		
+					;;	
 				"proc_reversed"*|"check_temp"*|"error_logging"*|"background_update"*)
 						local -n selected_var=${selected}
 						if [[ ${selected_var} == "true" ]]; then
@@ -2888,6 +2880,9 @@ options_() { #? Shows the options overlay
 						proc_sorting="${sorting[proc[sorting_int]]}"
 						proc[order_change]=1
 					;;
+				"draw_clock"*|"custom_cpu_name"*)
+						inputting_value+="${keypress//[\\\$\"\']/}"
+					;;
 			esac
 
 		fi
@@ -2903,16 +2898,16 @@ options_() { #? Shows the options overlay
 
 		if ((resized>0)); then 
 			calc_sizes; draw_bg quiet
-			redraw_misc=1; time_left=0
+			redraw_misc=1
 			unset options_out bannerd menu_out
 		fi
 
 		get_ms timestamp_end
 		time_left=$((timestamp_start+update_ms-timestamp_end))
-		if ((time_left<=0)); then get_ms timestamp_start; collect_and_draw; fi
+		if ((time_left<=0 | resized>0)); then get_ms timestamp_start; collect_and_draw; fi
 		if ((resized>0)); then resized=0; fi
 
-		if  [[ -n $updated_ms ]] && ((updated_ms++==2)); then
+		if [[ -n $updated_ms ]] && ((updated_ms++==2)); then
 			unset updated_ms
 			draw_update_string quiet
 		fi
@@ -3107,7 +3102,7 @@ process_input() { #? Process keypresses for main ui
 			"enter") unset input_to_filter ;;
 			"backspace") if [[ ${#filter} -gt 0 ]]; then filter="${filter:: (-1)}"; else unset filter_change; fi ;;
 			"escape") unset input_to_filter filter ;;
-			*) if [[ ${#keypress} -eq 1 ]]; then filter="${filter}${keypress//[\\\$\"\']/}"; else unset filter_change; fi ;;
+			*) if [[ ${#keypress} -eq 1 ]]; then filter+="${keypress//[\\\$\"\']/}"; else unset filter_change; fi ;;
 		esac
 			
 	else
@@ -3124,22 +3119,21 @@ process_input() { #? Process keypresses for main ui
 				proc_sorting="${sorting[proc[sorting_int]]}"
 				filter_change=1
 			;;
-			up|shift_tab)
+			up|shift_tab) #* Move process selector up one
 				if [[ ${proc[selected]} -gt 0 ]]; then
-					#if ! ((--proc[selected] & proc[page]==1)); then proc[page_change]=1; fi
 					((proc[selected]--))
 					if ((proc[page]>1 & proc[selected]==0)); then ((--proc[page])); proc[selected]=$((box[processes_height]-3)); fi
 					proc[page_change]=1
 				fi
 			;;
-			down|tab)
+			down|tab) #* Move process selector down one
 				if ! ((proc[page]==proc[pages] & proc[selected]>=box[processes_height]-3)); then
 					if ((++proc[selected]==1)); then collect_processes now; proc[detailed_change]=1; fi
 					if ((proc[selected]>box[processes_height]-3)); then ((proc[page]++)); proc[selected]=1; fi
 					proc[page_change]=1
 				fi
 			;;
-			enter)
+			enter) #* Show detailed info for selected process or close detailed info if no new process is selected
 				if ((proc[selected]>0 & proc[detailed_pid]!=proc[selected_pid])) && ps -p ${proc[selected_pid]} > /dev/null 2>&1; then
 					proc[detailed]=1
 					proc[detailed_change]=1
@@ -3156,7 +3150,7 @@ process_input() { #? Process keypresses for main ui
 					calc_sizes
 				fi
 			;;
-			page_up)
+			page_up) #* Move up one page in process box
 				if [[ ${proc[page]} -gt 1 ]]; then
 					((--proc[page]))
 					proc[page_change]=1
@@ -3165,7 +3159,7 @@ process_input() { #? Process keypresses for main ui
 					proc[page_change]=1
 				fi
 			;;
-			page_down)
+			page_down) #* Move down one page in process box
 				if [[ ${proc[page]} -lt ${proc[pages]} ]]; then
 					if ((proc[page]++==1)); then collect_processes now; fi
 					proc[page_change]=1
@@ -3174,14 +3168,12 @@ process_input() { #? Process keypresses for main ui
 					proc[page_change]=1
 				fi
 			;;
-			home)
-					#proc[selected]=1
+			home) #* Go to first page in process box
 					proc[page]=1
 					proc[page_change]=1
 			;;
-			end)
+			end) #* Go to last page in process box
 					if ((proc[selected]==0)); then collect_processes now; fi
-					#proc[selected]=$((box[processes_height]-3))
 					proc[page]=${proc[pages]}
 					proc[page_change]=1
 			;;
@@ -3222,7 +3214,6 @@ process_input() { #? Process keypresses for main ui
 			f|F) #* Start process filtering input
 				input_to_filter=1
 				filter_change=1
-				#filter_proc init
 			;;
 			c|C) #* Clear process filter
 				if [[ -n $filter ]]; then
@@ -3230,7 +3221,7 @@ process_input() { #? Process keypresses for main ui
 					filter_change=1
 				fi
 			;;
-			t|T|k|K|i|I)
+			t|T|k|K|i|I) #* Send terminate, kill or interrupt signal
 				if [[ ${proc[selected]} -gt 0 ]]; then
 					killer_ "$keypress" "${proc[selected_pid]}"
 				elif [[ ${proc[detailed]} -eq 1 && -z ${proc[detailed_killed]} ]]; then
@@ -3263,16 +3254,16 @@ collect_and_draw() { #? Run all collect and draw functions
 		((++task_int))
 		if [[ -n $pause_screen && -n ${saved_key[0]} ]]; then 
 			return
-		else
+		elif [[ -z $pause_screen ]]; then
 			while [[ -n ${saved_key[0]} ]]; do
 				process_input 0.001
 				unset late_update
 			done
 		fi
 		collect_${task}
-		if get_key -save; then process_input; fi
+		if get_key -save && [[ -z $pause_screen ]]; then process_input; fi
 		draw_${task}
-		if get_key -save; then process_input; fi
+		if get_key -save && [[ -z $pause_screen ]]; then process_input; fi
 		draw_clock "$1"
 		if ((resized>0 & resized<task_int)); then return; fi
 	done
@@ -3358,33 +3349,6 @@ main_loop() { #? main loop...
 	if ((skip_process_draw==1)); then unset skip_process_draw; fi
 }
 
-sleep_() {
-
-	tput rmcup
-	stty echo
-	tput cnorm
-	
-	kill -s SIGSTOP $$
-}
-
-resume_() {
-
-	sleepy=0
-
-	tput smcup
-	stty -echo
-	tput civis
-
-	
-
-	if [[ -n $pause_screen ]]; then
-		echo -en "$pause_screen"
-	else
-		echo -en "${boxes_out}${proc_det}${last_screen}${mem_out}${proc_misc}${proc_misc2}${update_string}${clock_out}"
-	fi
-
-}
-
 #? Pre main loop
 
 #* Read config file or create if non existant
@@ -3410,7 +3374,7 @@ else
 	unset 'save_array[@]'
 fi
 
-#* Set up traps for ctrl-c, soft kill, window resize and resume from ctrl-z
+#* Set up traps for ctrl-c, soft kill, window resize, ctrl-z and resume from ctrl-z
 trap 'quitting=1; time_left=0' SIGINT SIGQUIT SIGTERM
 trap 'resized=1; time_left=0' SIGWINCH
 trap 'sleepy=1; time_left=0' SIGTSTP 
