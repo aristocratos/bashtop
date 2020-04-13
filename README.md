@@ -18,6 +18,10 @@ Resource monitor that shows usage and stats for processor, memory, disks, networ
 * UI menu for changing all config file options.
 * Auto scaling graph for network usage.
 
+## Upcoming  
+
+* Theme support in next update
+
 ## Compability
 
 Should work on most modern linux distributions with a truecolor capable terminal.
