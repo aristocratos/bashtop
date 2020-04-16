@@ -65,7 +65,10 @@ Config files stored in "$HOME/.config/bashtop" folder
 #### bashtop.cfg: (auto generated if not found)
 
 ```bash
-#? Config file for bashtop v. 0.6.5
+#? Config file for bashtop v. 0.8.0
+
+#* Color theme, looks for a .theme file in "$HOME/.config/bashtop/themes", "Default" for builtin default theme
+color_theme="Default"
 
 #* Update time in milliseconds, increases automatically if set below internal loops processing time, recommended 2000 ms or above for better sample times for graphs
 update_ms="2500"
@@ -81,7 +84,7 @@ proc_reversed="false"
 check_temp="true"
 
 #* Draw a clock at top of screen, formatting according to strftime, empty string to disable
-draw_clock="%X"
+draw_clock="%R"
 
 #* Update main ui when menus are showing, set this to false if the menus is flickering too much for comfort
 background_update="true"
