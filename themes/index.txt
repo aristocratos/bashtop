@@ -1,0 +1,5 @@
+"default black.theme"
+"greyscale.theme"
+"monokai.theme"
+"solarized dark.theme"
+"whiteout.theme"

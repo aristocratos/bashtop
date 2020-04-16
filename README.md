@@ -17,10 +17,15 @@ Resource monitor that shows usage and stats for processor, memory, disks, networ
 * Send SIGTERM, SIGKILL, SIGINT to selected process.
 * UI menu for changing all config file options.
 * Auto scaling graph for network usage.
+* Shows message in menu if new version is available
 
-## Upcoming  
+## Themes
 
-* Theme support in next update
+Bashtop now has theme support and a function to download missing local themes from repository.
+
+See [themes](themes) folder for available themes.
+
+Let me know if you want to contribute with new themes.
 
 ## Compability
 
@@ -30,6 +35,8 @@ Should work on most modern linux distributions with a truecolor capable terminal
 
 **bash** (v4.4 or later) Script functionality will most probably break with earlier versions.  
 Bash version 5 is higly recommended to make use of $EPOCHREALTIME variable instead of alot of external date command calls.
+
+(Optional) **[curl](https://curl.haxx.se/download.html)** (v7.16.2 or later) Needed if you want messages about updates and the ability to download themes.
 
 ## Screenshots
 
@@ -98,7 +105,7 @@ USAGE: bashtop
 ## TODO
 
 
-- [ ] TODO Add options to change colors for text, graphs and meters.
+- [x] TODO Add options to change colors for text, graphs and meters.
 - [ ] TODO Add options for resizing all boxes.
 - [ ] TODO Add command line argument parsing.
 - [ ] TODO Miscellaneous optimizations and code cleanup.
