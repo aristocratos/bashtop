@@ -41,7 +41,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.8.0"
+declare version="0.8.1"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -2518,7 +2518,7 @@ menu_() { #? Shows the main menu overlay
 			print -v menu_out -d 1 -rs
 			selected="${menus[selected_int]}"
 			unset up
-			if ((${theme[main_bg_dec]// /*}>255**3/2)); then print -v menu_out -bg "#00"; unset trans; else trans=" -trans"; fi
+			if [[ -n ${theme[main_bg_dec]} ]] && ((${theme[main_bg_dec]// /*}>255**3/2)); then print -v menu_out -bg "#00"; unset trans; else trans=" -trans"; fi
 			for menu in "${menus[@]}"; do
 				if [[ $menu == "$selected" ]]; then
 					local -n menu_array="menu_${menu}_selected"
