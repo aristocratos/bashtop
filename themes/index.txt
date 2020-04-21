@@ -1,5 +1,6 @@
 default_black.theme
 greyscale.theme
+monokai_nobg.theme
 monokai.theme
 solarized_dark.theme
 whiteout.theme
