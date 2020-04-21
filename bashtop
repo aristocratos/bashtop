@@ -41,7 +41,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.8.2"
+declare version="0.8.3"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -2198,7 +2198,7 @@ draw_processes() { #? Draw processes and values to screen
 
 				print -v proc_det2 -m ${d_line} ${d_col} -t "┌" -m ${d_line} $((d_col+d_width)) -t "┐"
 				print -v proc_det2 -m ${d_line} $((d_col+2+detail_graph_width)) -t "┬" -m $((d_line+d_height)) $((d_col+detail_graph_width+2)) -t "┴"
-				print -v proc_det2 -m $((d_line+d_height)) ${d_col} -t "├" -r 1 -t "┤" -fg ${theme[title]} -b -t "${this_box}" -rs -fg ${box[processes_color]} -t "┤" -r $((d_width-5-${#this_box})) -t "┤"
+				print -v proc_det2 -m $((d_line+d_height)) ${d_col} -t "├" -r 1 -t "┤" -fg ${theme[title]} -b -t "${this_box}" -rs -fg ${box[processes_color]} -t "├" -r $((d_width-5-${#this_box})) -t "┤"
 				print -v proc_det2 -m ${d_line} $((d_col+2)) -t "┤" -fg ${theme[title]} -b -t "${proc[detailed_name],,}" -rs -fg ${box[processes_color]} -t "├"
 				if ((tty_width>128)); then print -v proc_det2 -m -r 1 -t "┤" -fg ${theme[title]} -b -t "${proc[detailed_pid]}" -rs -fg ${box[processes_color]} -t "├"; fi
 
