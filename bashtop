@@ -57,7 +57,7 @@ color_theme="Default"
 update_ms="2500"
 
 #* Processes sorting, "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive"
-#* "cpu lazy" upates sorting over time, "cpu responsive" updates sorting directly at a cpu usage cost
+#* "cpu lazy" updates sorting over time, "cpu responsive" updates sorting directly at a cpu usage cost
 proc_sorting="cpu lazy"
 
 #* Reverse sorting order, "true" or "false"
@@ -126,8 +126,6 @@ printf -v tab "\u09"
 printf -v backspace "\u7F"
 printf -v enter_key "\uA"
 
-if command -v curl >/dev/null 2>&1; then curled=1; else unset curled; fi
-
 read tty_height tty_width < <(stty size)
 
 #* Symbols for graphs
@@ -185,6 +183,9 @@ init_() { #? Collect needed information and set options before startig main loop
 
 	#* Check if "sensors" command is available, if not, disable temperature collection
 	if [[ $check_temp != false ]] && command -v sensors >/dev/null 2>&1; then check_temp="true"; else check_temp="false"; fi
+
+	#* Check if "curl" command is available, if not, disable update check and theme downloads
+	if command -v curl >/dev/null 2>&1; then curled=1; else unset curled; fi
 
 	#* Get number of cores and cpu threads
 	get_cpu_info
@@ -339,7 +340,7 @@ color_init_() { #? Check for theme file and set colors
 	box[net_color]="${theme[net_box]:-$net_box}"
 	box[processes_color]="${theme[proc_box]:-$proc_box}"
 	
-	#* Create color arrays from two or three color gradient, 100 values in each
+	#* Create color arrays from one, two or three color gradient, 100 values in each
 	for array_name in "temp" "cpu" "upload" "download" "used" "available" "cached" "free"; do
 		local -n color_array="color_${array_name}_graph"
 		local -a rgb_start=(${theme[${array_name}_start]}) rgb_mid=(${theme[${array_name}_mid]}) rgb_end=(${theme[${array_name}_end]})
@@ -372,14 +373,14 @@ color_init_() { #? Check for theme file and set colors
 						printf -v pf_calc "%.0f" "-$(( (i-50)*( (rgb_start[y]-rgb_end[y])*100/50*100) ))e-4"
 
 					else
-						pf_calc="0"
+						pf_calc=0
 					fi
 					
 					rgb[$this_color]=$((rgb_start[y]+pf_calc))
 					if ((rgb[$this_color]<0)); then rgb[$this_color]=0
 					elif ((rgb[$this_color]>255)); then rgb[$this_color]=255; fi
 					
-					((++y))
+					y+=1
 					if ((i==49 & y==3 & middle==1)); then middle=0; fi
 				done
 			fi
@@ -1668,7 +1669,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 
 		if ((breaking==1)); then 
 			if [[ ${proc[detailed]} == "1" && -z ${proc[detailed_cpu]} ]] && ps ${proc[detailed_pid]} >/dev/null 2>&1; then
-				readarray ${options} -O ${#proc_array[@]} proc_array < <(ps -o pid:${proc[pid_len]}=Pid:,comm:${format_cmd}=Program:${format_args},thcount:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --no-headers -p ${proc[detailed_pid]})
+				readarray ${options} -O ${#proc_array[@]} proc_array < <(ps -o pid:${proc[pid_len]}=Pid:,comm:${format_cmd}=Program:${format_args},thcount:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --no-headers -p ${proc[detailed_pid]} || true)
 			else
 				break
 			fi
