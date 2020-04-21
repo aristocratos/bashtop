@@ -27,6 +27,13 @@ See [themes](themes) folder for available themes.
 
 Let me know if you want to contribute with new themes.
 
+## Upcoming
+
+Currently rewriting to use python3 [psutil](https://github.com/giampaolo/psutil) for data collection instead of linux specific tools.
+This will add python 3 and psutil as dependencies, but will make bashtop cross platform compatible.
+
+Please let me know if there is an interest in keeping current version without python dependencies alive.
+
 ## Compability
 
 Should work on most modern linux distributions with a truecolor capable terminal.
