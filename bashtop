@@ -41,7 +41,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.8.3"
+declare version="0.8.4"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -983,7 +983,7 @@ create_graph() { 	#? Create a graph from an array of percentage values, usage; 	
 		
 		graph_array[height]=""
 		if [[ -z $no_guide ]]; then
-			print -v graph_array[$height] -m $((line+g_index[(-1)])) ${col} -jr 3 -fg ee -b -t "${side_num[1]}" -rs -fg $[${theme[main_fg]}] -t "${g_char[1]}" -rp ${width} -t "${g_char[2]}"
+			print -v graph_array[$height] -m $((line+g_index[(-1)])) ${col} -jr 3 -fg ee -b -t "${side_num[1]}" -rs -fg ${theme[main_fg]} -t "${g_char[1]}" -rp ${width} -t "${g_char[2]}"
 		fi
 		
 		#* If no color array was given, create a simple greyscale array
@@ -1166,6 +1166,7 @@ create_mini_graph() { 	#? Create a one line high graph from an array of percenta
 		while ((x<value_width)); do
 			#* Round current input_array value divided by 10 to closest whole number
 			org_value=${input_array[offset+x]}
+			if ((org_value<0)); then org_value=0; fi
 			if ((org_value==100)); then cur_value=10
 			elif [[ ${#org_value} -gt 1 && ${org_value:(-1)} -ge 5 ]]; then cur_value=$((${org_value::1}+1))
 			elif [[ ${#org_value} -gt 1 && ${org_value:(-1)} -lt 5 ]]; then cur_value=$((${org_value::1}))
@@ -3409,13 +3410,13 @@ main_loop() { #? main loop...
 #? Pre main loop
 
 #* Read config file or create if non existant
-if [[ -d "$HOME/.config/bashtop" && -w "$HOME/.config/bashtop" ]] || mkdir -p "$HOME/.config/bashtop"; then 
-	config_dir="$HOME/.config/bashtop"
+config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/bashtop"
+if [[ -d "${config_dir}" && -w "${config_dir}" ]] || mkdir -p "${config_dir}"; then 
 	theme_dir="${config_dir}/themes"
 	if [[ ! -d "${theme_dir}" ]]; then mkdir -p "${theme_dir}"; fi
 	config_file="${config_dir}/bashtop.cfg"
 	# shellcheck source=/dev/null
-	if [[ -e $config_file ]]; then
+	if [[ -e "$config_file" ]]; then
 		source "$config_file"
 
 		#* If current config is from an older version recreate config file and save user changes
