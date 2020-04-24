@@ -41,7 +41,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.8.4"
+declare version="0.8.5"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -1314,7 +1314,7 @@ collect_cpu() { #? Collects cpu stats from /proc/stat and compares with previous
 	while ((thread<threads+1)) && read -ra stat_array; do
 	cpu[new_${thread}]=$((stat_array[1]+stat_array[2]+stat_array[3]+stat_array[4]))
 	cpu[idle_new_${thread}]=${stat_array[4]}
-	if [[ -n ${cpu[old_${thread}]} && -n ${cpu[idle_new_${thread}]} ]]; then cpu_usage[${thread}]=$(( ( 100*(${cpu[old_${thread}]}-${cpu[new_${thread}]}-${cpu[idle_old_${thread}]}+${cpu[idle_new_${thread}]}) ) / (${cpu[old_${thread}]}-${cpu[new_${thread}]}) )); fi
+	if [[ -n ${cpu[old_${thread}]} && -n ${cpu[idle_new_${thread}]} && ${cpu[old_${thread}]} -ne ${cpu[new_${thread}]} ]]; then cpu_usage[${thread}]=$(( ( 100*(${cpu[old_${thread}]}-${cpu[new_${thread}]}-${cpu[idle_old_${thread}]}+${cpu[idle_new_${thread}]}) ) / (${cpu[old_${thread}]}-${cpu[new_${thread}]}) )); fi
 	cpu[old_${thread}]=${cpu[new_${thread}]}
 	cpu[idle_old_${thread}]=${cpu[idle_new_${thread}]}
 	((++thread))
@@ -1345,12 +1345,14 @@ collect_cpu() { #? Collects cpu stats from /proc/stat and compares with previous
 	fi
 	
 	#* If getting cpu frequency from "proc/cpuinfo" was unsuccessfull try "/sys/devices/../../scaling_cur_freq"
-	if [[ -n ${cpu[no_cpu_info]} ]]; then
-		get_value -v cpu[freq] -sf "/sys/devices/system/cpu/cpu$((${cpu[threads]}-1))/cpufreq/scaling_cur_freq" -i -math "x/1000"
+	if [[ -n ${cpu[no_cpu_info]} && -e "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq" ]]; then
+		get_value -v cpu[freq] -sf "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq" -i
+		printf -v cpu[freq] "%.0f0" "${cpu[freq]}e-4"
 	fi
 
 	if ((${#cpu[freq]}>3)); then cpu[freq_string]="${cpu[freq]::-3}.${cpu[freq]:(-3):1} GHz"
-	else cpu[freq_string]="${cpu[freq]} MHz"; fi
+	elif ((${#cpu[freq]}>1)); then cpu[freq_string]="${cpu[freq]} MHz"
+	else cpu[freq_string]=""; fi
 
 
 	#* Collect cpu temps if enabled
@@ -2029,7 +2031,7 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 	done
 
 	#* Print current CPU frequency right of the title in the meter box
-	print -v cpu_out_var -m $((p_line-1)) $((p_col+p_width-5-${#cpu[freq_string]})) -fg ${theme[div_line]} -t "┤" -fg ${theme[title]} -b -t "${cpu[freq_string]}" -rs -fg ${theme[div_line]} -t "├"
+	if [[ -n ${cpu[freq_string]} ]]; then print -v cpu_out_var -m $((p_line-1)) $((p_col+p_width-5-${#cpu[freq_string]})) -fg ${theme[div_line]} -t "┤" -fg ${theme[title]} -b -t "${cpu[freq_string]}" -rs -fg ${theme[div_line]} -t "├"; fi
 	
 	#* Print created text, graph and meters to output variable
 	draw_out+="${cpu_graph_a[*]}${cpu_graph_b[*]}${cpu_out_var}"
