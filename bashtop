@@ -2479,7 +2479,7 @@ pause_() { #? Pause input and draw a darkened version of main ui
 		
 		unset pause_screen
 		print -v pause_screen -rs -b -fg ${theme[inactive_fg]}
-		pause_screen+="${theme[main_bg]}m$(echo -n "${prev_screen}" | sed -E 's/\\e\[[0-9;\-]*m//g')\e[0m" #\e[1;38;5;236
+		pause_screen+="${theme[main_bg]}m$(sed -E 's/\\e\[[0-9;\-]*m//g' <<< "${prev_screen}")\e[0m" #\e[1;38;5;236
 		
 		if [[ -z $ext_var ]]; then echo -en "${pause_screen}"
 		else pause_out="${pause_screen}"; fi
