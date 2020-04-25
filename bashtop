@@ -41,7 +41,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.8.7"
+declare version="0.8.8"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -2043,7 +2043,7 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 		if [[ $check_temp == true ]]; then avg_string="Load Average: "; avg_width=7; else avg_string="L AVG: "; avg_width=5; fi
 		print -v cpu_out_var -m $((pt_line+y+1)) $pt_col -fg ${theme[main_fg]} -t "${avg_string}"
 		for avg_string in ${cpu[load_avg]}; do
-			print -v cpu_out_var -jc $avg_width -t "${avg_string}"
+			print -v cpu_out_var -jc $avg_width -t "${avg_string::4}"
 		done
 		print -v cpu_out_var -m $((line+height-1)) $((col+1)) -fg ${theme[inactive_fg]} -trans -t "up ${cpu[uptime]}"
 	fi
