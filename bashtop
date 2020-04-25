@@ -41,7 +41,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.8.8"
+declare version="0.8.9"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -311,13 +311,13 @@ color_init_() { #? Check for theme file and set colors
 		if [[ -n $sourced ]]; then hex2rgb="${theme[${color_name}]}"
 		else hex2rgb="${!color_name}"; fi
 	 	
-		if [[ ${hex2rgb::1} == "#" ]]; then hex2rgb=${hex2rgb:1}; fi
+		hex2rgb=${hex2rgb//#/}
 
-	 	if [[ ${#hex2rgb} == 6 && $hex2rgb =~ ^[0-9a-fA-F]*$ ]]; then hex2rgb="$((${hex}${hex2rgb:0:2})) $((${hex}${hex2rgb:2:2})) $((${hex}${hex2rgb:4:2}))"
-	 	elif [[ ${#hex2rgb} == 2 && $hex2rgb =~ ^[0-9a-fA-F]*$ ]]; then hex2rgb="$((${hex}${hex2rgb:0:2})) $((${hex}${hex2rgb:0:2})) $((${hex}${hex2rgb:0:2}))"
+	 	if [[ ${#hex2rgb} == 6 ]] && is_hex "$hex2rgb"; then hex2rgb="$((${hex}${hex2rgb:0:2})) $((${hex}${hex2rgb:2:2})) $((${hex}${hex2rgb:4:2}))"
+	 	elif [[ ${#hex2rgb} == 2 ]] && is_hex "$hex2rgb"; then hex2rgb="$((${hex}${hex2rgb:0:2})) $((${hex}${hex2rgb:0:2})) $((${hex}${hex2rgb:0:2}))"
 		else 
 			dec_test=(${hex2rgb})
-			if [[ ${#dec_test[@]} -eq 3 && ${dec_test[0]} =~ ^[0-9]+$ && ${dec_test[1]} =~ ^[0-9]+$ && ${dec_test[2]} =~ ^[0-9]+$ ]]; then hex2rgb="${dec_test[*]}"
+			if [[ ${#dec_test[@]} -eq 3 ]] && is_int "${dec_test[@]}"; then hex2rgb="${dec_test[*]}"
 			else unset hex2rgb; fi
 		fi
 
@@ -596,6 +596,27 @@ spaces() { #? Prints back spaces, usage: spaces "number of spaces"
 	printf "%${1}s" "" 
 }
 
+is_int() { #? Check if value(s) is integer
+    local param
+    for param; do
+        if [[ ! $param =~ ^[\-]?[0-9]+$ ]]; then return 1; fi
+    done
+}
+
+is_float() { #? Check if value(s) is floating point
+    local param
+    for param; do
+        if [[ ! $param =~ ^[\-][0-9]?[,|.][0-9]+$ ]]; then return 1; fi
+    done
+}
+
+is_hex() { #? Check if value(s) is hexadecimal
+    local param
+    for param; do
+        if [[ ! ${param//#/} =~ ^[0-9a-fA-F]*$ ]]; then return 1; fi
+    done
+}
+
 floating_humanizer() { 	#? Convert integer to floating point and scale up in steps of 1024 to highest positive unit
 						#? Usage: floating_humanizer <-b,-bit|-B,-Byte> [-ps,-per-second] [-s,-start "1024 multiplier start"] [-v,-variable-output] <input>
 	local value selector per_second unit_mult decimals out_var ext_var
@@ -607,7 +628,7 @@ floating_humanizer() { 	#? Convert integer to floating point and scale up in ste
 			-ps|-per-second) per_second=1;;
 			-s|-start) selector="$2"; shift;;
 			-v|-variable-output) local -n out_var="$2"; ext_var=1; shift;;
-			*) if [[ $1 =~ ^[0-9]*$ ]]; then value=$1; break; fi;;
+			*) if is_int "$1"; then value=$1; break; fi;;
 		esac
 		shift
 	done
@@ -669,9 +690,9 @@ get_value() { #? Get a value from a file, variable or array by searching for a n
 				-sf|-source-file) input="$(<"$2")"; shift;;  									#? File as source
 				-sv|-source-var) input="${!2}"; shift;;											#? Variable as source
 				-sa|-source-array) local -n tmp_array=$2; input="${tmp_array[*]}"; shift;;		#? Array as source
-				-fp|-floating-point) reg="[0-9]?(\.|\,)[0-9]*"; match=1;;						#? Match floating point value
+				-fp|-floating-point) reg="[0-9]?[.|,][0-9]+"; match=1;;							#? Match floating point value
 				-math) math="$2"; shift;;														#? Perform math on a integer value, "x" represents value, only works if "integer" argument is given
-				-i|-integer) reg="[0-9]+(\.|\,)?[0-9]*"; int=1; match=1;;						#? Match integer value
+				-i|-integer) reg="[0-9]+[.|,]?[0-9]*"; int=1; match=1;;							#? Match integer value or float and convert to int
 				-r|-remove) remove+=("$2"); shift;;												#? Format output by removing entered regex, can be used multiple times
 				-v|-variable-out) local -n found="$2"; ext_var=1; shift;;						#? Output to variable
 				-map|-map-array) local -n array_out="$2"; ext_var=1; ext_arr=1; shift;;			#? Map output to array
@@ -774,10 +795,10 @@ create_box() { #? Draw a box with an optional titlebar and title at given locati
 	until (($#==0)); do
 		case $1 in
 			-f|-full) col=1; line=1; width=$((tty_width)); height=$((tty_height));;							#? Use full terminal size for box 
-			-c|-col) if [[ $2 =~ ^[0-9]*$ ]]; then col=$2; shift; fi;; 										#? Column position to start box
-			-l|-line) if [[ $2 =~ ^[0-9]*$ ]]; then line=$2; shift; fi;; 									#? Line position to start box
-			-w|-width) if [[ $2 =~ ^[0-9]*$ ]]; then width=$2; shift; fi;; 									#? Width of box
-			-h|-height) if [[ $2 =~ ^[0-9]*$ ]]; then height=$2; shift; fi;; 								#? Height of box
+			-c|-col) if is_int "$2"; then col=$2; shift; fi;; 										#? Column position to start box
+			-l|-line) if is_int "$2"; then line=$2; shift; fi;; 									#? Line position to start box
+			-w|-width) if is_int "$2"; then width=$2; shift; fi;; 									#? Width of box
+			-h|-height) if is_int "$2"; then height=$2; shift; fi;; 								#? Height of box
 			-t|-title) if [[ -n $2 ]]; then title="$2"; shift; fi;;								#? Draw title without titlebar
 			-s|-single) ltype="single";;																	#? Use single lines
 			-d|-double) ltype="double";;																	#? Use double lines
@@ -843,13 +864,13 @@ create_meter() { 	#? Create a horizontal percentage meter, usage; create_meter <
 	#* Argument parsing
 	until (($#==0)); do
 		case $1 in
-			-p|-place) if [[ $2 =~ ^[0-9]+$ && $3 =~ ^[0-9]+$ ]]; then line=$2; col=$3; shift 2; fi;;			#? Placement for meter
+			-p|-place) if is_int "${@:2:2}"; then line=$2; col=$3; shift 2; fi;;			#? Placement for meter
 			-w|-width) width=$2; shift;;																		#? Width of meter in columns
 			-c|-color) local -n colors=$2; shift;;																#? Name of an array containing colors from index 0-100
 			-i|-invert) invert=1;;																				#? Invert meter
 			-f|-fill-empty) fill_empty=1;;																		#? Fill unused space with dark blocks
 			-v|-variable) local -n meter_var=$2; ext_var=1; shift;;												#? Output meter to a variable
-			*) if [[ $1 =~ ^[0-9]+$ ]]; then val=$1; fi;;
+			*) if is_int "$1"; then val=$1; fi;;
 		esac
 		shift
 	done
@@ -900,17 +921,14 @@ create_graph() { 	#? Create a graph from an array of percentage values, usage; 	
 	#* Argument parsing
 	until (($#==0)); do
 		case $1 in
-			-d|-dimensions) if [[ $2 =~ ^[0-9]+$ && $3 =~ ^[0-9]+$ && $3 =~ ^[0-9]+$ && $4 =~ ^[0-9]+$ ]]; then 				#? Graph dimensions
-					line=$2; col=$3; height=$4; width=$5; shift 4; fi;;
+			-d|-dimensions) if is_int "${@:2:4}"; then line=$2; col=$3; height=$4; width=$5; shift 4; fi;;						#? Graph dimensions
 			-c|-color) local -n colors=$2; shift;;																				#? Name of an array containing colors from index 0-100
 			-o|-output-array) local -n output_array=$2; ext_var=1; shift;;														#? Output meter to an array				
-			-add-value) if [[ $3 =~ ^[0-9]+$ ]]; then 																			#? Add a value to existing graph
-					local -n output_array=$2; add=$3; break
-					else return; fi;;
+			-add-value) if is_int "$3"; then local -n output_array=$2; add=$3; break; else return; fi;;							#? Add a value to existing graph
 			-add-last) local -n output_array=$2; local -n add_array=$3; add=${add_array[-1]}; break;;							#? Add last value from array to existing graph
 			-i|-invert) invert=1;;																								#? Invert graph, drawing from top to bottom
 			-n|-no-guide) no_guide=1;;																							#? Don't print side and bottom guide lines
-			-max) if [[ $2 =~ ^[0-9]+$ ]]; then max=$2; shift; fi;;																#? Needed max value for non percentage arrays
+			-max) if is_int "$2"; then max=$2; shift; fi;;																		#? Needed max value for non percentage arrays
 			*) local -n tmp_in_array=$1; input_array=("${tmp_in_array[@]}");;
 		esac
 		shift
@@ -1087,13 +1105,11 @@ create_mini_graph() { 	#? Create a one line high graph from an array of percenta
 	#* Argument parsing
 	until (($#==0)); do
 		case $1 in
-			-w|-width) if [[ $2 =~ ^[0-9]+$ ]]; then width=$2; shift; fi;;									 				#? Graph width
+			-w|-width) if is_int "$2"; then width=$2; shift; fi;;									 						#? Graph width
 			-c|-color) local -n colors=$2; shift;;																			#? Name of an array containing colors from index 0-100
 			-nc|-no-color) no_color=1;;																						#? Set no color
 			-o|-output-variable) local -n output_var=$2; ext_var=1; shift;;													#? Output graph to a variable
-			-add-value) if [[ $3 =~ ^[0-9]+$ ]]; then 																		#? Add a value to existing graph
-					local -n output_var=$2; add=$3; break
-					else return; fi;;
+			-add-value) if is_int "$3"; then local -n output_var=$2; add=$3; break; else return; fi;;						#? Add a value to existing graph
 			-add-last) local -n output_var=$2 add_array=$3; add="${add_array[-1]}"; break;; 								#? Add last value from array to existing graph
 			-i|-invert) invert=1;;																							#? Invert graph, drawing from top to bottom
 			*) local -n input_array=$1;;
@@ -1218,21 +1234,21 @@ print() {	#? Print text, set true-color foreground/background color, add effects
 				-t|-text) if [[ -n $2 ]]; then text="$2"; shift 2; break; fi;;																#? String to print
 				-stdin) text="$(</dev/stdin)"; shift; break;;																				#? Print from stdin
 				-fg|-foreground)	#? Set text foreground color, accepts either 6 digit hexadecimal "#RRGGBB", 2 digit hex (greyscale) or decimal RGB "<0-255> <0-255> <0-255>"
-					if [[ ${2::1} == "#" ]]; then val=${2:1}; else val=${2}; fi
-					if [[ $2 =~ ^[0-9]+$ && $3 =~ ^[0-9]+$ && $4 =~ ^[0-9]+$ ]]; then fgc="\e[38;2;$2;$3;$4m"; shift 3
-					elif [[ ${#val} == 6 && $val =~ ^[0-9a-fA-F]*$ ]]; then fgc="\e[38;2;$((${hex}${val:0:2}));$((${hex}${val:2:2}));$((${hex}${val:4:2}))m"; shift
-					elif [[ ${#val} == 2 && $val =~ ^[0-9a-fA-F]*$ ]]; then fgc="\e[38;2;$((${hex}${val:0:2}));$((${hex}${val:0:2}));$((${hex}${val:0:2}))m"; shift
+					val=${2//#/}
+					if is_int "${@:2:3}"; then fgc="\e[38;2;$2;$3;$4m"; shift 3
+					elif [[ ${#val} == 6 ]] && is_hex "$val"; then fgc="\e[38;2;$((${hex}${val:0:2}));$((${hex}${val:2:2}));$((${hex}${val:4:2}))m"; shift
+					elif [[ ${#val} == 2 ]] && is_hex "$val"; then fgc="\e[38;2;$((${hex}${val:0:2}));$((${hex}${val:0:2}));$((${hex}${val:0:2}))m"; shift
 					fi
 					;;										
 				-bg|-background)	#? Set text background color, accepts either 6 digit hexadecimal "#RRGGBB", 2 digit hex (greyscale) or decimal RGB "<0-255> <0-255> <0-255>"
-					if [[ ${2::1} == "#" ]]; then val=${2:1}; else val=${2}; fi
-					if [[ $2 =~ ^[0-9]+$ && $3 =~ ^[0-9]+$ && $4 =~ ^[0-9]+$ ]]; then bgc="\e[48;2;$2;$3;$4m"; shift 3
-					elif [[ ${#val} == 6 && $val =~ ^[0-9a-fA-F]*$ ]]; then bgc="\e[48;2;$((${hex}${val:0:2}));$((${hex}${val:2:2}));$((${hex}${val:4:2}))m"; shift
-					elif [[ ${#val} == 2 && $val =~ ^[0-9a-fA-F]*$ ]]; then bgc="\e[48;2;$((${hex}${val:0:2}));$((${hex}${val:0:2}));$((${hex}${val:0:2}))m"; shift
+					val=${2//#/}
+					if is_int "${@:2:3}"; then bgc="\e[48;2;$2;$3;$4m"; shift 3
+					elif [[ ${#val} == 6 ]] && is_hex "$val"; then bgc="\e[48;2;$((${hex}${val:0:2}));$((${hex}${val:2:2}));$((${hex}${val:4:2}))m"; shift
+					elif [[ ${#val} == 2 ]] && is_hex "$val"; then bgc="\e[48;2;$((${hex}${val:0:2}));$((${hex}${val:0:2}));$((${hex}${val:0:2}))m"; shift
 					fi
 					;;
 				-c|-center) center=1;;																										#? Center text horizontally on screen
-				-rs|-reset) effect="0${effect}${theme[main_bg]}";;																				#? Reset text colors and effects
+				-rs|-reset) effect="0${effect}${theme[main_bg]}";;																			#? Reset text colors and effects
 				-b|-bold) effect="${effect}${effect:+;}1"; bold=1;;																			#? Enable bold text
 				+b|+bold) effect="${effect}${effect:+;}21"; bold=0;;																		#? Disable bold text
 				-da|-dark) effect="${effect}${effect:+;}2";;																				#? Enable dark text
@@ -1244,15 +1260,15 @@ print() {	#? Print text, set true-color foreground/background color, add effects
 				-bl|-blink) effect="${effect}${effect:+;}5";;																				#? Enable blinking text
 				+bl|+blink) effect="${effect}${effect:+;}25";;																				#? Disable blinking text
 				-f|-font) if [[ $2 =~ ^(sans-serif|script|fraktur|monospace|double-struck)$ ]]; then custom_font="$2"; shift; fi;;			#? Set custom font			
-				-m|-move) if [[ $2 =~ ^[0-9\-]+$ && $3 =~ ^[0-9\-]+$ ]]; then add_command="${add_command}\e[${2};${3}f"; shift 2; fi;;		#? Move to postion "LINE" "COLUMN"
-				-l|-left) if [[ $2 =~ ^[0-9\-]+$ ]]; then add_command="${add_command}\e[${2}D"; shift; fi;;									#? Move left x columns
-				-r|-right) if [[ $2 =~ ^[0-9\-]+$ ]]; then add_command="${add_command}\e[${2}C"; shift; fi;;								#? Move right x columns
-				-u|-up) if [[ $2 =~ ^[0-9\-]+$ ]]; then add_command="${add_command}\e[${2}A"; shift; fi;;									#? Move up x lines
-				-d|-down) if [[ $2 =~ ^[0-9\-]+$ ]]; then add_command="${add_command}\e[${2}B"; shift; fi;;									#? Move down x lines
-				-jl|-justify-left) if [[ $2 =~ ^[0-9\-]+$ ]]; then justify_left="${2}"; shift; fi;;								#? Justify string left within given width
-				-jr|-justify-right) if [[ $2 =~ ^[0-9\-]+$ ]]; then justify_right="${2}"; shift; fi;;							#? Justify string right within given width
-				-jc|-justify-center) if [[ $2 =~ ^[0-9\-]+$ ]]; then justify_center="${2}"; shift; fi;;							#? Justify string center within given width
-				-rp|-repeat) if [[ $2 =~ ^[0-9]+$ ]]; then repeat=${2}; shift; fi;;															#? Repeat next string x number of times
+				-m|-move) if is_int "${@:2:2}"; then add_command="${add_command}\e[${2};${3}f"; shift 2; fi;;								#? Move to postion "LINE" "COLUMN"
+				-l|-left) if is_int "$2"; then add_command="${add_command}\e[${2}D"; shift; fi;;											#? Move left x columns
+				-r|-right) if is_int "$2"; then add_command="${add_command}\e[${2}C"; shift; fi;;											#? Move right x columns
+				-u|-up) if is_int "$2"; then add_command="${add_command}\e[${2}A"; shift; fi;;												#? Move up x lines
+				-d|-down) if is_int "$2"; then add_command="${add_command}\e[${2}B"; shift; fi;;											#? Move down x lines
+				-jl|-justify-left) if is_int "$2"; then justify_left="${2}"; shift; fi;;													#? Justify string left within given width
+				-jr|-justify-right) if is_int "$2"; then justify_right="${2}"; shift; fi;;													#? Justify string right within given width
+				-jc|-justify-center) if is_int "$2"; then justify_center="${2}"; shift; fi;;												#? Justify string center within given width
+				-rp|-repeat) if is_int "$2"; then repeat=${2}; shift; fi;;																	#? Repeat next string x number of times
 				-sc|-save) add_command="\e[s${add_command}";;																				#? Save cursor position
 				-rc|-restore) add_command="${add_command}\e[u";;																			#? Restore cursor position
 				-trans) trans=1;;																											#? Make whitespace transparent
@@ -2803,10 +2819,10 @@ options_() { #? Shows the options overlay
 				fi
 				
 				if [[ ${option_string} == "${selected}" ]]; then
-					if [[ $option_value =~ ^[0-9]+$ ]] || [[ $selected == "color_theme" && -n $curled ]]; then
+					if is_int "$option_value" || [[ $selected == "color_theme" && -n $curled ]]; then
 						enter="↲"; inp=1
 					fi
-					if [[ $option_value =~ ^[0-9]+$ || $option_value =~ true|false || $selected =~ proc_sorting|color_theme ]] && [[ -z $inputting ]]; then
+					if is_int "$option_value" || [[ $option_value =~ true|false || $selected =~ proc_sorting|color_theme ]] && [[ -z $inputting ]]; then
 						left="←"; right="→"; lr=1
 					else
 						enter="↲"; inp=1
