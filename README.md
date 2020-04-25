@@ -51,6 +51,8 @@ Bash version 5 is higly recommended to make use of $EPOCHREALTIME variable inste
 
 **[sed](https://www.gnu.org/software/sed/)**
 
+**[awk](https://www.gnu.org/software/gawk/)**
+
 (Optional) **[lm-sensors](https://github.com/lm-sensors/lm-sensors)** Needed to show CPU temperatures
 
 (Optional) **[curl](https://curl.haxx.se/download.html)** (v7.16.2 or later) Needed if you want messages about updates and the ability to download themes.
