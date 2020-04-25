@@ -41,7 +41,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.8.9"
+declare version="0.8.10"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -606,7 +606,7 @@ is_int() { #? Check if value(s) is integer
 is_float() { #? Check if value(s) is floating point
     local param
     for param; do
-        if [[ ! $param =~ ^[\-][0-9]?[,|.][0-9]+$ ]]; then return 1; fi
+        if [[ ! $param =~ ^[\-]?[0-9]*[,|.][0-9]+$ ]]; then return 1; fi
     done
 }
 
@@ -690,9 +690,9 @@ get_value() { #? Get a value from a file, variable or array by searching for a n
 				-sf|-source-file) input="$(<"$2")"; shift;;  									#? File as source
 				-sv|-source-var) input="${!2}"; shift;;											#? Variable as source
 				-sa|-source-array) local -n tmp_array=$2; input="${tmp_array[*]}"; shift;;		#? Array as source
-				-fp|-floating-point) reg="[0-9]?[.|,][0-9]+"; match=1;;							#? Match floating point value
+				-fp|-floating-point) reg="[\-]?[0-9]*[.|,][0-9]+"; match=1;;					#? Match floating point value
 				-math) math="$2"; shift;;														#? Perform math on a integer value, "x" represents value, only works if "integer" argument is given
-				-i|-integer) reg="[0-9]+[.|,]?[0-9]*"; int=1; match=1;;							#? Match integer value or float and convert to int
+				-i|-integer) reg="[\-]?[0-9]+[.|,]?[0-9]*"; int=1; match=1;;					#? Match integer value or float and convert to int
 				-r|-remove) remove+=("$2"); shift;;												#? Format output by removing entered regex, can be used multiple times
 				-v|-variable-out) local -n found="$2"; ext_var=1; shift;;						#? Output to variable
 				-map|-map-array) local -n array_out="$2"; ext_var=1; ext_arr=1; shift;;			#? Map output to array
