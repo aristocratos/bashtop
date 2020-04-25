@@ -27,12 +27,12 @@ See [themes](themes) folder for available themes.
 
 Let me know if you want to contribute with new themes.
 
-## Upcoming
+## Upcoming (osx and bsd support)
 
 Currently rewriting to use python3 [psutil](https://github.com/giampaolo/psutil) for data collection instead of linux specific tools.
 This will add python 3 and psutil as dependencies, but will make bashtop cross platform compatible.
 
-Please let me know if there is an interest in keeping current version without python dependencies alive.
+This will be in a new branch called bashtop-psutil when I'm done with inital testing
 
 ## Compability
 
@@ -40,8 +40,18 @@ Should work on most modern linux distributions with a truecolor capable terminal
 
 ## Dependencies
 
-**bash** (v4.4 or later) Script functionality will most probably break with earlier versions.  
+**[bash](https://www.gnu.org/software/bash/)** (v4.4 or later) Script functionality will most probably break with earlier versions.  
 Bash version 5 is higly recommended to make use of $EPOCHREALTIME variable instead of alot of external date command calls.
+
+**[GNU Core Utilities](https://www.gnu.org/software/coreutils/)**
+
+**[GNU Grep](https://www.gnu.org/software/grep/)**
+
+**[ps from procps-ng](https://gitlab.com/procps-ng/procps)**
+
+**[sed](https://www.gnu.org/software/sed/)**
+
+(Optional) **[lm-sensors](https://github.com/lm-sensors/lm-sensors)** Needed to show CPU temperatures
 
 (Optional) **[curl](https://curl.haxx.se/download.html)** (v7.16.2 or later) Needed if you want messages about updates and the ability to download themes.
 
