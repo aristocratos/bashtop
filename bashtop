@@ -1354,6 +1354,13 @@ collect_cpu() { #? Collects cpu stats from /proc/stat and compares with previous
 	elif ((${#cpu[freq]}>1)); then cpu[freq_string]="${cpu[freq]} MHz"
 	else cpu[freq_string]=""; fi
 
+	#* Get load average and uptime from uptime command
+	local uptime_var
+	read -r uptime_var < <(uptime 2>/dev/null || true)
+	cpu[load_avg]="${uptime_var#*average: }"
+	cpu[load_avg]="${cpu[load_avg]//,/}"
+	cpu[uptime]="${uptime_var#*up }"
+	cpu[uptime]="${cpu[uptime]%%,  *}"
 
 	#* Collect cpu temps if enabled
 	if [[ $check_temp == true ]]; then collect_cpu_temps; fi
@@ -1872,15 +1879,15 @@ calc_sizes() { #? Calculate width and height of all boxes
 	fi
 	
 	#* Calculate number of columns and placement of cpu meter box
-	local cpu_line=$((box[cpu_line]+1)) cpu_width=$((box[cpu_width]-2)) cpu_height=$((box[cpu_height]-2))
-	if ((threads>(cpu_height-3)*3 && tty_width>=200)); then box[p_width]=114; box[p_height]=$((threads/4+3))
-	elif ((threads>(cpu_height-3)*2 && tty_width>=150)); then box[p_width]=84; box[p_height]=$((threads/3+4))
-	elif ((threads>cpu_height-3 && tty_width>=100)); then box[p_width]=54; box[p_height]=$((threads/2+3))
-	else box[p_width]=24; box[p_height]=$((threads+3))
+	local cpu_line=$((box[cpu_line]+1)) cpu_width=$((box[cpu_width]-2)) cpu_height=$((box[cpu_height]-2)) box_cols
+	if ((threads>(cpu_height-3)*3 && tty_width>=200)); then box[p_width]=$((24*4)); box[p_height]=$((threads/4+4)); box_cols=4
+	elif ((threads>(cpu_height-3)*2 && tty_width>=150)); then box[p_width]=$((24*3)); box[p_height]=$((threads/3+5)); box_cols=3
+	elif ((threads>cpu_height-3 && tty_width>=100)); then box[p_width]=$((24*2)); box[p_height]=$((threads/2+4)); box_cols=2
+	else box[p_width]=24; box[p_height]=$((threads+4)); box_cols=1
 	fi
 
 	if [[ $check_temp == true ]]; then
-		box[p_width]=$(( box[p_width]+13+( ( ( box[p_width]-24 ) /24 ) *7 ) ))
+		box[p_width]=$(( box[p_width]+13*box_cols))
 	fi
 	
 	if ((box[p_height]>cpu_height)); then box[p_height]=$cpu_height; fi	
@@ -2016,8 +2023,8 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 			meter="${!core_name}"
 		fi
 		
-		if ((p_width>84+temp_width & i>=(p_height-2)*3-2)); then pt_line=$((p_line+i-y*4)); pt_col=$((p_col+84+temp_width))
-		elif ((p_width>54+temp_width & i>=(p_height-2)*2-1)); then pt_line=$((p_line+i-y*3)); pt_col=$((p_col+54+temp_width))
+		if ((p_width>84+temp_width & i>=(p_height-2)*3-2)); then pt_line=$((p_line+i-y*4)); pt_col=$((p_col+90+temp_width))
+		elif ((p_width>54+temp_width & i>=(p_height-2)*2-1)); then pt_line=$((p_line+i-y*3)); pt_col=$((p_col+48+temp_width*2))
 		elif ((p_width>24+temp_width & i>=p_height-2)); then pt_line=$((p_line+i-y*2)); pt_col=$((p_col+24+temp_width))
 		else y=$i; fi
 
@@ -2029,6 +2036,17 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 
 		if (( i>(p_height-2)*( p_width/(24+temp_width) )-( p_width/(24+temp_width) )-1 )); then break; fi	
 	done
+
+	#* Print load average and uptime
+	if ((pt_line+y+1<=p_height)); then
+		local avg_string avg_width
+		if ((p_width>24)); then avg_string="Load Average: "; avg_width=7; else avg_string="L AVG: "; avg_width=5; fi
+		print -v cpu_out_var -m $((pt_line+y+1)) $pt_col -fg ${theme[main_fg]} -t "${avg_string}"
+		for avg_string in ${cpu[load_avg]}; do
+			print -v cpu_out_var -jc $avg_width -t "${avg_string}"
+		done
+		print -v cpu_out_var -m $((line+height-1)) $((col+1)) -fg ${theme[inactive_fg]} -trans -t "up ${cpu[uptime]}"
+	fi
 
 	#* Print current CPU frequency right of the title in the meter box
 	if [[ -n ${cpu[freq_string]} ]]; then print -v cpu_out_var -m $((p_line-1)) $((p_col+p_width-5-${#cpu[freq_string]})) -fg ${theme[div_line]} -t "┤" -fg ${theme[title]} -b -t "${cpu[freq_string]}" -rs -fg ${theme[div_line]} -t "├"; fi
