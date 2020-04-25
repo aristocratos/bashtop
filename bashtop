@@ -453,7 +453,7 @@ resized() { #? Get new terminal size if terminal is resized
 			winches=0
 		else
 			create_box -w 30 -h 3 -c 1 -l 1 -lc "#EE2020" -title "resizing"
-			print -jc 28 -fg ${theme[title]} "New size: ${tty_height}x${tty_width}"
+			print -jc 28 -fg ${theme[title]} "New size: ${tty_width}x${tty_height}"
 			sleep 0.2
 			if [[ $(stty size) != "$tty_height $tty_width" ]]; then winches=0; fi
 		fi
@@ -465,7 +465,7 @@ size_error_msg() { #? Shows error message if terminal size is below 80x25
 	local height=$tty_height
 	tput clear
 	create_box -full -lc "#EE2020" -title "resize window"
-	print -rs -m $((tty_height/2-1)) 2 -fg ${theme[title]} -c -l 11 "Current size: " -bg "#00" -fg dd2020 -d 1 -c "${tty_height}x${tty_width}" -rs
+	print -rs -m $((tty_height/2-1)) 2 -fg ${theme[title]} -c -l 11 "Current size: " -bg "#00" -fg dd2020 -d 1 -c "${tty_width}x${tty_height}" -rs
 	print -d 1 -fg ${theme[title]} -c -l 15 "Need to be atleast:" -bg "#00" -fg 30dd50 -d 1 -c "80x25" -rs
 	while [[ $(stty size) == "$tty_height $tty_width" ]]; do sleep 0.2; done
 	
