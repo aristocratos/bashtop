@@ -41,7 +41,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.8.6"
+declare version="0.8.7"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -2023,7 +2023,7 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 			meter="${!core_name}"
 		fi
 		
-		if ((p_width>84+temp_width & i>=(p_height-2)*3-2)); then pt_line=$((p_line+i-y*4)); pt_col=$((p_col+90+temp_width))
+		if ((p_width>84+temp_width & i>=(p_height-2)*3-2)); then pt_line=$((p_line+i-y*4)); pt_col=$((p_col+72+temp_width*3))
 		elif ((p_width>54+temp_width & i>=(p_height-2)*2-1)); then pt_line=$((p_line+i-y*3)); pt_col=$((p_col+48+temp_width*2))
 		elif ((p_width>24+temp_width & i>=p_height-2)); then pt_line=$((p_line+i-y*2)); pt_col=$((p_col+24+temp_width))
 		else y=$i; fi
@@ -2040,7 +2040,7 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 	#* Print load average and uptime
 	if ((pt_line+y+1<=p_height)); then
 		local avg_string avg_width
-		if ((p_width>24)); then avg_string="Load Average: "; avg_width=7; else avg_string="L AVG: "; avg_width=5; fi
+		if [[ $check_temp == true ]]; then avg_string="Load Average: "; avg_width=7; else avg_string="L AVG: "; avg_width=5; fi
 		print -v cpu_out_var -m $((pt_line+y+1)) $pt_col -fg ${theme[main_fg]} -t "${avg_string}"
 		for avg_string in ${cpu[load_avg]}; do
 			print -v cpu_out_var -jc $avg_width -t "${avg_string}"
