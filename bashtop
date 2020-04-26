@@ -750,7 +750,7 @@ get_value() { #? Get a value from a file, variable or array by searching for a n
 			done
 		fi
 
-		if [[ -n $int && $found =~ [.|,] ]]; then
+		if [[ -n $int && $found =~ [.,] ]]; then
 			found="${found/,/.}"
 			printf -v found "%.0f" "${found}"
 		fi
