@@ -606,7 +606,7 @@ is_int() { #? Check if value(s) is integer
 is_float() { #? Check if value(s) is floating point
     local param
     for param; do
-        if [[ ! $param =~ ^[\-]?[0-9]*[,|.][0-9]+$ ]]; then return 1; fi
+        if [[ ! $param =~ ^[\-]?[0-9]*[,.][0-9]+$ ]]; then return 1; fi
     done
 }
 
@@ -690,9 +690,9 @@ get_value() { #? Get a value from a file, variable or array by searching for a n
 				-sf|-source-file) input="$(<"$2")"; shift;;  									#? File as source
 				-sv|-source-var) input="${!2}"; shift;;											#? Variable as source
 				-sa|-source-array) local -n tmp_array=$2; input="${tmp_array[*]}"; shift;;		#? Array as source
-				-fp|-floating-point) reg="[\-]?[0-9]*[.|,][0-9]+"; match=1;;					#? Match floating point value
+				-fp|-floating-point) reg="[\-]?[0-9]*[.,][0-9]+"; match=1;;						#? Match floating point value
 				-math) math="$2"; shift;;														#? Perform math on a integer value, "x" represents value, only works if "integer" argument is given
-				-i|-integer) reg="[\-]?[0-9]+[.|,]?[0-9]*"; int=1; match=1;;					#? Match integer value or float and convert to int
+				-i|-integer) reg="[\-]?[0-9]+[.,]?[0-9]*"; int=1; match=1;;						#? Match integer value or float and convert to int
 				-r|-remove) remove+=("$2"); shift;;												#? Format output by removing entered regex, can be used multiple times
 				-v|-variable-out) local -n found="$2"; ext_var=1; shift;;						#? Output to variable
 				-map|-map-array) local -n array_out="$2"; ext_var=1; ext_arr=1; shift;;			#? Map output to array
@@ -791,20 +791,20 @@ cur_pos() { #? Get cursor postion, argument "line" prints current line, argument
 	if [[ -z $1 || $1 == "col" ]]; then echo -n "$col"; fi
 }
 
-create_box() { #? Draw a box with an optional titlebar and title at given location
+create_box() { #? Draw a box with an optional title at given location
 	local width height col line title ltype hpos vpos i hlines vlines color line_color c_rev=0 box_out ext_var fill
 	until (($#==0)); do
 		case $1 in
 			-f|-full) col=1; line=1; width=$((tty_width)); height=$((tty_height));;							#? Use full terminal size for box 
-			-c|-col) if is_int "$2"; then col=$2; shift; fi;; 										#? Column position to start box
-			-l|-line) if is_int "$2"; then line=$2; shift; fi;; 									#? Line position to start box
-			-w|-width) if is_int "$2"; then width=$2; shift; fi;; 									#? Width of box
-			-h|-height) if is_int "$2"; then height=$2; shift; fi;; 								#? Height of box
-			-t|-title) if [[ -n $2 ]]; then title="$2"; shift; fi;;								#? Draw title without titlebar
+			-c|-col) if is_int "$2"; then col=$2; shift; fi;; 												#? Column position to start box
+			-l|-line) if is_int "$2"; then line=$2; shift; fi;; 											#? Line position to start box
+			-w|-width) if is_int "$2"; then width=$2; shift; fi;; 											#? Width of box
+			-h|-height) if is_int "$2"; then height=$2; shift; fi;; 										#? Height of box
+			-t|-title) if [[ -n $2 ]]; then title="$2"; shift; fi;;											#? Draw title without titlebar
 			-s|-single) ltype="single";;																	#? Use single lines
 			-d|-double) ltype="double";;																	#? Use double lines
-			-lc|-line-color) line_color="$2"; shift;;															#? Color of the lines
-			-fill) fill=1;;
+			-lc|-line-color) line_color="$2"; shift;;														#? Color of the lines
+			-fill) fill=1;;																					#? Fill background of box
 			-v|-variable) local -n box_out=$2; ext_var=1; shift;;											#? Output box to a variable
 		esac
 		shift
@@ -865,7 +865,7 @@ create_meter() { 	#? Create a horizontal percentage meter, usage; create_meter <
 	#* Argument parsing
 	until (($#==0)); do
 		case $1 in
-			-p|-place) if is_int "${@:2:2}"; then line=$2; col=$3; shift 2; fi;;			#? Placement for meter
+			-p|-place) if is_int "${@:2:2}"; then line=$2; col=$3; shift 2; fi;;								#? Placement for meter
 			-w|-width) width=$2; shift;;																		#? Width of meter in columns
 			-c|-color) local -n colors=$2; shift;;																#? Name of an array containing colors from index 0-100
 			-i|-invert) invert=1;;																				#? Invert meter
@@ -1329,12 +1329,14 @@ collect_cpu() { #? Collects cpu stats from /proc/stat and compares with previous
 	#* Get values from /proc/stat, compare to get cpu usage
 	thread=0
 	while ((thread<threads+1)) && read -ra stat_array; do
-	cpu[new_${thread}]=$((stat_array[1]+stat_array[2]+stat_array[3]+stat_array[4]))
-	cpu[idle_new_${thread}]=${stat_array[4]}
-	if [[ -n ${cpu[old_${thread}]} && -n ${cpu[idle_new_${thread}]} && ${cpu[old_${thread}]} -ne ${cpu[new_${thread}]} ]]; then cpu_usage[${thread}]=$(( ( 100*(${cpu[old_${thread}]}-${cpu[new_${thread}]}-${cpu[idle_old_${thread}]}+${cpu[idle_new_${thread}]}) ) / (${cpu[old_${thread}]}-${cpu[new_${thread}]}) )); fi
-	cpu[old_${thread}]=${cpu[new_${thread}]}
-	cpu[idle_old_${thread}]=${cpu[idle_new_${thread}]}
-	((++thread))
+		cpu[new_${thread}]=$((stat_array[1]+stat_array[2]+stat_array[3]+stat_array[4]))
+		cpu[idle_new_${thread}]=${stat_array[4]}
+		if [[ -n ${cpu[old_${thread}]} && -n ${cpu[idle_new_${thread}]} && ${cpu[old_${thread}]} -ne ${cpu[new_${thread}]} ]]; then 
+			cpu_usage[${thread}]=$(( ( 100*(${cpu[old_${thread}]}-${cpu[new_${thread}]}-${cpu[idle_old_${thread}]}+${cpu[idle_new_${thread}]}) ) / (${cpu[old_${thread}]}-${cpu[new_${thread}]}) ))
+		fi
+		cpu[old_${thread}]=${cpu[new_${thread}]}
+		cpu[idle_old_${thread}]=${cpu[idle_new_${thread}]}
+		((++thread))
 	done </proc/stat
 
 	#* Copy cpu usage for cpu package and cores to cpu history arrays and trim earlier entries
@@ -1343,8 +1345,6 @@ collect_cpu() { #? Collects cpu stats from /proc/stat and compares with previous
 	else
 		cpu_history+=("${cpu_usage[0]}")
 	fi
-
-	# threads=${box[testing]} #! For testing, remove <--------------
 
 	for((i=1;i<=threads;i++)); do
 		local -n cpu_core_history="cpu_core_history_$i"
@@ -1355,7 +1355,6 @@ collect_cpu() { #? Collects cpu stats from /proc/stat and compares with previous
 		fi
 	done
 	
-
 	#* Get current cpu frequency from "/proc/cpuinfo" and convert to appropriate unit
 	if [[ -z ${cpu[no_cpu_info]} ]] && ! get_value -v cpu[freq] -sf "/proc/cpuinfo" -k "cpu MHz" -i; then
 		cpu[no_cpu_info]=1
@@ -3432,8 +3431,6 @@ main_loop() { #? main loop...
 			draw_clock now
 
 		done
-
-
 
 	#* If time left is too low to process any input more than twice in succession, add 100ms to update timer
 	elif ((++late_update==5)); then
