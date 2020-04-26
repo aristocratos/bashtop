@@ -1,4 +1,6 @@
 default_black.theme
+flat-remix-light.theme
+flat-remix.theme
 greyscale.theme
 monokai_nobg.theme
 monokai.theme
