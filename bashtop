@@ -41,7 +41,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.8.13"
+declare version="0.8.14"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -1424,7 +1424,7 @@ collect_cpu_temps() { #? Collect cpu temperatures
 collect_mem() { #? Collect memory information from "/proc/meminfo"
 	((++mem[counter]))
 
-	if ((mem[counter]<10)); then return; fi
+	if ((mem[counter]<5)); then return; fi
 	mem[counter]=0
 
 	local i tmp value array mem_info
@@ -1469,7 +1469,7 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 
 	#* Get disk information from "df" command
 	local df_array df_line line_array
-	unset 'disks_free[@]' 'disks_total[@]' 'disks_name[@]' 'disks_free_percent[@]'
+	unset 'disks_free[@]' 'disks_used[@]' 'disks_used_percent[@]' 'disks_total[@]' 'disks_name[@]' 'disks_free_percent[@]'
 	readarray -t df_array < <(df -x squashfs -x tmpfs -x devtmpfs -x overlay)
 	for df_line in "${df_array[@]:1}"; do
 		line_array=(${df_line})
