@@ -72,6 +72,8 @@ Options menu.
 
 Copy or link "bashtop" into PATH, or just run from cloned directory...
 
+Also available in the Arch Linux repository as [bashtop](https://www.archlinux.org/packages/community/any/bashtop/)
+
 Also available in the AUR as [bashtop-git](https://aur.archlinux.org/packages/bashtop-git/)
 
 Also available for debian/ubuntu from [Azlux's repository](http://packages.azlux.fr/)
