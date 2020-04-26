@@ -41,7 +41,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.8.11"
+declare version="0.8.12"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -1502,7 +1502,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 		"pid") selected="Pid:"; sort="pid";;
 		"program") selected="Program:"; sort="comm";;
 		"arguments") selected="Arguments:"; sort="args";;
-		"threads") selected="Threads:"; sort="thcount";;
+		"threads") selected="Threads:"; sort="nlwp";;
 		"user") selected="User:"; sort="euser";;
 		"memory") selected="Mem%"; sort="pmem";;
 		"cpu lazy"|"cpu responsive") sort="pcpu"; selected="Cpu%";;
@@ -1696,7 +1696,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 
 		if ((breaking==1)); then 
 			if [[ ${proc[detailed]} == "1" && -z ${proc[detailed_cpu]} ]] && ps ${proc[detailed_pid]} >/dev/null 2>&1; then
-				readarray ${options} -O ${#proc_array[@]} proc_array < <(ps -o pid:${proc[pid_len]}=Pid:,comm:${format_cmd}=Program:${format_args},thcount:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --no-headers -p ${proc[detailed_pid]} || true)
+				readarray ${options} -O ${#proc_array[@]} proc_array < <(ps -o pid:${proc[pid_len]}=Pid:,comm:${format_cmd}=Program:${format_args},nlwp:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --no-headers -p ${proc[detailed_pid]} || true)
 			else
 				break
 			fi
