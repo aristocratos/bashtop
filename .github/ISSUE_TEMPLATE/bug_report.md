@@ -21,8 +21,7 @@ If applicable, add screenshots to help explain your problem.
 
 **Info (please complete the following information):**
  - Linux distribution and version
- - System locale (output of "echo $LANG")
- - Bash version
+ - Bash version (version 4.4 or above is required)
 
 **Additional context**
 $HOME/.config/bashtop/error.log" (enable error-logging in "$HOME/.config/bashtop/bashtop.cfg" if missing)
