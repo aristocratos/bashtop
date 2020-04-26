@@ -47,7 +47,7 @@ Bash version 5 is higly recommended to make use of $EPOCHREALTIME variable inste
 
 **[GNU Grep](https://www.gnu.org/software/grep/)**
 
-**[ps from procps-ng](https://gitlab.com/procps-ng/procps)**
+**[ps from procps-ng](https://gitlab.com/procps-ng/procps)** (v3.1.15 or later)
 
 **[sed](https://www.gnu.org/software/sed/)**
 
