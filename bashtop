@@ -397,9 +397,7 @@ quit_() { #? Clean exit
 	tput cnorm
 
 	#* Save any changed values to config file
-	if [[ $config_file != "/dev/null" ]]; then
-		save_config "${save_array[@]}"
-	fi
+	[[ $config_file != "/dev/null" ]] && save_config "${save_array[@]}"
 	
 	exit 0
 }
@@ -418,11 +416,8 @@ resume_() { #? Set terminal options and resume if caught SIGCONT ('fg' from term
 	stty -echo
 	tput civis
 
-	if [[ -n $pause_screen ]]; then
-		echo -en "$pause_screen"
-	else
-		echo -en "${boxes_out}${proc_det}${last_screen}${mem_out}${proc_misc}${proc_misc2}${update_string}${clock_out}"
-	fi
+	[[ -n $pause_screen ]] && echo -en "$pause_screen" \
+		|| echo -en "${boxes_out}${proc_det}${last_screen}${mem_out}${proc_misc}${proc_misc2}${update_string}${clock_out}"
 }
 
 traperr() { #? Function for reporting error line numbers
@@ -680,27 +675,27 @@ get_value() { #? Get a value from a file, variable or array by searching for a n
 	until (($#==0)); do
 		until (($#==0)); do
 			case "$1" in
-				-k|-key) key="$2"; shift;;														#? Key "string" on the same line as target value
-				-m|-match) match="$2"; shift;;													#? If multiple matches on a line, match occurrence "x"
-				-mk|-match-key) match_key=$2; line_pos=0; shift;;								#? Match in relation to key position, -1 for previous value, 1 for next value
-				-b|-break) shift; break;;														#? Break up arguments for multiple searches
-				-a|-all) all=1;;																#? Prints back found line including key
-				-l|-line) line_nr="$2"; shift;;													#? Set target line if no key is available
-				-ss|-source-string) input="$2"; shift;;											#? Argument string as source
-				-sf|-source-file) input="$(<"$2")"; shift;;  									#? File as source
-				-sv|-source-var) input="${!2}"; shift;;											#? Variable as source
-				-sa|-source-array) local -n tmp_array=$2; input="${tmp_array[*]}"; shift;;		#? Array as source
-				-fp|-floating-point) reg="[\-]?[0-9]*[.|,][0-9]+"; match=1;;					#? Match floating point value
-				-math) math="$2"; shift;;														#? Perform math on a integer value, "x" represents value, only works if "integer" argument is given
-				-i|-integer) reg="[\-]?[0-9]+[.|,]?[0-9]*"; int=1; match=1;;					#? Match integer value or float and convert to int
-				-r|-remove) remove+=("$2"); shift;;												#? Format output by removing entered regex, can be used multiple times
-				-v|-variable-out) local -n found="$2"; ext_var=1; shift;;						#? Output to variable
-				-map|-map-array) local -n array_out="$2"; ext_var=1; ext_arr=1; shift;;			#? Map output to array
+				-k|-key) key="$2"; shift;;							#? Key "string" on the same line as target value
+				-m|-match) match="$2"; shift;;							#? If multiple matches on a line, match occurrence "x"
+				-mk|-match-key) match_key=$2; line_pos=0; shift;;				#? Match in relation to key position, -1 for previous value, 1 for next value
+				-b|-break) shift; break;;							#? Break up arguments for multiple searches
+				-a|-all) all=1;;								#? Prints back found line including key
+				-l|-line) line_nr="$2"; shift;;							#? Set target line if no key is available
+				-ss|-source-string) input="$2"; shift;;						#? Argument string as source
+				-sf|-source-file) input="$(<"$2")"; shift;;  					#? File as source
+				-sv|-source-var) input="${!2}"; shift;;						#? Variable as source
+				-sa|-source-array) local -n tmp_array=$2; input="${tmp_array[*]}"; shift;;	#? Array as source
+				-fp|-floating-point) reg="[\-]?[0-9]*[.|,][0-9]+"; match=1;;			#? Match floating point value
+				-math) math="$2"; shift;;							#? Perform math on a integer value, "x" represents value, only works if "integer" argument is given
+				-i|-integer) reg="[\-]?[0-9]+[.|,]?[0-9]*"; int=1; match=1;;			#? Match integer value or float and convert to int
+				-r|-remove) remove+=("$2"); shift;;						#? Format output by removing entered regex, can be used multiple times
+				-v|-variable-out) local -n found="$2"; ext_var=1; shift;;			#? Output to variable
+				-map|-map-array) local -n array_out="$2"; ext_var=1; ext_arr=1; shift;;		#? Map output to array
 			esac
 			shift
 		done
 
-		if [[ -z $input ]]; then return 1; fi
+		[[ -z $input ]] && return 1
 		if [[ -z $line_nr && -z $key ]]; then line_nr=1; fi
 
 		while IFS='' read -r input_line; do
@@ -742,7 +737,7 @@ get_value() { #? Get a value from a file, variable or array by searching for a n
 			fi
 		done <<<"${input}"
 
-		if [[ -z $found ]]; then return 1; fi
+		[[ -z $found ]] && return 1
 
 		if [[ -n ${remove[*]} ]]; then
 			for removing in "${remove[@]}"; do
@@ -768,7 +763,7 @@ get_value() { #? Get a value from a file, variable or array by searching for a n
 
 	done
 	
-	if [[ -z $ext_var ]]; then echo "${found}"; fi
+	[[ -z $ext_var ]] && echo "${found}"
 	if [[ -n $ext_arr ]]; then array_out=(${found}); fi
 }
 
@@ -845,9 +840,8 @@ create_box() { #? Draw a box with an optional titlebar and title at given locati
 	print -v box_out -m $((line+height-1)) $((col+width-1)) -t "${box[${ltype}_right_corner_down]}"
 
 	#* Draw small title without titlebar
-	if [[ -n $title ]]; then
-		print -v box_out -m $line $((col+2)) -t "┤" -fg ${theme[title]} -b -t "$title" -rs -fg ${line_color:-${theme[div_line]}} -t "├"
-	fi
+	[[ -n $title ]] \
+	    && print -v box_out -m $line $((col+2)) -t "┤" -fg ${theme[title]} -b -t "$title" -rs -fg ${line_color:-${theme[div_line]}} -t "├"
 
 	print -v box_out -rs -m $((line+1)) $((col+1))
 
@@ -857,8 +851,8 @@ create_box() { #? Draw a box with an optional titlebar and title at given locati
 }
 
 create_meter() { 	#? Create a horizontal percentage meter, usage; create_meter <value 0-100>
-					#? Optional arguments: [-p, -place <line> <col>] [-w, -width <columns>] [-f, -fill-empty] 
-					#? [-c, -color "array-name"] [-i, -invert-color] [-v, -variable "variable-name"]
+			#? Optional arguments: [-p, -place <line> <col>] [-w, -width <columns>] [-f, -fill-empty] 
+			#? [-c, -color "array-name"] [-i, -invert-color] [-v, -variable "variable-name"]
 	if [[ -z $1 ]]; then return; fi
 	local val width colors color block="■" i fill_empty col line var ext_var out meter_var print_var invert bg_color=${theme[inactive_fg]}
 
@@ -911,10 +905,10 @@ create_meter() { 	#? Create a horizontal percentage meter, usage; create_meter <
 }
 
 create_graph() { 	#? Create a graph from an array of percentage values, usage; 	create_graph <options> <value-array>
-					#? Create a graph from an array of non percentage values:       create_graph <options> <-max "max value"> <value-array>
-					#? Add a value to existing graph; 								create_graph [-i, -invert] [-max "max value"] -add-value "graph_array" <value>
-					#? Add last value from an array to existing graph; 				create_graph [-i, -invert] [-max "max value"] -add-last "graph_array" "value-array"
-					#? Options: < -d, -dimensions <line> <col> <height> <width> > [-i, -invert] [-n, -no-guide] [-c, -color "array-name"] [-o, -output-array "variable-name"]
+			#? Create a graph from an array of non percentage values:       create_graph <options> <-max "max value"> <value-array>
+			#? Add a value to existing graph; 								create_graph [-i, -invert] [-max "max value"] -add-value "graph_array" <value>
+			#? Add last value from an array to existing graph; 				create_graph [-i, -invert] [-max "max value"] -add-last "graph_array" "value-array"
+			#? Options: < -d, -dimensions <line> <col> <height> <width> > [-i, -invert] [-n, -no-guide] [-c, -color "array-name"] [-o, -output-array "variable-name"]
 	if [[ -z $1 ]]; then return; fi
 	local val col s_col line s_line height s_height width s_width colors color i var ext_var out side_num side_nums=1 add add_array invert no_guide max
 	local -a graph_array input_array
@@ -1210,11 +1204,11 @@ create_mini_graph() { 	#? Create a one line high graph from an array of percenta
 }
 
 print() {	#? Print text, set true-color foreground/background color, add effects, center text, move cursor, save cursor position and restore cursor postion
-			#? Effects: [-fg, -foreground <RGB Hex>|<R Dec> <G Dec> <B Dec>] [-bg, -background <RGB Hex>|<R Dec> <G Dec> <B Dec>] [-rs, -reset] [-/+b, -/+bold] [-/+da, -/+dark]
-			#? [-/+ul, -/+underline] [-/+i, -/+italic] [-/+bl, -/+blink] [-f, -font "sans-serif|script|fraktur|monospace|double-struck"]
-			#? Manipulation: [-m, -move <line> <column>] [-l, -left <x>] [-r, -right <x>] [-u, -up <x>] [-d, -down <x>] [-c, -center] [-sc, -save] [-rc, -restore]
-			#? [-jl, -justify-left <width>] [-jr, -justify-right <width>] [-jc, -justify-center <width>] [-rp, -repeat <x>]
-			#? Text: [-v, -variable "variable-name"] [-stdin] [-t, -text "string"] ["string"]
+		#? Effects: [-fg, -foreground <RGB Hex>|<R Dec> <G Dec> <B Dec>] [-bg, -background <RGB Hex>|<R Dec> <G Dec> <B Dec>] [-rs, -reset] [-/+b, -/+bold] [-/+da, -/+dark]
+		#? [-/+ul, -/+underline] [-/+i, -/+italic] [-/+bl, -/+blink] [-f, -font "sans-serif|script|fraktur|monospace|double-struck"]
+		#? Manipulation: [-m, -move <line> <column>] [-l, -left <x>] [-r, -right <x>] [-u, -up <x>] [-d, -down <x>] [-c, -center] [-sc, -save] [-rc, -restore]
+		#? [-jl, -justify-left <width>] [-jr, -justify-right <width>] [-jc, -justify-center <width>] [-rp, -repeat <x>]
+		#? Text: [-v, -variable "variable-name"] [-stdin] [-t, -text "string"] ["string"]
 	
 	#* Return if no arguments is given
 	if [[ -z $1 ]]; then return; fi
@@ -1896,11 +1890,26 @@ calc_sizes() { #? Calculate width and height of all boxes
 	fi
 	
 	#* Calculate number of columns and placement of cpu meter box
-	local cpu_line=$((box[cpu_line]+1)) cpu_width=$((box[cpu_width]-2)) cpu_height=$((box[cpu_height]-2)) box_cols
-	if ((threads>(cpu_height-3)*3 && tty_width>=200)); then box[p_width]=$((24*4)); box[p_height]=$((threads/4+4)); box_cols=4
-	elif ((threads>(cpu_height-3)*2 && tty_width>=150)); then box[p_width]=$((24*3)); box[p_height]=$((threads/3+5)); box_cols=3
-	elif ((threads>cpu_height-3 && tty_width>=100)); then box[p_width]=$((24*2)); box[p_height]=$((threads/2+4)); box_cols=2
-	else box[p_width]=24; box[p_height]=$((threads+4)); box_cols=1
+	local cpu_line=$((box[cpu_line]+1)) \
+	      cpu_width=$((box[cpu_width]-2)) \
+	      cpu_height=$((box[cpu_height]-2)) box_cols
+	
+	if ((threads>(cpu_height-3)*3 && tty_width>=200)); then
+	    box[p_width]=$((24*4))
+	    box[p_height]=$((threads/4+4))
+	    box_cols=4
+	elif ((threads>(cpu_height-3)*2 && tty_width>=150)); then
+	    box[p_width]=$((24*3))
+	    box[p_height]=$((threads/3+5))
+	    box_cols=3
+	elif ((threads>cpu_height-3 && tty_width>=100)); then
+	    box[p_width]=$((24*2))
+	    box[p_height]=$((threads/2+4))
+	    box_cols=2
+	else
+	    box[p_width]=24
+	    box[p_height]=$((threads+4))
+	    box_cols=1
 	fi
 
 	if [[ $check_temp == true ]]; then
@@ -3356,9 +3365,9 @@ collect_and_draw() { #? Run all collect and draw functions
 			done
 		fi
 		collect_${task}
-		if get_key -save && [[ -z $pause_screen ]]; then process_input; fi
+		get_key -save && [[ -z $pause_screen ]] && process_input
 		draw_${task}
-		if get_key -save && [[ -z $pause_screen ]]; then process_input; fi
+		get_key -save && [[ -z $pause_screen ]] && process_input
 		draw_clock "$1"
 		if ((resized>0 & resized<task_int)); then return; fi
 	done
