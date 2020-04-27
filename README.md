@@ -1,7 +1,7 @@
-# ![bashtop](logo-t.png)
+# ![bashtop](img/logo-t.png)
 
-**Usage:** Linux resource monitor  
-**Language:** Bash  
+**Usage:** Linux resource monitor
+**Language:** Bash
 
 ## Description
 
@@ -40,7 +40,7 @@ Should work on most modern linux distributions with a truecolor capable terminal
 
 ## Dependencies
 
-**[bash](https://www.gnu.org/software/bash/)** (v4.4 or later) Script functionality will most probably break with earlier versions.  
+**[bash](https://www.gnu.org/software/bash/)** (v4.4 or later) Script functionality will most probably break with earlier versions.
 Bash version 5 is higly recommended to make use of $EPOCHREALTIME variable instead of alot of external date command calls.
 
 **[GNU Core Utilities](https://www.gnu.org/software/coreutils/)**
@@ -59,14 +59,14 @@ Bash version 5 is higly recommended to make use of $EPOCHREALTIME variable inste
 
 ## Screenshots
 
-Main UI showing details for a selected process.  
-![Screenshot 1](main.png)
+Main UI showing details for a selected process.
+![Screenshot 1](img/main.png)
 
-Main menu.  
-![Screenshot 2](menu.png)
+Main menu.
+![Screenshot 2](img/menu.png)
 
-Options menu.  
-![Screenshot 3](options.png)
+Options menu.
+![Screenshot 3](img/options.png)
 
 ## Installation
 
@@ -119,15 +119,11 @@ error_logging="true"
 
 #### Command line options: (not yet implemented)
 
-```
+```bash
 USAGE: bashtop
-
 ```
-
-
 
 ## TODO
-
 
 - [x] TODO Add options to change colors for text, graphs and meters.
 - [ ] TODO Add options for resizing all boxes.
@@ -135,6 +131,6 @@ USAGE: bashtop
 - [ ] TODO Miscellaneous optimizations and code cleanup.
 - [ ] TODO Add more commenting where it's sparse.
 
-
 ## LICENSE
+
 [Apache License 2.0](LICENSE)
