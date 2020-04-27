@@ -78,6 +78,20 @@ Also available in the AUR as [bashtop-git](https://aur.archlinux.org/packages/ba
 
 Also available for debian/ubuntu from [Azlux's repository](http://packages.azlux.fr/)
 
+Or use quick installation     
+ 
+>quick install  go to DEB  folder  and type  
+
+```
+ sudo ./build
+```
+
+>to uninstall it   go to DEB  folder  and type 
+
+```
+ sudo ./build --remove
+```
+
 ## Configurability
 
 All options changeable from within UI.
