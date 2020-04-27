@@ -34,6 +34,12 @@ This will add python 3 and psutil as dependencies, but will make bashtop cross p
 
 This will be in a new branch called bashtop-psutil when I'm done with inital testing
 
+## Support and funding
+
+Bug fixes and updates might be slow during normal workdays since i work full time as an industrial worker and don't have much time or energy left during the week.
+I'm looking into ways of funding this project that would allow me to take off time from my day job to work on this.
+Any advice on how to get funding for open source projects is very welcome!
+
 ## Compability
 
 Should work on most modern linux distributions with a truecolor capable terminal.
