@@ -1,0 +1,62 @@
+.\" Manpage for bashtop.
+.\" Contact admin@qvantnet.com to correct errors or typos.
+.TH man 8 "26 Apr 2020" "v0.8.14" "bashtop man page"
+.SH bashtop
+Linux resource monitor
+.SH SYNOPSIS
+bashtop
+.SH DESCRIPTION
+Resource monitor that shows usage and stats for processor, memory, disks, network and processes.
+.SH OPTIONS
+.TP
+\fB\ Esc, M, m\fR
+Shows main menu.
+.TP
+\fB\ F2, O, o\fR
+Shows options.
+.TP
+\fB\ F1, H, h m\fR
+Shows this window.
+.TP
+\fB\ Ctrl-C, Q, q m\fR
+Quits program.
+.TP
+\fB\ (+, A, a) (-, S, s) m\fR
+Add/Subtract 100ms to/from update timer.
+.TP
+\fB\ Up, Down m\fR
+Select in process list.
+.TP
+\fB\ Enter m\fR
+Show detailed information for selected process.
+.TP
+\fB\ Pg Up, Pg Down m\fR
+Jump 1 page in process list.
+.TP
+\fB\ Home, End m\fR
+Jump to first or last page in process list.
+.TP
+\fB\ Left, Right m\fR
+Select previous/next sorting column.
+.TP
+\fB\ R, r m\fR
+Reverse sorting order in processes box.
+.TP
+\fB\ F, f m\fR
+Input a string to filter processes with.
+.TP
+\fB\ C, c m\fR
+Clear any entered filter.
+.TP
+\fB\ T, t m\fR
+Terminate selected process with SIGTERM - 15.
+.TP
+\fB\ K, k m\fR
+Kill selected process with SIGKILL - 9.
+.TP
+\fB\ I, i m\fR
+Interrupt selected process with SIGINT - 2.
+.SH BUGS
+There are always bugs :P
+.SH AUTHOR
+Aristocratos (admin@qvantnet.com)
