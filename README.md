@@ -3,6 +3,21 @@
 **Usage:** Linux resource monitor  
 **Language:** Bash  
 
+## Index
+
+* [Description](#description)
+* [Features](#features)
+* [Themes](#themes)
+* [Upcoming](#upcoming-(osx-and-bsd-support))
+* [Support and funding](#support-and-funding) (New)
+* [Compability](#compability)
+* [Dependencies](#dependencies)
+* [Screenshots](#screenshots)
+* [Installation](#installation)
+* [Configurability](#configurability)
+* [TODO](#todo) (Updated)
+* [License](#license)
+
 ## Description
 
 Resource monitor that shows usage and stats for processor, memory, disks, network and processes.
@@ -38,6 +53,7 @@ This will be in a new branch called bashtop-psutil when I'm done with inital tes
 
 Bug fixes and updates might be slow during normal workdays since i work full time as an industrial worker and don't have much time or energy left during the week.
 I'm looking into ways of funding this project that would allow me to take off time from my day job to work on this.
+
 Any advice on how to get funding for open source projects is very welcome!
 
 ## Compability
@@ -125,22 +141,24 @@ error_logging="true"
 
 #### Command line options: (not yet implemented)
 
-```
+``` bash
 USAGE: bashtop
 
 ```
 
-
-
 ## TODO
 
+In order of priority.
 
 - [x] TODO Add options to change colors for text, graphs and meters.
+- [ ] TODO Fix cross platform compatibility: Currently in testing, bashtop-psutil branch.
+- [ ] TODO Add gpu temp and usage. (If feasible)
+- [ ] TODO Add io stats for disks.
 - [ ] TODO Add options for resizing all boxes.
 - [ ] TODO Add command line argument parsing.
 - [ ] TODO Miscellaneous optimizations and code cleanup.
 - [ ] TODO Add more commenting where it's sparse.
 
-
 ## LICENSE
+
 [Apache License 2.0](LICENSE)
