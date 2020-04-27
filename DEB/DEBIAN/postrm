@@ -1,0 +1,4 @@
+#!/bin/bash  
+
+
+echo -e "[\033[1;32m successfully removed \033[0m]"

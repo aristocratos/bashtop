@@ -1,0 +1,4 @@
+#!/bin/bash  
+
+
+echo -e "[\033[1;32m starting intallation \033[0m]"
