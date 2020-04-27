@@ -194,7 +194,7 @@ init_() { #? Collect needed information and set options before startig main loop
 	local param_var
 	if [[ -e /usr/include/asm-generic/param.h ]]; then
 		param_var="$(</usr/include/asm-generic/param.h)"
-		get_value -v cpu[hz] -sv "param_var" -k "define HZ" -i
+		get_value -v 'cpu[hz]' -sv "param_var" -k "define HZ" -i
 	else 
 		cpu[hz]="100"
 	fi
@@ -212,7 +212,7 @@ init_() { #? Collect needed information and set options before startig main loop
 	collect_mem init
 
 	#* Get default network device from "ip route" command and call init for net collection
-	get_value -v net[device] -ss "$(ip route get 1.1.1.1)" -k "dev" -mk 1
+	get_value -v 'net[device]' -ss "$(ip route get 1.1.1.1)" -k "dev" -mk 1
 	collect_net init
 
 	#* Check if newer version of bashtop is available from https://github.com/aristocratos/bashtop
@@ -662,12 +662,12 @@ get_cpu_info() {
 	local lscpu_var param_var
 	lscpu_var="$(lscpu)"
 	if [[ -z ${cpu[threads]} || -z ${cpu[cores]} ]]; then
-		get_value -v cpu[threads] -sv "lscpu_var" -k "CPU(s):" -i
-		get_value -v cpu[cores] -sv "lscpu_var" -k "Core(s)" -i
+		get_value -v 'cpu[threads]' -sv "lscpu_var" -k "CPU(s):" -i
+		get_value -v 'cpu[cores]' -sv "lscpu_var" -k "Core(s)" -i
 	fi
 	if [[ -z $custom_cpu_name ]]; then
-		if ! get_value -v cpu[model] -sv "lscpu_var" -k "Model name:" -a -b -k "CPU" -mk -1; then
-			get_value -v cpu[model] -sv "lscpu_var" -k "Model name:" -r "  "
+		if ! get_value -v 'cpu[model]' -sv "lscpu_var" -k "Model name:" -a -b -k "CPU" -mk -1; then
+			get_value -v 'cpu[model]' -sv "lscpu_var" -k "Model name:" -r "  "
 		fi
 	else
 		cpu[model]="${custom_cpu_name}"
@@ -1184,7 +1184,7 @@ create_mini_graph() { 	#? Create a one line high graph from an array of percenta
 			#* Round current input_array value divided by 10 to closest whole number
 			org_value=${input_array[offset+x]}
 			if ((org_value<0)); then org_value=0; fi
-			if ((org_value==100)); then cur_value=10
+			if ((org_value>=100)); then cur_value=10
 			elif [[ ${#org_value} -gt 1 && ${org_value:(-1)} -ge 5 ]]; then cur_value=$((${org_value::1}+1))
 			elif [[ ${#org_value} -gt 1 && ${org_value:(-1)} -lt 5 ]]; then cur_value=$((${org_value::1}))
 			elif [[ ${org_value:(-1)} -ge 5 ]]; then cur_value=1
@@ -1356,14 +1356,14 @@ collect_cpu() { #? Collects cpu stats from /proc/stat and compares with previous
 	done
 	
 	#* Get current cpu frequency from "/proc/cpuinfo" and convert to appropriate unit
-	if [[ -z ${cpu[no_cpu_info]} ]] && ! get_value -v cpu[freq] -sf "/proc/cpuinfo" -k "cpu MHz" -i; then
+	if [[ -z ${cpu[no_cpu_info]} ]] && ! get_value -v 'cpu[freq]' -sf "/proc/cpuinfo" -k "cpu MHz" -i; then
 		cpu[no_cpu_info]=1
 	fi
 	
 	#* If getting cpu frequency from "proc/cpuinfo" was unsuccessfull try "/sys/devices/../../scaling_cur_freq"
 	if [[ -n ${cpu[no_cpu_info]} && -e "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq" ]]; then
-		get_value -v cpu[freq] -sf "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq" -i
-		printf -v cpu[freq] "%.0f0" "${cpu[freq]}e-4"
+		get_value -v 'cpu[freq]' -sf "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq" -i
+		printf -v 'cpu[freq]' "%.0f0" "${cpu[freq]}e-4"
 	fi
 
 	if ((${#cpu[freq]}>3)); then cpu[freq_string]="${cpu[freq]::-3}.${cpu[freq]:(-3):1} GHz"
@@ -1389,13 +1389,13 @@ collect_cpu_temps() { #? Collect cpu temperatures
 	sens_var="$(sensors)"
 
 	#* Get CPU package temp
-	if get_value -v cpu[temp_0] -sv "sens_var" -k "Package*:" -mk 1; then
+	if get_value -v 'cpu[temp_0]' -sv "sens_var" -k "Package*:" -mk 1; then
 
 		#* If successful get temperature unit, convert temp to integer and get high, crit and core temps
 		cpu[temp_unit]=${cpu[temp_0]:(-2)}; cpu[temp_0]=${cpu[temp_0]%.*}; if [[ ${cpu[temp_0]::1} == "+" ]]; then cpu[temp_0]=${cpu[temp_0]#+}; fi
 		if [[ -z ${cpu[temp_high]} ]]; then 
-			get_value -v "cpu[temp_high]" -sv "sens_var" -k "Package*high =" -m 2 -r "[^0-9.]" -b -i
-			get_value -v "cpu[temp_crit]" -sv "sens_var" -k "Package*crit =" -m 2 -r "[^0-9.]" -b -i
+			get_value -v 'cpu[temp_high]' -sv "sens_var" -k "Package*high =" -m 2 -r "[^0-9.]" -b -i
+			get_value -v 'cpu[temp_crit]' -sv "sens_var" -k "Package*crit =" -m 2 -r "[^0-9.]" -b -i
 		fi
 		for((i=0,it=1;i<threads;i++,it++)); do
 			if ! get_value -v "cpu[temp_${it}]" -sv "sens_var" -k "Core ${i}:" -mk 1 -r "[^0-9.-]" -b -i; then break; fi
@@ -1433,21 +1433,21 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 	#* Get memory and swap information from "/proc/meminfo" and calculate percentages
 	mem_info="$(</proc/meminfo)"
 	
-	get_value -v mem[total] -sv "mem_info" -k "MemTotal:" -i
-	get_value -v mem[available] -sv "mem_info" -k "MemAvailable:" -i
+	get_value -v 'mem[total]' -sv "mem_info" -k "MemTotal:" -i
+	get_value -v 'mem[available]' -sv "mem_info" -k "MemAvailable:" -i
 	mem[available_percent]=$((mem[available]*100/mem[total]))
 	
 	mem[used]=$((mem[total]-mem[available]))
 	mem[used_percent]=$((mem[used]*100/mem[total]))
 	
-	get_value -v mem[free] -sv "mem_info" -k "MemFree:" -i
+	get_value -v 'mem[free]' -sv "mem_info" -k "MemFree:" -i
 	mem[free_percent]=$((mem[free]*100/mem[total]))
 	
-	get_value -v mem[cached] -sv "mem_info" -k "Cached:" -i
+	get_value -v 'mem[cached]' -sv "mem_info" -k "Cached:" -i
 	mem[cached_percent]=$((mem[cached]*100/mem[total]))
 
 	if [[ -n $swap_on ]] && get_value -v swap[total] -sv "mem_info" -k "SwapTotal:" -i && ((swap[total]>0)); then
-		get_value -v swap[free] -sv "mem_info" -k "SwapFree:" -i
+		get_value -v 'swap[free]' -sv "mem_info" -k "SwapFree:" -i
 		swap[free_percent]=$((swap[free]*100/swap[total]))
 		
 		swap[used]=$((swap[total]-swap[free]))
@@ -2054,15 +2054,15 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 	done
 
 	#* Print load average and uptime
-	if ((pt_line+y+1<=p_height)); then
+	if ((pt_line+y+3<p_line+p_height)); then
 		local avg_string avg_width
 		if [[ $check_temp == true ]]; then avg_string="Load Average: "; avg_width=7; else avg_string="L AVG: "; avg_width=5; fi
 		print -v cpu_out_var -m $((pt_line+y+1)) $pt_col -fg ${theme[main_fg]} -t "${avg_string}"
 		for avg_string in ${cpu[load_avg]}; do
 			print -v cpu_out_var -jc $avg_width -t "${avg_string::4}"
 		done
-		print -v cpu_out_var -m $((line+height-1)) $((col+1)) -fg ${theme[inactive_fg]} -trans -t "up ${cpu[uptime]}"
 	fi
+	print -v cpu_out_var -m $((line+height-1)) $((col+1)) -fg ${theme[inactive_fg]} -trans -t "up ${cpu[uptime]}"
 
 	#* Print current CPU frequency right of the title in the meter box
 	if [[ -n ${cpu[freq_string]} ]]; then print -v cpu_out_var -m $((p_line-1)) $((p_col+p_width-5-${#cpu[freq_string]})) -fg ${theme[div_line]} -t "┤" -fg ${theme[title]} -b -t "${cpu[freq_string]}" -rs -fg ${theme[div_line]} -t "├"; fi

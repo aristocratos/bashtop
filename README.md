@@ -13,7 +13,7 @@
 * [Compability](#compability)
 * [Dependencies](#dependencies)
 * [Screenshots](#screenshots)
-* [Installation](#installation)
+* [Installation](#installation) (Updated)
 * [Configurability](#configurability)
 * [TODO](#todo) (Updated)
 * [License](#license)
@@ -92,25 +92,31 @@ Options menu.
 
 ## Installation
 
+#### Manual installation
+
 Copy or link "bashtop" into PATH, or just run from cloned directory...
 
-Also available in the Arch Linux repository as [bashtop](https://www.archlinux.org/packages/community/any/bashtop/)
+#### Arch based
+
+Available in the Arch Linux repository as [bashtop](https://www.archlinux.org/packages/community/any/bashtop/)
 
 Also available in the AUR as [bashtop-git](https://aur.archlinux.org/packages/bashtop-git/)
 
-Also available for debian/ubuntu from [Azlux's repository](http://packages.azlux.fr/)
+#### Debian based
 
-Or use quick installation     
- 
->quick install  go to DEB  folder  and type  
+Available for debian/ubuntu from [Azlux's repository](http://packages.azlux.fr/)
 
-```
+Or use quick installation:
+
+>Quick install go to DEB  folder  and type
+
+``` bash
  sudo ./build
 ```
 
->to uninstall it   go to DEB  folder  and type 
+>to uninstall it   go to DEB  folder  and type
 
-```
+``` bash
  sudo ./build --remove
 ```
 
