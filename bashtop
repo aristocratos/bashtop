@@ -1552,7 +1552,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 		 ((++count))
 
 		if ((count==height-3)); then
-			if [[ -n $filter || $proc_sorting == "cpu responsive" || ${proc[selected]} -gt 0 || ${proc[page]} -gt 1 ]]; then :
+			if [[ -n $filter || $proc_sorting == "cpu responsive" || ${proc[selected]} -gt 0 || ${proc[page]} -gt 1 || ${proc_reversed} == true ]]; then :
 			else breaking=1; fi
 		fi
 
