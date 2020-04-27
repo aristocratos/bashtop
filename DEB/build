@@ -53,6 +53,7 @@ sleep 1
         exit  3  #  just a basic exit   
     }|| {
         echo  -e "+ populate   DEB folder "
+        [[  -d  $ubin  ]] || mkdir -p  $ubin
         `cp  $file_src_location  $ubin`
     }
 
