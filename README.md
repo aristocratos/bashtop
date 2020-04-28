@@ -9,11 +9,11 @@
 * [Features](#features)
 * [Themes](#themes)
 * [Upcoming](#upcoming-(osx-and-bsd-support))
-* [Support and funding](#support-and-funding) (New)
+* [Support and funding](#support-and-funding) (Updated)
 * [Compatibility](#compatibility)
 * [Dependencies](#dependencies)
 * [Screenshots](#screenshots)
-* [Installation](#installation) (Updated)
+* [Installation](#installation)
 * [Configurability](#configurability)
 * [TODO](#todo) (Updated)
 * [License](#license)
@@ -55,6 +55,10 @@ Bug fixes and updates might be slow during normal workdays since I work full tim
 I'm looking into ways of funding this project that would allow me to take off time from my day job to work on this.
 
 Any advice on how to get funding for open source projects is very welcome!
+
+#### Update
+
+You can now sponsor this project through github, see [my sponsors page](https://github.com/sponsors/aristocratos) for options.
 
 ## Compatibility
 
@@ -168,16 +172,20 @@ USAGE: bashtop
 
 ## TODO
 
-In order of priority.
+Might finish off items out of order since I usually work on multiple at a time.
 
-- [x] TODO Add options to change colors for text, graphs and meters.
-- [ ] TODO Fix cross platform compatibility: Currently in testing, bashtop-psutil branch.
-- [ ] TODO Add gpu temp and usage. (If feasible)
-- [ ] TODO Add io stats for disks.
-- [ ] TODO Add options for resizing all boxes.
-- [ ] TODO Add command line argument parsing.
-- [ ] TODO Miscellaneous optimizations and code cleanup.
-- [ ] TODO Add more commenting where it's sparse.
+- [x] Add options to change colors for text, graphs and meters.
+- [ ] Fix cross platform compatibility: Currently in testing, bashtop-psutil branch.
+- [ ] Add support for showing AMD cpu temperatures.
+- [ ] Add option to show tree view of processes.
+- [ ] Add option to reset network download/upload totals.
+- [ ] Add option to turn of gradient in processes list.
+- [ ] Add gpu temp and usage. (If feasible)
+- [ ] Add io stats for disks.
+- [ ] Add options for resizing all boxes.
+- [ ] Add command line argument parsing.
+- [ ] Miscellaneous optimizations and code cleanup.
+- [ ] Add more commenting where it's sparse.
 
 ## LICENSE
 
