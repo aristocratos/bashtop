@@ -1,0 +1,66 @@
+# Changelog
+
+## v0.8.16
+
+* Added: Bash version check, by Calinou
+* Added: OS check, by kpucynski
+* Fixed: number of themes reported in options when theme folder is empty, by deluxe
+* Fixed: README.md typos, by lucaskim1233
+* Added: CHANGELOG.md
+
+## v0.8.15
+
+* Added: deb build script by Jukoo
+* Fixed: load avarage and uptime not showing
+* Fixed: freeze on reverse process order when showing detailed information
+* Fixed: single quotes on associative arrays
+
+## v0.8.14
+
+* Fixed: disks usage runaway array
+* Fixed: disks used not reporting new values
+* Change: memory and disks update frequency increased
+
+## v0.8.13
+
+* Fixed: get_value() regex
+* Added: 2 new themes, flat-remix and flat-remix-light, by Daniel Ruiz de Alegría
+* Other: general cleanup and formatting
+
+## v0.8.12
+
+* Fixed: changed remaining ps thcount flags to nlwp
+
+## v0.8.11
+
+* Fixed: ps flag thcount changed to nlwp for greater compability
+* Fixed: regex and float to int rounding in get_value()
+
+## v0.8.10
+
+* Fixed: erroneous regular expressions
+
+## v0.8.9
+
+* Added: functions is_int, is_float, is_hex
+* Fixes: error checking on internal functions
+
+## v0.8.8
+
+* Fixed: load average max length
+
+## v0.8.7
+
+* Fixed: load average clipping
+* Fixed: cpu box calculations error
+
+## v0.8.6
+
+* Added: load average and uptime
+* Fixed: cohesive window size representation
+* Added: unset LC_ALL to not override wanted locale
+* Fixed: cpu box calculation errors
+
+## v0.8.5
+
+* Fixed: cpu frequency and /proc/stat error checks
