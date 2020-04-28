@@ -10,7 +10,7 @@
 * [Themes](#themes)
 * [Upcoming](#upcoming-(osx-and-bsd-support))
 * [Support and funding](#support-and-funding) (New)
-* [Compability](#compability)
+* [Compatibility](#compatibility)
 * [Dependencies](#dependencies)
 * [Screenshots](#screenshots)
 * [Installation](#installation) (Updated)
@@ -47,23 +47,23 @@ Let me know if you want to contribute with new themes.
 Currently rewriting to use python3 [psutil](https://github.com/giampaolo/psutil) for data collection instead of linux specific tools.
 This will add python 3 and psutil as dependencies, but will make bashtop cross platform compatible.
 
-This will be in a new branch called bashtop-psutil when I'm done with inital testing
+This will be in a new branch called bashtop-psutil when I'm done with initial testing
 
 ## Support and funding
 
-Bug fixes and updates might be slow during normal workdays since i work full time as an industrial worker and don't have much time or energy left during the week.
+Bug fixes and updates might be slow during normal workdays since I work full time as an industrial worker and don't have much time or energy left during the week.
 I'm looking into ways of funding this project that would allow me to take off time from my day job to work on this.
 
 Any advice on how to get funding for open source projects is very welcome!
 
-## Compability
+## Compatibility
 
 Should work on most modern linux distributions with a truecolor capable terminal.
 
 ## Dependencies
 
 **[bash](https://www.gnu.org/software/bash/)** (v4.4 or later) Script functionality will most probably break with earlier versions.  
-Bash version 5 is higly recommended to make use of $EPOCHREALTIME variable instead of alot of external date command calls.
+Bash version 5 is highly recommended to make use of $EPOCHREALTIME variable instead of a lot of external date command calls.
 
 **[GNU Core Utilities](https://www.gnu.org/software/coreutils/)**
 
@@ -137,7 +137,7 @@ color_theme="Default"
 update_ms="2500"
 
 #* Processes sorting, "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive"
-#* "cpu lazy" upates sorting over time, "cpu responsive" updates sorting directly at a cpu usage cost
+#* "cpu lazy" updates sorting over time, "cpu responsive" updates sorting directly at a cpu usage cost
 proc_sorting="cpu lazy"
 
 #* Reverse sorting order, "true" or "false"
