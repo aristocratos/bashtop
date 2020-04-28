@@ -757,8 +757,7 @@ get_themes() {
 	for file in "${theme_dir}"/*.theme; do
 		file="${file##*/}"
 		if [[ ${file} != "*.theme" ]]; then themes+=("${file%.theme}"); fi
-		if [[ ${themes[-1]} == "${color_theme}" ]]; then theme_int=$i; fi
-		((i++))
+		if [[ ${themes[-1]} == "${color_theme}" ]]; then theme_int=${#themes[@]}-1; fi
 	done
 }
 
