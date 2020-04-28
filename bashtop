@@ -29,8 +29,6 @@
 #    limitations under the License.
 
 declare -x LC_MESSAGES="C" LC_NUMERIC="C" LC_ALL=""
-shopt -qu failglob nullglob
-shopt -qs extglob globasciiranges globstar
 
 #* Fail if Bash version is below 4.4
 bash_version_major="$(echo $BASH_VERSION | cut -d "." -f 1)"
@@ -46,6 +44,9 @@ else
 		exit 1
 	fi
 fi
+
+shopt -qu failglob nullglob
+shopt -qs extglob globasciiranges globstar
 
 declare -a banner banner_colors
 
