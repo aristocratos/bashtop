@@ -173,8 +173,24 @@ else
 	}
 fi
 
+system_check_() {
+    local system
+    case "$(uname -s)" in
+        Linux*)  system=Linux;;
+        Darwin*) system=MacOS;;
+        CYGWIN*) system=Cygwin;;
+        MINGW*)  system=MinGw;;
+        *)       system="Other"
+    esac
+    if [[ "$system" != "Linux" ]]; then
+        echo "This tool does not support $system platform."
+        exit 1
+    fi
+}
 
 init_() { #? Collect needed information and set options before startig main loop
+    system_check_
+
 	local i
 	#* Set terminal options, save and clear screen
 	tput smcup
