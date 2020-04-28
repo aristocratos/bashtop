@@ -1,4 +1,4 @@
-#!/bin/bash  
+#!/bin/bash
 
 
 echo -e "[\033[1;33m  removing packet from the system \033[0m]"

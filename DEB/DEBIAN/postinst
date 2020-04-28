@@ -1,4 +1,4 @@
-#!/bin/bash  
+#!/bin/bash
 
 
 echo -e "[\033[1;32m done \033[0m]"

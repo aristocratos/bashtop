@@ -1,7 +1,7 @@
 # ![bashtop](logo-t.png)
 
-**Usage:** Linux resource monitor  
-**Language:** Bash  
+**Usage:** Linux resource monitor
+**Language:** Bash
 
 ## Index
 
@@ -71,7 +71,7 @@ Should work on most modern linux distributions with a truecolor capable terminal
 
 ## Dependencies
 
-**[bash](https://www.gnu.org/software/bash/)** (v4.4 or later) Script functionality will most probably break with earlier versions.  
+**[bash](https://www.gnu.org/software/bash/)** (v4.4 or later) Script functionality will most probably break with earlier versions.
 Bash version 5 is highly recommended to make use of $EPOCHREALTIME variable instead of a lot of external date command calls.
 
 **[GNU Core Utilities](https://www.gnu.org/software/coreutils/)**
@@ -90,13 +90,13 @@ Bash version 5 is highly recommended to make use of $EPOCHREALTIME variable inst
 
 ## Screenshots
 
-Main UI showing details for a selected process.  
+Main UI showing details for a selected process.
 ![Screenshot 1](main.png)
 
-Main menu.  
+Main menu.
 ![Screenshot 2](menu.png)
 
-Options menu.  
+Options menu.
 ![Screenshot 3](options.png)
 
 ## Installation

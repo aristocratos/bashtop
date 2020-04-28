@@ -1,10 +1,10 @@
-Package: bashtop 
+Package: bashtop
 Version: 0.0.0
 Section: base
 Priority: optional
 Architecture: all
 Depends: bash (>= 4.4),curl (>= 7.16.2), coreutils, sed, awk, grep
-Maintainer: your_name  <xxx@xxx.xxx> 
-Description: Resource monitor that shows usage 
+Maintainer: your_name  <xxx@xxx.xxx>
+Description: Resource monitor that shows usage
     and stats for processor, memory, disks, network and processes
 Homepage: https://github.com/aristocratos/bashtop
