@@ -30,19 +30,26 @@
 
 declare -x LC_MESSAGES="C" LC_NUMERIC="C" LC_ALL=""
 
+#* Fail if running on unsupported OS
+case "$(uname -s)" in
+	Linux*)  system=Linux;;
+	Darwin*) system=MacOS;;
+	CYGWIN*) system=Cygwin;;
+	MINGW*)  system=MinGw;;
+	*)       system="Other"
+esac
+if [[ "$system" != "Linux" ]]; then
+	echo "This version of bashtop does not support $system platform."
+	exit 1
+fi
+
 #* Fail if Bash version is below 4.4
 bash_version_major="$(echo $BASH_VERSION | cut -d "." -f 1)"
 bash_version_minor="$(echo $BASH_VERSION | cut -d "." -f 2)"
-if [[ "$bash_version_major" -lt 4 ]]; then
+if [[ "$bash_version_major" -lt 4 ]] || [[ "$bash_version_major" == 4 && "$bash_version_minor" -lt 4 ]]; then
 	echo "ERROR: Bash 4.4 or later is required (you are using Bash $bash_version_major.$bash_version_minor)."
 	echo "       Consider upgrading your distribution to get a more recent Bash version."
 	exit 1
-else
-	if [[ "$bash_version_major" == 4 && "$bash_version_minor" -lt 4 ]]; then
-		echo "ERROR: Bash 4.4 or later is required (you are using Bash $bash_version_major.$bash_version_minor)."
-		echo "       Consider upgrading your distribution to get a more recent Bash version."
-		exit 1
-	fi
 fi
 
 shopt -qu failglob nullglob
@@ -189,24 +196,7 @@ else
 	}
 fi
 
-system_check_() {
-    local system
-    case "$(uname -s)" in
-        Linux*)  system=Linux;;
-        Darwin*) system=MacOS;;
-        CYGWIN*) system=Cygwin;;
-        MINGW*)  system=MinGw;;
-        *)       system="Other"
-    esac
-    if [[ "$system" != "Linux" ]]; then
-        echo "This tool does not support $system platform."
-        exit 1
-    fi
-}
-
 init_() { #? Collect needed information and set options before startig main loop
-    system_check_
-
 	local i
 	#* Set terminal options, save and clear screen
 	tput smcup
