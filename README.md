@@ -5,6 +5,7 @@
 
 ## Index
 
+* [Changelog](#changelog)
 * [Description](#description)
 * [Features](#features)
 * [Themes](#themes)
@@ -17,6 +18,10 @@
 * [Configurability](#configurability)
 * [TODO](#todo) (Updated)
 * [License](#license)
+
+## Changelog
+
+#### [CHANGELOG.md](CHANGELOG.md)
 
 ## Description
 
