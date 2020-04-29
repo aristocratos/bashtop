@@ -21,6 +21,8 @@ If applicable, add screenshots to help explain your problem.
 
 **Info (please complete the following information):**
  - Linux distribution and version
+ - Terminal used
+ - Font used
  - Bash version (version 4.4 or above is required)
 
 **Additional context**
