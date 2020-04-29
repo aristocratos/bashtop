@@ -128,6 +128,18 @@ Or use quick installation:
 ``` bash
  sudo ./build --remove
 ```
+#### Ubuntu based
+
+Available for Ubuntu from [PPA repository](https://code.launchpad.net/~bashtop-monitor/+archive/ubuntu/bashtop)
+
+>Add PPA repository and install bashtop
+
+``` bash
+ sudo add-apt-repository ppa:bashtop-monitor/bashtop
+ sudo apt update
+ sudo apt install bashtop
+
+```
 
 ## Configurability
 
