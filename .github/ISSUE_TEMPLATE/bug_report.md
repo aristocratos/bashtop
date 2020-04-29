@@ -28,7 +28,7 @@ assignees: aristocratos
  - Linux distribution and version: 
  - Terminal used: 
  - Font used: 
- - Bash version (version 4.4 or above is required): 
+ - Bash version, `bash --version` (version 4.4 or above is required): 
 
 **Additional context**
 
