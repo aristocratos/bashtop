@@ -722,6 +722,8 @@ get_value() { #? Get a value from a file, variable or array by searching for a n
 			shift
 		done
 
+		found=""
+
 		if [[ -z $input ]]; then return 1; fi
 		if [[ -z $line_nr && -z $key ]]; then line_nr=1; fi
 
@@ -1404,28 +1406,71 @@ collect_cpu() { #? Collects cpu stats from /proc/stat and compares with previous
 }
 
 collect_cpu_temps() { #? Collect cpu temperatures
-	local unit i it c div threads=${cpu[threads]} sens_var
+	local unit c div threads=${cpu[threads]} sens_var i it ccd_value breaking core_value
+	local -a ccd_array core_array
 
 	#* Fetch output from "sensors" command to a variable
 	sens_var="$(sensors)"
 
-	#* Get CPU package temp
+	#* Get CPU package temp for intel cpus
 	if get_value -v 'cpu[temp_0]' -sv "sens_var" -k "Package*:" -mk 1 || get_value -v 'cpu[temp_0]' -sv "sens_var" -k "Core 0:" -mk 1; then
-
-		#* If successful get temperature unit, convert temp to integer and get high, crit and core temps
+		#* If successful get temperature unit, convert temp to integer and get high and crit
 		cpu[temp_unit]=${cpu[temp_0]:(-2)}; cpu[temp_0]=${cpu[temp_0]%.*}; if [[ ${cpu[temp_0]::1} == "+" ]]; then cpu[temp_0]=${cpu[temp_0]#+}; fi
 		if [[ -z ${cpu[temp_high]} ]]; then 
-			get_value -v 'cpu[temp_high]' -sv "sens_var" -k "Package*high =" -m 2 -r "[^0-9.]" -b -i
-			get_value -v 'cpu[temp_crit]' -sv "sens_var" -k "Package*crit =" -m 2 -r "[^0-9.]" -b -i
+			if ! get_value -v 'cpu[temp_high]' -sv "sens_var" -k "Package*high =" -m 2 -r "[^0-9.]" -b -i; then cpu[temp_high]="85"; cpu[temp_crit]=$((cpu[temp_high]+10))
+			else get_value -v 'cpu[temp_crit]' -sv "sens_var" -k "Package*crit =" -m 2 -r "[^0-9.]" -b -i; fi
 		fi
-		for((i=0,it=1;i<threads;i++,it++)); do
-			if ! get_value -v "cpu[temp_${it}]" -sv "sens_var" -k "Core ${i}:" -mk 1 -r "[^0-9.-]" -b -i; then break; fi
-			#* If number of cores is less than number of threads copy current temp to "current core id"+"total cores"
-			if ((cpu[cores]<cpu[threads])); then
-				cpu[temp_$((it+cpu[cores]))]=${cpu[temp_${it}]}
-			fi
+
+		#* Get core temps
+		i=0
+		while get_value -v "core_value" -sv "sens_var" -k "Core ${i}:" -mk 1 -r "[^0-9.]" -b -i; do core_array+=("$core_value"); ((++i)) ; done
+
+		if [[ -z ${core_array[0]} ]]; then core_array=("${cpu[temp_0]}"); fi
+
+		if ((${#core_array[@]}<threads/2)); then
+			for((i=${#core_array[@]};i<threads/2;i++)); do
+				core_array+=("${cpu[temp_0]}")
+			done
+		fi
+
+		#* Copy core values to hyperthreading cores
+		i=1
+		for core_value in "${core_array[@]}"; do
+			cpu[temp_$((i))]="${core_value}"
+			cpu[temp_$((threads/2+i))]="${core_value}"
+			((i++))
 		done
 
+	#* Get CPU package temp for amd ryzen cpus
+	elif get_value -v 'cpu[temp_0]' -sv "sens_var" -k "Tdie:" -mk 1; then
+		#* If successful get temperature unit, convert temp to integer and get high
+		cpu[temp_unit]=${cpu[temp_0]:(-2)}; cpu[temp_0]=${cpu[temp_0]%.*}; if [[ ${cpu[temp_0]::1} == "+" ]]; then cpu[temp_0]=${cpu[temp_0]#+}; fi
+		if [[ -z ${cpu[temp_high]} ]]; then 
+			if ! get_value -v 'cpu[temp_high]' -sv "sens_var" -k "Tdie*high =" -m 2 -r "[^0-9.]" -b -i; then cpu[temp_high]="85"; fi
+			cpu[temp_crit]=$((cpu[temp_high]+10))
+		fi
+		
+		#* Get ccd module temps
+		i=1
+		while get_value -v "ccd_value" -sv "sens_var" -k "Tccd${i}:" -mk 1 -r "[^0-9.]" -b -i; do ccd_array+=("$ccd_value"); ((i++)) ; done
+
+		if [[ -z ${ccd_array[0]} ]]; then ccd_array=("${cpu[temp_0]}"); fi
+
+		#* Copy ccd values to cores in each ccd
+		z=1
+		for ccd_value in "${ccd_array[@]}"; do
+			for((i=0;i<threads/${#ccd_array[@]};i++)); do
+				cpu[temp_$((z+i))]="${ccd_value}"
+			done
+			z=$((z+i))
+		done
+
+	#* If unsuccessful turn off temperature checking
+	else
+		check_temp="false"
+	fi
+
+	if [[ $check_temp == true ]]; then
 		for((i=0;i<=threads;i++)); do
 			local -n cpu_temp_history="cpu_temp_history_$i"
 			if ((${#cpu_temp_history[@]}>15)); then
@@ -1434,11 +1479,6 @@ collect_cpu_temps() { #? Collect cpu temperatures
 				cpu_temp_history+=("$(( (${cpu[temp_${i}]}-15)*100/(cpu[temp_high]-15) ))")
 			fi
 		done
-		
-
-	#* If unsuccessful turn off temperature checking
-	else
-		check_temp="false"
 	fi
 }
 
@@ -2007,7 +2047,7 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 
 		if [[ $check_temp == true ]]; then
 			for((i=0;i<=threads;i++)); do
-				create_mini_graph -o "cpu_temp_graph_$i" -w 5 -c color_temp_graph "cpu_temp_history_$i"
+				if [[ -n ${cpu[temp_${i}]} ]]; then create_mini_graph -o "cpu_temp_graph_$i" -w 5 -c color_temp_graph "cpu_temp_history_$i"; fi
 			done
 		fi
 		((resized++))
@@ -2023,8 +2063,10 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 		done
 		if [[ $check_temp == true ]]; then
 			for((i=0;i<=threads;i++)); do
-				declare -n temp_hist="cpu_temp_history_${i}[-1]"
-				create_mini_graph -w 5 -c color_temp_graph -add-value "cpu_temp_graph_$i" ${temp_hist}
+				if [[ -n ${cpu[temp_${i}]} ]]; then
+					declare -n temp_hist="cpu_temp_history_${i}[-1]"
+					create_mini_graph -w 5 -c color_temp_graph -add-value "cpu_temp_graph_$i" ${temp_hist}
+				fi
 			done
 		fi
 	fi
@@ -2067,7 +2109,7 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 
 		print -v cpu_out_var -m $((pt_line+y)) $pt_col -rs -fg $p_normal_color -jl 7 -t "$name" -fg ${theme[inactive_fg]} "⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀" -l 10 -t "$meter"\
 		-fg $cpu_p_color -jr 4 -t "${cpu_usage[i]}" -fg $p_normal_color -t "%"
-		if [[ $check_temp == true ]]; then
+		if [[ $check_temp == true && -n ${cpu[temp_${i}]} ]]; then
 			print -v cpu_out_var -fg ${theme[inactive_fg]} "  ⡀⡀⡀⡀⡀" -l 7 -t "  ${!temp_name}" -fg $temp_color -jr 4 -t ${cpu[temp_${i}]} -fg $p_normal_color -t ${cpu[temp_unit]}
 		fi
 
