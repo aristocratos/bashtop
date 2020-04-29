@@ -226,6 +226,12 @@ init_() { #? Collect needed information and set options before startig main loop
 	proc[pid_len]=${#proc[pid_max]}
 	if [[ ${proc[pid_len]} -lt 5 ]]; then proc[pid_len]=5; fi
 
+	#* Wait for resize if terminal size is smaller then 80x24
+	if (($tty_width<80 | $tty_height<24)); then resized; fi
+
+	#* Calculate sizes of boxes
+	calc_sizes
+
 	#* Call init for cpu data collection
 	collect_cpu init
 
@@ -286,13 +292,6 @@ init_() { #? Collect needed information and set options before startig main loop
 	else
 		unset 'proc[reverse]'
 	fi
-
-	#* Wait for resize if terminal size is smaller then 80x24
-	if (($tty_width<80 | $tty_height<24)); then resized; fi
-	
-	#* Calculate sizes of boxes
-	calc_sizes
-	
 
 	#* Call init for processes data collection
 	proc[selected]=0
@@ -1488,7 +1487,7 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 	if ((mem[counter]<5)); then return; fi
 	mem[counter]=0
 
-	local i tmp value array mem_info
+	local i tmp value array mem_info height=$((box[mem_height]-2))
 	local -a mem_array swap_array available=("mem")
 
 	#* Get memory and swap information from "/proc/meminfo" and calculate percentages
@@ -1543,9 +1542,8 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 		disks_free+=("$(floating_humanizer -s 1 -B ${line_array[3]})")
 		disks_free_percent+=("$((100-${line_array[4]%'%'}))")
 
+		if ((${#disks_name[@]}>=height/2)); then break; fi
 	done
-
-
 
 }
 
