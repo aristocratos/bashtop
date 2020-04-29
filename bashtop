@@ -287,8 +287,8 @@ init_() { #? Collect needed information and set options before startig main loop
 		unset 'proc[reverse]'
 	fi
 
-	#* Wait for resize if terminal size is smaller then 80x25
-	if (($tty_width<80 | $tty_height<25)); then resized; fi
+	#* Wait for resize if terminal size is smaller then 80x24
+	if (($tty_width<80 | $tty_height<24)); then resized; fi
 	
 	#* Calculate sizes of boxes
 	calc_sizes
@@ -470,7 +470,7 @@ resized() { #? Get new terminal size if terminal is resized
 	unset winches
 	while ((++winches<5)); do
 		read tty_height tty_width < <(stty size)
-		if (($tty_width<80 | $tty_height<25)); then 
+		if (($tty_width<80 | $tty_height<24)); then 
 			size_error_msg
 			winches=0
 		else
@@ -488,7 +488,7 @@ size_error_msg() { #? Shows error message if terminal size is below 80x25
 	tput clear
 	create_box -full -lc "#EE2020" -title "resize window"
 	print -rs -m $((tty_height/2-1)) 2 -fg ${theme[title]} -c -l 11 "Current size: " -bg "#00" -fg dd2020 -d 1 -c "${tty_width}x${tty_height}" -rs
-	print -d 1 -fg ${theme[title]} -c -l 15 "Need to be atleast:" -bg "#00" -fg 30dd50 -d 1 -c "80x25" -rs
+	print -d 1 -fg ${theme[title]} -c -l 15 "Need to be atleast:" -bg "#00" -fg 30dd50 -d 1 -c "80x24" -rs
 	while [[ $(stty size) == "$tty_height $tty_width" ]]; do sleep 0.2; done
 	
 }
