@@ -14,7 +14,7 @@ readonly   file_src_location=../bashtop             #  bashtop location  ^
 readonly   ubin=usr/bin/
 readonly   file_name=${file_src_location##*/}         
 readonly   ctrl_file=DEBIAN/control 
-readonly   architecture=amd64                       # for all architectures 
+readonly   architecture=`dpkg --print-architecture` # for all architectures 
 readonly   root_uid=0
 declare    version  build_version  
 
