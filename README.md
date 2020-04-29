@@ -11,7 +11,7 @@
 * [Themes](#themes)
 * [Upcoming](#upcoming-(osx-and-bsd-support))
 * [Support and funding](#support-and-funding) (Updated)
-* [Compatibility](#compatibility)
+* [Compatibility](#compatibility) (Updated)
 * [Dependencies](#dependencies)
 * [Screenshots](#screenshots)
 * [Installation](#installation)
@@ -67,7 +67,16 @@ You can now sponsor this project through github, see [my sponsors page](https://
 
 ## Compatibility
 
-Should work on most modern linux distributions with a truecolor capable terminal.
+Should work on most modern linux distributions.
+
+For correct display, a terminal with support for:
+* 24-bit truecolor
+* Wide characters
+
+Also needs a UTF8 locale and a font that covers:
+* Unicode Block “Braille Patterns” U+2800 - U+28FF
+* Unicode Block “Geometric Shapes” U+25A0 - U+25FF
+* Unicode Block "Box Drawing" and "Block Elements" U+2500 - U+259F
 
 ## Dependencies
 
