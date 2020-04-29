@@ -1410,7 +1410,7 @@ collect_cpu_temps() { #? Collect cpu temperatures
 	sens_var="$(sensors)"
 
 	#* Get CPU package temp
-	if get_value -v 'cpu[temp_0]' -sv "sens_var" -k "Package*:" -mk 1; then
+	if get_value -v 'cpu[temp_0]' -sv "sens_var" -k "Package*:" -mk 1 || get_value -v 'cpu[temp_0]' -sv "sens_var" -k "Core 0:" -mk 1; then
 
 		#* If successful get temperature unit, convert temp to integer and get high, crit and core temps
 		cpu[temp_unit]=${cpu[temp_0]:(-2)}; cpu[temp_0]=${cpu[temp_0]%.*}; if [[ ${cpu[temp_0]::1} == "+" ]]; then cpu[temp_0]=${cpu[temp_0]#+}; fi
