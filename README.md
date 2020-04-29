@@ -190,7 +190,7 @@ Might finish off items out of order since I usually work on multiple at a time.
 
 - [x] Add options to change colors for text, graphs and meters.
 - [ ] Fix cross platform compatibility: Currently in testing, bashtop-psutil branch.
-- [ ] Add support for showing AMD cpu temperatures.
+- [x] Add support for showing AMD cpu temperatures.
 - [ ] Add option to show tree view of processes.
 - [ ] Add option to reset network download/upload totals.
 - [ ] Add option to turn of gradient in processes list.
