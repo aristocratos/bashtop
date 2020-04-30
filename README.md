@@ -13,12 +13,12 @@
 * [Features](#features)
 * [Themes](#themes)
 * [Upcoming](#upcoming-(osx-and-bsd-support))
-* [Support and funding](#support-and-funding) (Updated)
+* [Support and funding](#support-and-funding)
 * [Compatibility](#compatibility) (Updated)
 * [Dependencies](#dependencies)
 * [Screenshots](#screenshots)
 * [Installation](#installation)
-* [Configurability](#configurability)
+* [Configurability](#configurability) (Updated)
 * [TODO](#todo) (Updated)
 * [License](#license)
 
@@ -149,7 +149,7 @@ Config files stored in "$HOME/.config/bashtop" folder
 #### bashtop.cfg: (auto generated if not found)
 
 ```bash
-#? Config file for bashtop v. 0.8.0
+#? Config file for bashtop v. 0.8.18
 
 #* Color theme, looks for a .theme file in "$HOME/.config/bashtop/themes", "Default" for builtin default theme
 color_theme="Default"
@@ -168,7 +168,7 @@ proc_reversed="false"
 check_temp="true"
 
 #* Draw a clock at top of screen, formatting according to strftime, empty string to disable
-draw_clock="%R"
+draw_clock="%X"
 
 #* Update main ui when menus are showing, set this to false if the menus is flickering too much for comfort
 background_update="true"
@@ -178,6 +178,12 @@ custom_cpu_name=""
 
 #* Enable error logging to "$HOME/.config/bashtop/error.log", "true" or "false"
 error_logging="true"
+
+#* Show color gradient in process list, "true" or "false"
+proc_gradient="true"
+
+#* Optional filter for shown disks, should be names of mountpoints, "root" replaces "/", separate multiple values with space
+disks_filter=""
 ```
 
 #### Command line options: (not yet implemented)
@@ -195,8 +201,8 @@ Might finish off items out of order since I usually work on multiple at a time.
 - [ ] Fix cross platform compatibility: Currently in testing, bashtop-psutil branch.
 - [x] Add support for showing AMD cpu temperatures.
 - [ ] Add option to show tree view of processes.
-- [ ] Add option to reset network download/upload totals.
-- [ ] Add option to turn of gradient in processes list.
+- [x] Add option to reset network download/upload totals.
+- [x] Add option to turn of gradient in processes list.
 - [ ] Add gpu temp and usage. (If feasible)
 - [ ] Add io stats for disks.
 - [ ] Add options for resizing all boxes.
