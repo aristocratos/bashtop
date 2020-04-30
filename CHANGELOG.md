@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.17
+
+* Fixed: Not showing CPU temperatures when "Package" temp is missing
+* Added: CPU temperature support for AMD Ryzen
+* Changed: Minimum size changed from 80x25 to 80x24
+* Fixed: High cpu usage on systems with a lot of mounted disks
+
 ## v0.8.16
 
 * Added: Bash version check, by Calinou
@@ -19,7 +26,7 @@
 
 * Fixed: disks usage runaway array
 * Fixed: disks used not reporting new values
-* Change: memory and disks update frequency increased
+* Changed: memory and disks update frequency increased
 
 ## v0.8.13
 

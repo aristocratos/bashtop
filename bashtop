@@ -1476,6 +1476,7 @@ collect_cpu_temps() { #? Collect cpu temperatures
 		i=0
 		while get_value -v "core_value" -sv "sens_var" -k "Core ${i}:" -mk 1 -r "[^0-9.]" -b -i; do core_array+=("$core_value"); ((++i)) ; done
 
+
 		if [[ -z ${core_array[0]} ]]; then core_array=("${cpu[temp_0]}"); fi
 
 		if ((${#core_array[@]}<threads/2)); then
@@ -1483,6 +1484,7 @@ collect_cpu_temps() { #? Collect cpu temperatures
 				core_array+=("${cpu[temp_0]}")
 			done
 		fi
+
 
 		#* Copy core values to hyperthreading cores
 		i=1
