@@ -104,6 +104,9 @@ error_logging="true"
 #* Show color gradient in process list, "true" or "false"
 proc_gradient="true"
 
+#* Optional filter for shown disks, should be names of mountpoints, "root" replaces "/", separate multiple values with space
+disks_filter=""
+
 aaz_config() { : ; } #! Do not remove this line!
 #? End default variables-------------------------------------------------------------------------------->
 
@@ -140,7 +143,7 @@ declare -a cpu_usage cpu_graph_a cpu_graph_b color_meter color_temp_graph color_
 declare -a mem_history swap_history net_history_download net_history_upload mem_graph swap_graph proc_array download_graph upload_graph trace_array
 declare resized=1 size_error clock tty_width tty_height hex="16#" cpu_p_box swap_on=1 draw_out esc_character boxes_out last_screen clock_out update_string
 declare -a options_array=("color_theme" "update_ms" "proc_sorting" "check_temp" "draw_clock" "background_update" "custom_cpu_name"
-		"proc_reversed" "proc_gradient" "error_logging")
+		"proc_reversed" "proc_gradient" "disks_filter" "error_logging")
 declare -a save_array=("${options_array[@]}" "proc_reversed")
 declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" )
 declare -a pid_history detail_graph detail_history detail_mem_history
@@ -1491,7 +1494,7 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 	if ((mem[counter]<5)); then return; fi
 	mem[counter]=0
 
-	local i tmp value array mem_info height=$((box[mem_height]-2))
+	local i tmp value array mem_info height=$((box[mem_height]-2)) skip filter_value
 	local -a mem_array swap_array available=("mem")
 
 	#* Get memory and swap information from "/proc/meminfo" and calculate percentages
@@ -1540,11 +1543,25 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 
 		if [[ ${line_array[5]} == "/" ]]; then disks_name+=("root")
 		else disks_name+=("${line_array[5]##*/}"); fi
-		disks_total+=("$(floating_humanizer -s 1 -B ${line_array[1]})")
-		disks_used+=("$(floating_humanizer -s 1 -B ${line_array[2]})")
-		disks_used_percent+=("${line_array[4]%'%'}")
-		disks_free+=("$(floating_humanizer -s 1 -B ${line_array[3]})")
-		disks_free_percent+=("$((100-${line_array[4]%'%'}))")
+		
+		#* Filter disks showed if $disks_filter is set
+		if [[ -n $disks_filter ]]; then
+			unset found
+			for filter_value in ${disks_filter}; do
+				if [[ $filter_value == "${disks_name[-1]}" ]]; then found=1; fi
+			done
+		fi
+
+		if [[ -z $disks_filter || -n $found ]]; then
+			disks_total+=("$(floating_humanizer -s 1 -B ${line_array[1]})")
+			disks_used+=("$(floating_humanizer -s 1 -B ${line_array[2]})")
+			disks_used_percent+=("${line_array[4]%'%'}")
+			disks_free+=("$(floating_humanizer -s 1 -B ${line_array[3]})")
+			disks_free_percent+=("$((100-${line_array[4]%'%'}))")
+		else
+			unset 'disks_name[-1]'
+			disks_name=("${disks_name[@]}")
+		fi
 
 		if ((${#disks_name[@]}>=height/2)); then break; fi
 	done
@@ -2861,6 +2878,13 @@ options_() { #? Shows the options overlay
 	desc_proc_gradient=("Show color gradient in process list."
 						" "
 						"True or False.")
+	desc_disks_filter=("Optional filter for shown disks."
+						" "
+						"Should be names of mountpoints."
+						"\"root\" replaces \"/\""
+						" "
+						"Separate multiple values with space."
+						"Example: \"root home external\"")
 
 	if [[ -n $pause_screen ]]; then from_menu=1; fi
 
@@ -3010,7 +3034,7 @@ options_() { #? Shows the options overlay
 							unset inputting inputting_value
 						fi
 					;;
-				"update_ms backspace"|"draw_clock backspace"|"custom_cpu_name backspace")
+				"update_ms backspace"|"draw_clock backspace"|"custom_cpu_name backspace"|"disks_filter backspace")
 						if [[ ${#inputting_value} -gt 0 ]]; then
 							inputting_value="${inputting_value::-1}"
 						fi
@@ -3025,6 +3049,10 @@ options_() { #? Shows the options overlay
 				"custom_cpu_name enter")
 						if [[ -z $inputting ]]; then inputting=1; inputting_value="${custom_cpu_name}"
 						else custom_cpu_name="${inputting_value}"; changed_cpu_name=1; unset inputting inputting_value; fi
+					;;
+				"disks_filter enter")
+						if [[ -z $inputting ]]; then inputting=1; inputting_value="${disks_filter}"
+						else disks_filter="${inputting_value}"; mem[counter]=10; resized=1; unset inputting inputting_value; fi
 					;;	
 				"check_temp"*|"error_logging"*|"background_update"*|"proc_reversed"*|"proc_gradient"*)
 						local -n selected_var=${selected}
@@ -3068,7 +3096,7 @@ options_() { #? Shows the options overlay
 						if ((${#desc_color_theme[@]}>8)); then unset 'desc_color_theme[-1]'; fi
 						desc_color_theme+=("Checking for new themes...")
 					;;
-				"draw_clock"*|"custom_cpu_name"*)
+				"draw_clock"*|"custom_cpu_name"*|"disks_filter"*)
 						inputting_value+="${keypress//[\\\$\"\']/}"
 					;;
 			esac
