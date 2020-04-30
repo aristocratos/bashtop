@@ -44,8 +44,8 @@ if [[ "$system" != "Linux" ]]; then
 fi
 
 #* Fail if Bash version is below 4.4
-bash_version_major="$(echo $BASH_VERSION | cut -d "." -f 1)"
-bash_version_minor="$(echo $BASH_VERSION | cut -d "." -f 2)"
+bash_version_major=${BASH_VERSINFO[0]}
+bash_version_minor=${BASH_VERSINFO[1]}
 if [[ "$bash_version_major" -lt 4 ]] || [[ "$bash_version_major" == 4 && "$bash_version_minor" -lt 4 ]]; then
 	echo "ERROR: Bash 4.4 or later is required (you are using Bash $bash_version_major.$bash_version_minor)."
 	echo "       Consider upgrading your distribution to get a more recent Bash version."
@@ -2274,7 +2274,7 @@ draw_processes() { #? Draw processes and values to screen
 		pid_add_g=$(( (pid_g-(pid_g/6) )/height))
 		pid_add_b=$(( (pid_b-(pid_b/6) )/height))
 	fi
-	
+
 	unset proc_out
 
 	#* Details box
