@@ -64,7 +64,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.8.17"
+declare version="0.8.18"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -144,7 +144,7 @@ declare -a mem_history swap_history net_history_download net_history_upload mem_
 declare resized=1 size_error clock tty_width tty_height hex="16#" cpu_p_box swap_on=1 draw_out esc_character boxes_out last_screen clock_out update_string
 declare -a options_array=("color_theme" "update_ms" "proc_sorting" "check_temp" "draw_clock" "background_update" "custom_cpu_name"
 		"proc_reversed" "proc_gradient" "disks_filter" "net_totals_reset" "error_logging")
-declare -a save_array=("${options_array[@]}" "proc_reversed")
+declare -a save_array=(${options_array[*]/net_totals_reset/})
 declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" )
 declare -a pid_history detail_graph detail_history detail_mem_history
 declare time_left timestamp_start timestamp_end timestamp_input_start timestamp_input_end time_string mem_out proc_misc prev_screen pause_screen filter input_to_filter
@@ -2921,7 +2921,7 @@ options_() { #? Shows the options overlay
 			draw_banner "$((tty_height/2-11))" options_misc
 			create_box -v options_misc -w 29 -h $((height*2+2)) -l $line -c $((col-1)) -fill -lc ${theme[div_line]} -title "options"
 			if [[ -n $pages ]]; then
-				print -v options_misc -m $((line)) $((col+29-18)) -rs -fg ${theme[div_line]} -t "┤" -fg ${theme[hi_fg]} -b -t "‹p" -fg ${theme[title]} -t " page ${page}/${pages} "  -fg ${theme[hi_fg]} -t "n›" -rs -fg ${theme[div_line]} -t "├"
+				print -v options_misc -m $((line)) $((col+29-17)) -rs -fg ${theme[div_line]} -t "┤" -fg ${theme[hi_fg]} -b -t "p" -fg ${theme[title]} -t " page ${page}/${pages} "  -fg ${theme[hi_fg]} -t "n" -rs -fg ${theme[div_line]} -t "├"
 			fi
 		fi
 		
@@ -3136,7 +3136,7 @@ options_() { #? Shows the options overlay
 		get_ms timestamp_end
 		time_left=$((timestamp_start+update_ms-timestamp_end))
 		if ((time_left<=0 | resized>0)); then get_ms timestamp_start; collect_and_draw; fi
-		if ((resized>0)); then resized=0; fi
+		if ((resized>0)); then resized=0; page=1; selected_int=0; fi
 
 		if [[ -n $updated_ms ]] && ((updated_ms++==2)); then
 			unset updated_ms
@@ -3280,7 +3280,7 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 		if [[ $key == "${enter_key}" ]]; then key="enter"
 		elif [[ $key == "${backspace}" ]]; then key="backspace"
 		elif [[ $key == "${tab}" ]]; then key="tab"
-		elif [[ $key == "$esc_character" ]]; then esc=1; read -rsn3 -t 0.0001 key || true; fi
+		elif [[ $key == "$esc_character" ]]; then esc=1; read -rsn3 -t 0.0001 key >/dev/null 2>&1 || true; fi
 		if [[ -z $key && $esc -eq 1 ]]; then key="escape"
 		elif [[ $esc -eq 1 ]]; then
 			case "${key}" in
@@ -3360,7 +3360,7 @@ process_input() { #? Process keypresses for main ui
 			;;
 			down|tab) #* Move process selector down one
 				if ! ((proc[page]==proc[pages] & proc[selected]>=box[processes_height]-3)); then
-					if ((++proc[selected]==1)); then collect_processes now; proc[detailed_change]=1; fi
+					if ((++proc[selected]==1)); then proc[detailed_change]=1; fi
 					if ((proc[selected]>box[processes_height]-3)); then ((proc[page]++)); proc[selected]=1; fi
 					proc[page_change]=1
 				fi

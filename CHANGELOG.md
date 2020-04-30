@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.18
+* Added: Pagination for help and options windows if items don't fit
+* Added: Option to turn off color gradient in process list
+* Changed: bash version check to use $BASH_VERSINFO array
+* Added: Filter for shown disks
+* Added: Option to reset network totals in options menu
+
 ## v0.8.17
 
 * Fixed: Not showing CPU temperatures when "Package" temp is missing
