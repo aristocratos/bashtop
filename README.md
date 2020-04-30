@@ -1,7 +1,9 @@
-# ![bashtop](logo-t.png)
+# ![bashtop](Imgs/logo-t.png)
 
-**Usage:** Linux resource monitor  
-**Language:** Bash  
+![os](https://img.shields.io/badge/Os-Linux-yellow)
+![usage](https://img.shields.io/badge/Usage-Linux%20resource%20monitor-red) 
+![Bash](https://img.shields.io/badge/Bash-v4.4%5E-blue) 
+![bashtop_version](https://img.shields.io/badge/BashTop-v0.8.17-brightgreen)
 
 ## Index
 
@@ -9,7 +11,7 @@
 * [Description](#description)
 * [Features](#features)
 * [Themes](#themes)
-* [Upcoming](#upcoming-(osx-and-bsd-support))
+* [Upcoming](#upcoming-(osx-and-bsd-support)
 * [Support and funding](#support-and-funding) (Updated)
 * [Compatibility](#compatibility) (Updated)
 * [Dependencies](#dependencies)
@@ -100,13 +102,13 @@ Bash version 5 is highly recommended to make use of $EPOCHREALTIME variable inst
 ## Screenshots
 
 Main UI showing details for a selected process.  
-![Screenshot 1](main.png)
+![Screenshot 1](Imgs/main.png)
 
 Main menu.  
-![Screenshot 2](menu.png)
+![Screenshot 2](Imgs/menu.png)
 
 Options menu.  
-![Screenshot 3](options.png)
+![Screenshot 3](Imgs/options.png)
 
 ## Installation
 
