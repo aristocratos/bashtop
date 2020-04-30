@@ -4,7 +4,7 @@
 ![usage](https://img.shields.io/badge/Usage-Linux%20resource%20monitor-red) 
 ![Bash](https://img.shields.io/badge/Bash-v4.4%5E-blue) 
 ![bashtop_version](https://img.shields.io/github/v/tag/aristocratos/bashtop?label=version)
-[![Donate](https://img.shields.io/badge/-Donate-blueviolet)](https://github.com/sponsors/aristocratos)
+[![Donate](https://img.shields.io/badge/-Donate-green)](https://github.com/sponsors/aristocratos)
 
 ## Index
 
