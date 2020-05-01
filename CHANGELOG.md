@@ -1,6 +1,14 @@
 # Changelog
 
+## v0.8.19
+
+* Added: Disks read and write stats, requires new optional dependency "iostat (part of sysstat)"
+* Fixed: Ctrl-C not working when showing resize error message
+* Fixed: Network download/upload offset auto switched off if /proc/net/dev resets
+* Fixed: Removed trailing whitespace in script
+
 ## v0.8.18
+
 * Added: Pagination for help and options windows if items don't fit
 * Added: Option to turn off color gradient in process list
 * Changed: bash version check to use $BASH_VERSINFO array
