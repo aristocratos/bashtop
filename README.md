@@ -5,8 +5,8 @@
 ![Bash](https://img.shields.io/badge/Bash-v4.4%5E-green?logo=GNU%20bash) 
 ![bashtop_version](https://img.shields.io/github/v/tag/aristocratos/bashtop?label=version)
 [![Donate](https://img.shields.io/badge/-Donate-yellow?logo=paypal)](https://paypal.me/aristocratos)
-[![Donate](https://img.shields.io/badge/-Sponsor-red?logo=github)](https://github.com/sponsors/aristocratos)
-
+[![Sponsor](https://img.shields.io/badge/-Sponsor-red?logo=github)](https://github.com/sponsors/aristocratos)
+[![Coffee](https://img.shields.io/badge/-Buy%20me%20a%20Coffee-grey?logo=Ko-fi)](https://ko-fi.com/aristocratos)
 ## Index
 
 * [Changelog](#changelog)
@@ -68,6 +68,10 @@ Any advice on how to get funding for open source projects is very welcome!
 #### Update
 
 You can now sponsor this project through github, see [my sponsors page](https://github.com/sponsors/aristocratos) for options.
+
+Also added donation links for [paypal](https://paypal.me/aristocratos) and [ko-fi](https://ko-fi.com/aristocratos).
+
+Any support is greatly appreciated!
 
 ## Compatibility
 
