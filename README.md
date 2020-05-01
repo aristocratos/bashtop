@@ -239,7 +239,7 @@ Might finish off items out of order since I usually work on multiple at a time.
 - [x] Add option to reset network download/upload totals.
 - [x] Add option to turn of gradient in processes list.
 - [ ] Add gpu temp and usage. (If feasible)
-- [ ] Add io stats for disks.
+- [x] Add io stats for disks.
 - [ ] Add options for resizing all boxes.
 - [ ] Add command line argument parsing.
 - [ ] Miscellaneous optimizations and code cleanup.
