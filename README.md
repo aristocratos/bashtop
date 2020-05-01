@@ -14,13 +14,13 @@
 * [Features](#features)
 * [Themes](#themes)
 * [Upcoming](#upcoming-(osx-and-bsd-support))
-* [Support and funding](#support-and-funding)
+* [Support and funding](#support-and-funding) (Updated)
 * [Compatibility](#compatibility) (Updated)
 * [Dependencies](#dependencies)
 * [Screenshots](#screenshots)
-* [Installation](#installation)
+* [Installation](#installation) (Updated)
 * [Configurability](#configurability) (Updated)
-* [TODO](#todo) (Updated)
+* [TODO](#todo)
 * [License](#license)
 
 ## Changelog
@@ -120,13 +120,26 @@ Options menu.
 
 #### Manual installation
 
-Copy or link "bashtop" into PATH, or just run from cloned directory...
+Copy or link "bashtop" into PATH, or install with Makefile:
+
+>From cloned directory
+
+``` bash
+ sudo make install
+```
+
+>to uninstall it
+
+``` bash
+ sudo make uninstall
+```
+
 
 #### Arch based
 
-Available in the Arch Linux repository as [bashtop](https://www.archlinux.org/packages/community/any/bashtop/)
+Available in the AUR as [bashtop-git](https://aur.archlinux.org/packages/bashtop-git/)
 
-Also available in the AUR as [bashtop-git](https://aur.archlinux.org/packages/bashtop-git/)
+Available in the Arch Linux repository as [bashtop](https://www.archlinux.org/packages/community/any/bashtop/) (Flagged out-of-date on 2020-04-28)
 
 #### Debian based
 
