@@ -495,7 +495,7 @@ size_error_msg() { #? Shows error message if terminal size is below 80x25
 	create_box -full -lc "#EE2020" -title "resize window"
 	print -rs -m $((tty_height/2-1)) 2 -fg ${theme[title]} -c -l 11 "Current size: " -bg "#00" -fg dd2020 -d 1 -c "${tty_width}x${tty_height}" -rs
 	print -d 1 -fg ${theme[title]} -c -l 15 "Need to be atleast:" -bg "#00" -fg 30dd50 -d 1 -c "80x24" -rs
-	while [[ $(stty size) == "$tty_height $tty_width" ]]; do sleep 0.2; done
+	while [[ $(stty size) == "$tty_height $tty_width" ]]; do sleep 0.2; if [[ -n $quitting ]]; then quit_; fi ; done
 	
 }
 
@@ -1843,7 +1843,7 @@ collect_net() { #? Collect information from "/proc/net/dev"
 
 		if [[ -n ${net[old_${direction}]} ]]; then
 			#* Get total, convert to floating point and format string to best fitting unit in Bytes
-			if ((net[reset]==1)) && [[ -z ${net[total_offset_${direction}]} ]]; then net[total_offset_${direction}]=${net[new_${direction}]}
+			if ((net[reset]==1)) && [[ -z ${net[total_offset_${direction}]} || ${net[total_offset_${direction}]} -gt ${net[new_${direction}]} ]]; then net[total_offset_${direction}]=${net[new_${direction}]}
 			elif ((net[reset]==0)) && [[ -n ${net[total_offset_${direction}]} ]]; then unset "net[total_offset_${direction}]"; fi
 
 			floating_humanizer -Byte -v net[total_${direction}] $((${net[new_${direction}]}-${net[total_offset_${direction}]:-0}))
@@ -2906,7 +2906,7 @@ options_() { #? Shows the options overlay
 		
 		if [[ $background_update == true || -n $redraw_misc ]]; then
 			draw_clock
-			pause_ options_pause
+			if [[ -z $inputting ]]; then pause_ options_pause; fi
 		else
 			unset options_pause
 		fi
@@ -3135,7 +3135,7 @@ options_() { #? Shows the options overlay
 
 		get_ms timestamp_end
 		time_left=$((timestamp_start+update_ms-timestamp_end))
-		if ((time_left<=0 | resized>0)); then get_ms timestamp_start; collect_and_draw; fi
+		if ((time_left<=0 | resized>0)); then get_ms timestamp_start; if [[ -z $inputting ]]; then collect_and_draw; fi; fi
 		if ((resized>0)); then resized=0; page=1; selected_int=0; fi
 
 		if [[ -n $updated_ms ]] && ((updated_ms++==2)); then
