@@ -1,12 +1,13 @@
 # ![bashtop](Imgs/logo-t.png)
 
 ![os](https://img.shields.io/badge/Os-Linux-yellow?logo=linux)
-![usage](https://img.shields.io/badge/Usage-Linux%20resource%20monitor-red) 
-![Bash](https://img.shields.io/badge/Bash-v4.4%5E-green?logo=GNU%20bash) 
+![usage](https://img.shields.io/badge/Usage-Linux%20resource%20monitor-red)
+![Bash](https://img.shields.io/badge/Bash-v4.4%5E-green?logo=GNU%20bash)
 ![bashtop_version](https://img.shields.io/github/v/tag/aristocratos/bashtop?label=version)
 [![Donate](https://img.shields.io/badge/-Donate-yellow?logo=paypal)](https://paypal.me/aristocratos)
 [![Sponsor](https://img.shields.io/badge/-Sponsor-red?logo=github)](https://github.com/sponsors/aristocratos)
 [![Coffee](https://img.shields.io/badge/-Buy%20me%20a%20Coffee-grey?logo=Ko-fi)](https://ko-fi.com/aristocratos)
+
 ## Index
 
 * [Changelog](#changelog)
@@ -16,7 +17,7 @@
 * [Upcoming](#upcoming-(osx-and-bsd-support))
 * [Support and funding](#support-and-funding) (Updated)
 * [Compatibility](#compatibility) (Updated)
-* [Dependencies](#dependencies)
+* [Dependencies](#dependencies) (Updated)
 * [Screenshots](#screenshots)
 * [Installation](#installation) (Updated)
 * [Configurability](#configurability) (Updated)
@@ -78,10 +79,12 @@ Any support is greatly appreciated!
 Should work on most modern linux distributions.
 
 For correct display, a terminal with support for:
+
 * 24-bit truecolor
 * Wide characters
 
 Also needs a UTF8 locale and a font that covers:
+
 * Unicode Block “Braille Patterns” U+2800 - U+28FF
 * Unicode Block “Geometric Shapes” U+25A0 - U+25FF
 * Unicode Block "Box Drawing" and "Block Elements" U+2500 - U+259F
@@ -104,6 +107,8 @@ Bash version 5 is highly recommended to make use of $EPOCHREALTIME variable inst
 (Optional) **[lm-sensors](https://github.com/lm-sensors/lm-sensors)** Needed to show CPU temperatures
 
 (Optional) **[curl](https://curl.haxx.se/download.html)** (v7.16.2 or later) Needed if you want messages about updates and the ability to download themes.
+
+(Optional) **[iostat (part of sysstat)](https://github.com/sysstat/sysstat)** Needed if you want disk read/write stats
 
 ## Screenshots
 
@@ -134,7 +139,6 @@ Copy or link "bashtop" into PATH, or install with Makefile:
  sudo make uninstall
 ```
 
-
 #### Arch based
 
 Available in the AUR as [bashtop-git](https://aur.archlinux.org/packages/bashtop-git/)
@@ -158,6 +162,7 @@ Or use quick installation:
 ``` bash
  sudo ./build --remove
 ```
+
 #### Ubuntu based
 
 Available for Ubuntu from [PPA repository](https://code.launchpad.net/~bashtop-monitor/+archive/ubuntu/bashtop)
