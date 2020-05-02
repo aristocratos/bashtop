@@ -64,7 +64,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.8.19"
+declare version="0.8.20"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -149,7 +149,7 @@ declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu 
 declare -a pid_history detail_graph detail_history detail_mem_history
 declare time_left timestamp_start timestamp_end timestamp_input_start timestamp_input_end time_string mem_out proc_misc prev_screen pause_screen filter input_to_filter
 declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2 proc_out curled git_version has_iostat
-declare esc_character tab backspace sleepy late_update skip_process_draw winches quitting theme_int
+declare esc_character tab backspace sleepy late_update skip_process_draw winches quitting theme_int notifier
 declare -a disks_free disks_total disks_name disks_free_percent disks_io saved_key themes
 printf -v esc_character "\u1b"
 printf -v tab "\u09"
@@ -216,6 +216,9 @@ init_() { #? Collect needed information and set options before startig main loop
 	#* Check if "curl" command is available, if not, disable update check and theme downloads
 	if command -v curl >/dev/null 2>&1; then curled=1; else unset curled; fi
 
+	#* Check if "notify-send" command is available, if not, disable update notifier
+	if [[ -n $curled ]] && command -v notify-send >/dev/null 2>&1; then notifier=1; else unset notifier; fi
+
 	#* Check if "iostat" command is available, if not, disable disk io stat collection
 	if command -v iostat >/dev/null 2>&1; then has_iostat=1; else unset has_iostat; fi
 
@@ -258,7 +261,7 @@ init_() { #? Collect needed information and set options before startig main loop
 		if ! get_value -v git_version -ss "$(curl -m 2 --raw -r 0-3500 https://raw.githubusercontent.com/aristocratos/bashtop/master/bashtop 2>/dev/null)" -k "version=" -r "[^0-9.]"; then unset git_version; fi
 	fi
 
-	#* Draw banner to banner array
+	#* Draw banner to banner array and notify about new updates
 	local letter b_color banner_line y=0
 	local -a banner_out
 	#print -v banner_out[0] -t "\e[0m"
@@ -276,8 +279,16 @@ init_() { #? Collect needed information and set options before startig main loop
 		((++y))
 	done
 	print -v banner_out[y] -rs -fg cc -b "← esc"
-	if [[ -n $git_version && $git_version != "$version" ]]; then print -v banner_out[y] -rs -fg "#80cc80" -r 15 "[${git_version} available!]" -r $((9-${#git_version}))
-	else print -v banner_out[y] -r 37; fi
+	if [[ -n $git_version && $git_version != "$version" ]]; then
+		print -v banner_out[y] -rs -fg "#80cc80" -r 15 "[${git_version} available!]" -r $((9-${#git_version}))
+		if [[ -n $notifier ]]; then
+			notify-send -u normal\
+			"Bashtop Update!" "New version of Bashtop available\!\nCurrent version: ${version}\n\New version: ${git_version}\nDownload at github.com/aristocratos/bashtop"\
+			-i face-glasses -t 10000
+		fi
+	else
+		print -v banner_out[y] -r 37
+	fi
 	print -v banner_out[y] -fg cc -i -b "Version: ${version}" -rs
 	unset 'banner[@]'
 	banner=("${banner_out[@]}")
@@ -1663,7 +1674,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 		 ((++count))
 
 		if ((count==height-3)); then
-			if [[ -n $filter || $proc_sorting == "cpu responsive" || ${proc[selected]} -gt 0 || ${proc[page]} -gt 1 || ${proc_reversed} == true ]]; then :
+			if [[ -n $filter || $proc_sorting != "cpu lazy" || ${proc[selected]} -gt 0 || ${proc[page]} -gt 1 || ${proc_reversed} == true ]]; then :
 			else breaking=1; fi
 		fi
 

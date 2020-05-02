@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.8.20
+
+* Fixed: Update slowdown when not sorting by cpu
+* Added: New version desktop notification
+
 ## v0.8.19
 
 * Added: Disks read and write stats, requires new optional dependency "iostat (part of sysstat)"
