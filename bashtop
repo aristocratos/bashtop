@@ -104,6 +104,9 @@ error_logging="true"
 #* Show color gradient in process list, "true" or "false"
 proc_gradient="true"
 
+#* If process cpu usage should be of the core it's running on or usage of the total available cpu power
+proc_per_core="false"
+
 #* Optional filter for shown disks, should be names of mountpoints, "root" replaces "/", separate multiple values with space
 disks_filter=""
 
@@ -142,7 +145,7 @@ declare -A cpu mem swap proc net box theme disks
 declare -a cpu_usage cpu_graph_a cpu_graph_b color_meter color_temp_graph color_cpu color_cpu_graph cpu_history color_mem_graph color_swap_graph
 declare -a mem_history swap_history net_history_download net_history_upload mem_graph swap_graph proc_array download_graph upload_graph trace_array
 declare resized=1 size_error clock tty_width tty_height hex="16#" cpu_p_box swap_on=1 draw_out esc_character boxes_out last_screen clock_out update_string
-declare -a options_array=("color_theme" "update_ms" "proc_sorting" "check_temp" "draw_clock" "background_update" "custom_cpu_name"
+declare -a options_array=("color_theme" "update_ms" "proc_sorting" "check_temp" "draw_clock" "background_update" "custom_cpu_name" "proc_per_core"
 		"proc_reversed" "proc_gradient" "disks_filter" "net_totals_reset" "error_logging")
 declare -a save_array=(${options_array[*]/net_totals_reset/})
 declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" "tree" )
@@ -1617,7 +1620,8 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 collect_processes() { #? Collect process information and calculate accurate cpu usage
 	local argument="$1"
 	if [[ -n $skip_process_draw && $argument != "now" ]]; then return; fi
-	local width=${box[processes_width]} height=${box[processes_height]} format_args format_cmd readline sort symbol="▼" cpu_title options pid_string tmp selected tree tree_compare1 tree_compare2 tree_compare3
+	local width=${box[processes_width]} height=${box[processes_height]} format_args format_cmd readline sort symbol="▼" cpu_title options pid_string tmp selected
+	local tree tree_compare1 tree_compare2 tree_compare3 no_core_divide
 	local -a grep_array saved_proc_array
 
 	if [[ $argument == "now" ]]; then skip_process_draw=1; fi
@@ -1634,6 +1638,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 		"tree") selected="Tree:"; tree="Tree:"; sort="pid";
 	esac
 
+	if [[ $proc_per_core == true ]]; then no_core_divide="1"; fi
 
 	#* Collect output from ps command to array
 	if ((width>60)) && [[ $proc_sorting != "tree" ]] ; then format_args=",args:$(( width-(47+proc[pid_len]) ))=Arguments:"; format_cmd=15
@@ -1726,10 +1731,10 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 				time_elapsed=$((proc[new_timestamp]-proc[old_timestamp]))
 
 				#* Calculate current cpu usage for process, * 1000 (for conversion from ms to seconds) * 1000 (for conversion to floating point)
-				cpu_percent[count]=$(( ( ( ${proc[new_${pid}_ticks]}-${proc[old_${pid}_ticks]} ) * 1000 * 1000 ) / ( cpu[hz]*time_elapsed*cpu[threads] ) ))
+				cpu_percent[count]=$(( ( ( ${proc[new_${pid}_ticks]}-${proc[old_${pid}_ticks]} ) * 1000 * 1000 ) / ( cpu[hz]*time_elapsed*${no_core_divide:-${cpu[threads]}} ) ))
 
 				if ((cpu_percent[count]<0)); then cpu_percent[count]=0
-				elif ((cpu_percent[count]>1000)); then cpu_percent[count]=1000; fi
+				elif [[ -z $no_core_divide ]] && ((cpu_percent[count]>1000)); then cpu_percent[count]=1000; fi
 
 				if ((${#cpu_percent[count]}<=3)); then
 					printf -v cpu_percent_string "%01d%s" "${cpu_percent[count]::-1}" ".${cpu_percent[count]:(-1)}"
@@ -2965,6 +2970,14 @@ options_() { #? Shows the options overlay
 							" "
 							"Shows totals since system start or"
 							"network adapter reset when Off.")
+	desc_proc_per_core=("Process usage per core."
+						" "
+						"If process cpu usage should be of the core"
+						"it's running on or usage of the total"
+						"available cpu power."
+						""
+						"If true and process is multithreaded"
+						"cpu usage can reach over 100%.")
 
 	if [[ -n $pause_screen ]]; then from_menu=1; fi
 
@@ -3138,7 +3151,7 @@ options_() { #? Shows the options overlay
 						if ((net[reset]==1)); then net_totals_reset="Off"; net[reset]=0
 						else net_totals_reset="On"; net[reset]=1; fi
 					;;
-				"check_temp"*|"error_logging"*|"background_update"*|"proc_reversed"*|"proc_gradient"*)
+				"check_temp"*|"error_logging"*|"background_update"*|"proc_reversed"*|"proc_gradient"*|"proc_per_core"*)
 						local -n selected_var=${selected}
 						if [[ ${selected_var} == "true" ]]; then
 							selected_var="false"
