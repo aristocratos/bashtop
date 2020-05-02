@@ -180,6 +180,14 @@ Available for Ubuntu from [PPA repository](https://code.launchpad.net/~bashtop-m
 
 ```
 
+#### Fedora
+
+Available in the Fedora repository.
+
+``` bash
+sudo dnf install bashtop
+```
+
 ## Configurability
 
 All options changeable from within UI.
