@@ -1108,6 +1108,8 @@ create_graph() { 	#? Create a graph from an array of percentage values, usage; 	
 		#* Create graph by walking through all values for each line, speed up by counting similar values and print once, when difference is met
 		while ((x<value_width)); do
 
+			if [[ -z ${input_array[x]} ]]; then input_array[x]=0; fi
+
 			#* Print empty space if current value is less than percentage for current line
 			while ((x<value_width & input_array[offset+x]*virt_height/100<next_value)); do
 				((++count))
@@ -1125,7 +1127,7 @@ create_graph() { 	#? Create a graph from an array of percentage values, usage; 	
 			done
 
 			#* Print full block if current value is greater than percentage for current line
-			while ((x<value_width & input_array[x]*virt_height/100==cur_value)) || ((x<value_width & input_array[x]*virt_height/100>cur_value)); do
+			while ((x<value_width & input_array[x]*virt_height/100>=cur_value)); do
 				((++count))
 				((++x))
 			done
@@ -1451,7 +1453,7 @@ collect_cpu_temps() { #? Collect cpu temperatures
 
 		#* Get core temps
 		i=0
-		while get_value -v "core_value" -sv "sens_var" -k "Core ${i}:" -mk 1 -r "[^0-9.]" -b -i; do core_array+=("$core_value"); ((++i)) ; done
+		while get_value -v "core_value" -sv "sens_var" -k "Core ${i}:" -mk 1 -r "[^0-9.]" -b -i && ((i<=threads)); do core_array+=("$core_value"); ((++i)) ; done
 
 		if [[ -z ${core_array[0]} ]]; then core_array=("${cpu[temp_0]}"); fi
 
@@ -1480,7 +1482,7 @@ collect_cpu_temps() { #? Collect cpu temperatures
 
 		#* Get ccd module temps
 		i=1
-		while get_value -v "ccd_value" -sv "sens_var" -k "Tccd${i}:" -mk 1 -r "[^0-9.]" -b -i; do ccd_array+=("$ccd_value"); ((i++)) ; done
+		while get_value -v "ccd_value" -sv "sens_var" -k "Tccd${i}:" -mk 1 -r "[^0-9.]" -b -i && ((i<=threads)); do ccd_array+=("$ccd_value"); ((i++)) ; done
 
 		if [[ -z ${ccd_array[0]} ]]; then ccd_array=("${cpu[temp_0]}"); fi
 
@@ -3351,7 +3353,7 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 	if [[ -z $save && -n ${saved_key[0]} ]]; then key="${saved_key[0]}"; unset 'saved_key[0]'; saved_key=("${saved_key[@]}")
 	else
 		unset key
-		IFS= read -rsd '' -t ${wait_time:-0.001} -n 1 key >/dev/null 2>&1 ||true
+		IFS= read -rsd '' -t ${wait_time:-0.001} -n 1 key 2>/dev/null ||true
 
 		if [[ -z ${key:+s} ]]; then
 			key_out=""
@@ -3688,7 +3690,7 @@ else
 fi
 
 #* Set up traps for ctrl-c, soft kill, window resize, ctrl-z and resume from ctrl-z
-trap 'quitting=1; time_left=0' SIGINT SIGQUIT SIGTERM
+trap 'quitting=1; time_left=0' SIGINT #SIGQUIT SIGTERM
 trap 'resized=1; time_left=0' SIGWINCH
 trap 'sleepy=1; time_left=0' SIGTSTP
 trap 'resume_' SIGCONT
