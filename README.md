@@ -14,13 +14,13 @@
 * [Description](#description)
 * [Features](#features)
 * [Themes](#themes)
-* [Upcoming](#upcoming-(osx-and-bsd-support))
-* [Support and funding](#support-and-funding) (Updated)
+* [Upcoming](#upcoming) (Updated)
+* [Support and funding](#support-and-funding)
 * [Compatibility](#compatibility) (Updated)
 * [Dependencies](#dependencies) (Updated)
 * [Screenshots](#screenshots)
 * [Installation](#installation) (Updated)
-* [Configurability](#configurability) (Updated)
+* [Configurability](#configurability)
 * [TODO](#todo)
 * [License](#license)
 
@@ -35,7 +35,7 @@ Resource monitor that shows usage and stats for processor, memory, disks, networ
 ## Features
 
 * Easy to use, with a game inspired menu system.
-* Fast and responsive UI with UP, DOWN keys process selection.
+* Fast and "mostly" responsive UI with UP, DOWN keys process selection.
 * Function for showing detailed stats for selected process.
 * Ability to filter processes.
 * Easy switching between sorting options.
@@ -52,12 +52,16 @@ See [themes](themes) folder for available themes.
 
 Let me know if you want to contribute with new themes.
 
-## Upcoming (osx and bsd support)
+## Upcoming
+
+#### (Mac OSX and *BSD support)
 
 Currently rewriting to use python3 [psutil](https://github.com/giampaolo/psutil) for data collection instead of linux specific tools.
 This will add python 3 and psutil as dependencies, but will make bashtop cross platform compatible.
 
-This will be in a new branch called bashtop-psutil when I'm done with initial testing
+~~This will be in a new branch called bashtop-psutil when I'm done with initial testing~~
+
+This will be integrated in to main version when done and add the possibility to switch between psutil and linux tools for users running linux.
 
 ## Support and funding
 
@@ -89,7 +93,7 @@ Also needs a UTF8 locale and a font that covers:
 * Unicode Block “Geometric Shapes” U+25A0 - U+25FF
 * Unicode Block "Box Drawing" and "Block Elements" U+2500 - U+259F
 
-#### Notice!
+#### Notice
 
 Dropbear seems to not be able to set correct locale. So if accessing bashtop over ssh, OpenSSH is recommended.
 
@@ -184,6 +188,8 @@ Available for Ubuntu from [PPA repository](https://code.launchpad.net/~bashtop-m
 
 Available in the Fedora repository.
 
+>Installation
+
 ``` bash
 sudo dnf install bashtop
 ```
@@ -245,7 +251,7 @@ USAGE: bashtop
 Might finish off items out of order since I usually work on multiple at a time.
 
 - [x] Add options to change colors for text, graphs and meters.
-- [ ] Fix cross platform compatibility: Currently in testing, bashtop-psutil branch.
+- [ ] Fix cross platform compatibility for Mac OSX and *BSD: Currently in testing, bashtop-psutil branch.
 - [x] Add support for showing AMD cpu temperatures.
 - [ ] Add option to show tree view of processes.
 - [x] Add option to reset network download/upload totals.
