@@ -89,6 +89,10 @@ Also needs a UTF8 locale and a font that covers:
 * Unicode Block “Geometric Shapes” U+25A0 - U+25FF
 * Unicode Block "Box Drawing" and "Block Elements" U+2500 - U+259F
 
+#### Notice!
+
+Dropbear seems to not be able to set correct locale. So if accessing bashtop over ssh, OpenSSH is recommended.
+
 ## Dependencies
 
 **[bash](https://www.gnu.org/software/bash/)** (v4.4 or later) Script functionality will most probably break with earlier versions.  
