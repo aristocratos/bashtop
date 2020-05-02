@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.8.21
+
+* Fixed: iostat flag compatibility for older iostat versions
+* Fixed: possible fix for script stall on bash 4
+
 ## v0.8.20
 
 * Fixed: Update slowdown when not sorting by cpu

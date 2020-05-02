@@ -64,7 +64,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.8.20"
+declare version="0.8.21"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -198,8 +198,12 @@ if [[ -n $EPOCHREALTIME ]]; then
 #* If not, use date command
 else
 	get_ms() { #? Set given variable to current epoch millisecond with date command
+		local count
 		local -n ms_out=$1
-		read ms_out < <(date +%s%3N)
+		ms_out=""
+		while [[ -z $ms_out ]] && ((++count<=10)); do
+			read ms_out < <(date +%s%3N)
+		done
 	}
 fi
 
@@ -1581,7 +1585,7 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 				dev_path="${line_array[0]%${dev_name}}"
 				if [[ ${dev_name::2} == "md" ]]; then dev_name="${dev_name::3}"; fi
 				unset iostat_var disk_io_string 'iostat_array[@]'
-				read -r iostat_var < <(iostat -dkz --dec=0 "${dev_path}${dev_name}" | tail -n +4)
+				read -r iostat_var < <(iostat -dkz "${dev_path}${dev_name}" | tail -n +4)
 				iostat_array=(${iostat_var})
 				if [[ -n ${iostat_array[-2]} ]]; then
 
@@ -3330,7 +3334,7 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 		if [[ $key == "${enter_key}" ]]; then key="enter"
 		elif [[ $key == "${backspace}" ]]; then key="backspace"
 		elif [[ $key == "${tab}" ]]; then key="tab"
-		elif [[ $key == "$esc_character" ]]; then esc=1; read -rsn3 -t 0.0001 key >/dev/null 2>&1 || true; fi
+		elif [[ $key == "$esc_character" ]]; then esc=1; read -rsn3 -t 0.001 key >/dev/null 2>&1 || true; fi
 		if [[ -z $key && $esc -eq 1 ]]; then key="escape"
 		elif [[ $esc -eq 1 ]]; then
 			case "${key}" in
@@ -3363,7 +3367,7 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 
 	fi
 
-	read -rst 0.0001 -n 1000 2>/dev/null ||true
+	read -rst 0.001 -n 1000 2>/dev/null ||true
 
 	if [[ -n $save && -n $key ]]; then saved_key+=("${key}"); return 0; fi
 
@@ -3531,13 +3535,14 @@ process_input() { #? Process keypresses for main ui
 }
 
 collect_and_draw() { #? Run all collect and draw functions
-	local task_int=0
+	local task_int=0 input_runs
 	for task in processes cpu mem net; do
 		((++task_int))
 		if [[ -n $pause_screen && -n ${saved_key[0]} ]]; then
 			return
 		elif [[ -z $pause_screen ]]; then
-			while [[ -n ${saved_key[0]} ]]; do
+			input_runs=0
+			while [[ -n ${saved_key[0]} ]] && ((time_left>0)) && ((++input_runs<=5)); do
 				process_input 0.001
 				unset late_update
 			done
@@ -3556,7 +3561,7 @@ collect_and_draw() { #? Run all collect and draw functions
 #? ----------------------------------------------------------------------------------------------------------------------- ?#
 
 main_loop() { #? main loop...
-	local wait_time wait_string
+	local wait_time wait_string input_runs
 
 	#* Put program to sleep if caught ctrl-z
 	if ((sleepy==1)); then sleep_; fi
@@ -3585,6 +3590,7 @@ main_loop() { #? main loop...
 	#* Compare timestamps to get exact time needed to wait until next loop
 	get_ms timestamp_end
 	time_left=$((timestamp_start+update_ms-timestamp_end))
+	if ((time_left>update_ms)); then time_left=$update_ms; fi
 	if ((time_left>0)); then
 
 		late_update=0
@@ -3609,10 +3615,6 @@ main_loop() { #? main loop...
 			fi
 
 			#* Wait while reading input
-			while [[ -n ${saved_key[0]} ]]; do
-				process_input
-				late_update=0
-			done
 			process_input "${wait_string}"
 
 			#* Draw clock if set
@@ -3620,7 +3622,7 @@ main_loop() { #? main loop...
 
 		done
 
-	#* If time left is too low to process any input more than twice in succession, add 100ms to update timer
+	#* If time left is too low to process any input more than five times in succession, add 100ms to update timer
 	elif ((++late_update==5)); then
 		update_ms=$((update_ms+100))
 		draw_update_string
