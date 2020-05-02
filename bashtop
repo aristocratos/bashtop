@@ -79,7 +79,7 @@ color_theme="Default"
 #* Update time in milliseconds, increases automatically if set below internal loops processing time, recommended 2000 ms or above for better sample times for graphs
 update_ms="2500"
 
-#* Processes sorting, "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive"
+#* Processes sorting, "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" "tree"
 #* "cpu lazy" updates sorting over time, "cpu responsive" updates sorting directly at a cpu usage cost
 proc_sorting="cpu lazy"
 
@@ -145,7 +145,7 @@ declare resized=1 size_error clock tty_width tty_height hex="16#" cpu_p_box swap
 declare -a options_array=("color_theme" "update_ms" "proc_sorting" "check_temp" "draw_clock" "background_update" "custom_cpu_name"
 		"proc_reversed" "proc_gradient" "disks_filter" "net_totals_reset" "error_logging")
 declare -a save_array=(${options_array[*]/net_totals_reset/})
-declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" )
+declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" "tree" )
 declare -a pid_history detail_graph detail_history detail_mem_history
 declare time_left timestamp_start timestamp_end timestamp_input_start timestamp_input_end time_string mem_out proc_misc prev_screen pause_screen filter input_to_filter
 declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2 proc_out curled git_version has_iostat
@@ -1617,8 +1617,8 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 collect_processes() { #? Collect process information and calculate accurate cpu usage
 	local argument="$1"
 	if [[ -n $skip_process_draw && $argument != "now" ]]; then return; fi
-	local width=${box[processes_width]} height=${box[processes_height]} format_args format_cmd readline sort symbol="▼" cpu_title options pid_string tmp selected
-	local -a grep_array
+	local width=${box[processes_width]} height=${box[processes_height]} format_args format_cmd readline sort symbol="▼" cpu_title options pid_string tmp selected tree tree_compare1 tree_compare2 tree_compare3
+	local -a grep_array saved_proc_array
 
 	if [[ $argument == "now" ]]; then skip_process_draw=1; fi
 
@@ -1631,12 +1631,14 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 		"user") selected="User:"; sort="euser";;
 		"memory") selected="Mem%"; sort="pmem";;
 		"cpu lazy"|"cpu responsive") sort="pcpu"; selected="Cpu%";;
+		"tree") selected="Tree:"; tree="Tree:"; sort="pid";
 	esac
 
 
 	#* Collect output from ps command to array
-	if ((width>60)); then format_args=",args:$(( width-(47+proc[pid_len]) ))=Arguments:"; format_cmd=15
+	if ((width>60)) && [[ $proc_sorting != "tree" ]] ; then format_args=",args:$(( width-(47+proc[pid_len]) ))=Arguments:"; format_cmd=15
 	else format_cmd=$(( width-(31+proc[pid_len]) )); fi
+	saved_proc_array=("${proc_array[@]}")
 	unset 'proc_array[@]' 'pid_array[@]'
 
 	if ((proc[detailed]==0)) && [[ -n ${proc[detailed_name]} ]]; then
@@ -1652,7 +1654,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 	 	options="-t"
 	fi
 
-	readarray ${options} proc_array < <(ps ax -o pid:${proc[pid_len]}=Pid:,comm:${format_cmd}=Program:${format_args},nlwp:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --sort ${proc[reverse]:--}${sort})
+	readarray ${options} proc_array < <(ps ax${tree:+f} -o pid:${proc[pid_len]}=Pid:,comm:${format_cmd}=${tree:-Program:}${format_args},nlwp:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --sort ${proc[reverse]:--}${sort})
 
 	proc_array[0]="${proc_array[0]/      Tr:/ Threads:}"
 	proc_array[0]="${proc_array[0]/ ${selected}/${symbol}${selected}}"
@@ -1682,13 +1684,24 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 			else breaking=1; fi
 		fi
 
-		if get_key -save && [[ ${#saved_key[@]} -gt 0 ]]; then return; fi
+		if get_key -save && [[ ${#saved_key[@]} -gt 0 ]]; then proc_array=("${saved_proc_array[@]}"); return; fi
 
 		work_array=(${readline})
 
 		pid="${work_array[0]}"
 		pcpu_usage="${work_array[-1]}"
 
+		#* If showing tree structure replace slashes and pipes with actual lines and terminate them at the correct places
+		if [[ $proc_sorting == "tree" ]]; then
+			tree_compare1="${proc_array[$((count+1))]%'\_'*}"
+			tree_compare2="${proc_array[count]%'\_'*}"
+			tree_compare3="${proc_array[$((count+1))]%'|'*}"
+			proc_array[count]="${proc_array[count]//'|'/│}"
+			proc_array[count]="${proc_array[count]//'\_'/└─}"
+			if ((count<${#proc_array[@]}-1)) && [[ ${#tree_compare1} -eq ${#tree_compare2} || ${#tree_compare2} -eq ${#tree_compare3} ]]; then
+				proc_array[count]="${proc_array[count]//'└'/├}"
+			fi
+		fi
 
 		if [[ ! ${pid_history[*]} =~ ${pid} ]]; then
 			pid_history+=("${pid}")
@@ -1821,7 +1834,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 
 		if ((breaking==1)); then
 			if [[ ${proc[detailed]} == "1" && -z ${proc[detailed_cpu]} ]] && ps ${proc[detailed_pid]} >/dev/null 2>&1; then
-				readarray ${options} -O ${#proc_array[@]} proc_array < <(ps -o pid:${proc[pid_len]}=Pid:,comm:${format_cmd}=Program:${format_args},nlwp:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --no-headers -p ${proc[detailed_pid]} || true)
+				readarray ${options} -O ${#proc_array[@]} proc_array < <(ps -o pid:${proc[pid_len]}=Pid:,comm:${format_cmd}=${tree:-Program:}${format_args},nlwp:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --no-headers -p ${proc[detailed_pid]} || true)
 			else
 				break
 			fi
@@ -2895,14 +2908,17 @@ options_() { #? Shows the options overlay
 						"Max value: 86400000 ms = 24 hours.")
 	desc_proc_sorting=(	"Processes sorting."
 						"Valid values are \"pid\", \"program\", \"arguments\","
-						"\"threads\", \"user\", \"memory\", \"cpu lazy\" and"
-						"\"cpu responsive\"."
+						"\"threads\", \"user\", \"memory\", \"cpu lazy\""
+						"\"cpu responsive\" and \"tree\"."
 						" "
 						"\"cpu lazy\" uses ps commands internal sorting"
 						"and updates top process over a period of time."
 						" "
 						"\"cpu responsive\" updates sorting directly at a"
-						"cost of cpu time.")
+						"cost of cpu time."
+						" "
+						"\"tree\" shows a tree structure of running"
+						"processes.")
 	desc_check_temp=(	"Check cpu temperature."
 						" "
 						"Only works if sensors command is available"
