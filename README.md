@@ -20,7 +20,7 @@
 * [Dependencies](#dependencies) (Updated)
 * [Screenshots](#screenshots)
 * [Installation](#installation) (Updated)
-* [Configurability](#configurability)
+* [Configurability](#configurability) (Updated)
 * [TODO](#todo)
 * [License](#license)
 
@@ -202,7 +202,7 @@ Config files stored in "$HOME/.config/bashtop" folder
 #### bashtop.cfg: (auto generated if not found)
 
 ```bash
-#? Config file for bashtop v. 0.8.18
+#? Config file for bashtop v. 0.8.22
 
 #* Color theme, looks for a .theme file in "$HOME/.config/bashtop/themes", "Default" for builtin default theme
 color_theme="Default"
@@ -210,7 +210,7 @@ color_theme="Default"
 #* Update time in milliseconds, increases automatically if set below internal loops processing time, recommended 2000 ms or above for better sample times for graphs
 update_ms="2500"
 
-#* Processes sorting, "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive"
+#* Processes sorting, "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" "tree"
 #* "cpu lazy" updates sorting over time, "cpu responsive" updates sorting directly at a cpu usage cost
 proc_sorting="cpu lazy"
 
@@ -235,6 +235,9 @@ error_logging="true"
 #* Show color gradient in process list, "true" or "false"
 proc_gradient="true"
 
+#* If process cpu usage should be of the core it's running on or usage of the total available cpu power
+proc_per_core="false"
+
 #* Optional filter for shown disks, should be names of mountpoints, "root" replaces "/", separate multiple values with space
 disks_filter=""
 ```
@@ -253,7 +256,7 @@ Might finish off items out of order since I usually work on multiple at a time.
 - [x] Add options to change colors for text, graphs and meters.
 - [ ] Fix cross platform compatibility for Mac OSX and *BSD: Currently in testing, bashtop-psutil branch.
 - [x] Add support for showing AMD cpu temperatures.
-- [ ] Add option to show tree view of processes.
+- [x] Add option to show tree view of processes.
 - [x] Add option to reset network download/upload totals.
 - [x] Add option to turn of gradient in processes list.
 - [ ] Add gpu temp and usage. (If feasible)
