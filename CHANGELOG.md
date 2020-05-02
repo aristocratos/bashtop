@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.22
+
+* Added: Sorting option "tree", shows processes in a tree structure
+* Added: Option to toggle process cpu usage per core instead of total available cpu power
+* Fixed: Possible fix for stalling read command
+* Added: Multiple while loop fail safes
+
 ## v0.8.21
 
 * Fixed: iostat flag compatibility for older iostat versions
