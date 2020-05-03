@@ -64,7 +64,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.8.22"
+declare version="0.8.23"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -2858,7 +2858,8 @@ help_() { #? Shows the help overlay
 			create_box -v help_out -w 72 -h $((height+3)) -l $((line++)) -c $((col++)) -fill -lc ${theme[div_line]} -title "help"
 
 			if [[ -n $pages ]]; then
-				print -v help_out -m $((line-1)) $((col+72-17)) -rs -fg ${theme[div_line]} -t "┤" -fg ${theme[hi_fg]} -b -t "‹" -fg ${theme[title]} -t " page ${page}/${pages} "  -fg ${theme[hi_fg]} -t "›" -rs -fg ${theme[div_line]} -t "├"
+				print -v help_out -m $((line+height+1)) $((col+72-16)) -rs -fg ${theme[div_line]} -t "┤" -fg ${theme[title]} -b -t "pg" -fg ${theme[hi_fg]} -t "↑"\
+				-fg ${theme[title]} -t " ${page}/${pages} " -fg ${theme[title]} -t "pg" -fg ${theme[hi_fg]} -t "↓" -rs -fg ${theme[div_line]} -t "├"
 			fi
 			((++col))
 
@@ -2884,8 +2885,8 @@ help_() { #? Shows the help overlay
 
 		if [[ -n $pages ]]; then
 			case $help_key in
-				right) if ((page<pages)); then ((page++)); else page=1; fi; redraw=1; unset help_key ;;
-				left) if ((page>1)); then ((page--)); else page=${pages}; fi; redraw=1; unset help_key ;;
+				down|page_down) if ((page<pages)); then ((page++)); else page=1; fi; redraw=1; unset help_key ;;
+				up|page_up) if ((page>1)); then ((page--)); else page=${pages}; fi; redraw=1; unset help_key ;;
 			esac
 		fi
 
@@ -3025,10 +3026,10 @@ options_() { #? Shows the options overlay
 			draw_banner "$((tty_height/2-11))" options_misc
 			create_box -v options_misc -w 29 -h $((height*2+2)) -l $line -c $((col-1)) -fill -lc ${theme[div_line]} -title "options"
 			if [[ -n $pages ]]; then
-				print -v options_misc -m $((line)) $((col+29-17)) -rs -fg ${theme[div_line]} -t "┤" -fg ${theme[hi_fg]} -b -t "p" -fg ${theme[title]} -t " page ${page}/${pages} "  -fg ${theme[hi_fg]} -t "n" -rs -fg ${theme[div_line]} -t "├"
+				print -v options_misc -m $((line+height*2+1)) $((col+29-16)) -rs -fg ${theme[div_line]} -t "┤" -fg ${theme[title]} -b -t "pg" -fg ${theme[hi_fg]} -t "↑"\
+				-fg ${theme[title]} -t " ${page}/${pages} " -fg ${theme[title]} -t "pg" -fg ${theme[hi_fg]} -t "↓" -rs -fg ${theme[div_line]} -t "├"
 			fi
 		fi
-
 
 		if [[ -n $keypress || -z $options_out ]]; then
 			unset options_out desc_height lr inp valid
@@ -3119,8 +3120,8 @@ options_() { #? Shows the options overlay
 				up|shift_tab) if ((selected_int>0)); then ((selected_int--)); else selected_int=$((${#options_array[@]}-1)); fi ;;
 				left|right) if [[ -n $lr && -z $inputting ]]; then valid=1; fi ;;
 				enter) if [[ -n $inp ]]; then valid=1; fi ;;
-				n) if ((page<pages)); then ((page++)); else page=1; selected_int=0; fi; redraw_misc=1; selected_int=$(( (page-1)*height )) ;;
-				p) if ((page>1)); then ((page--)); else page=${pages}; fi; redraw_misc=1; selected_int=$(( (page-1)*height )) ;;
+				page_down) if ((page<pages)); then ((page++)); else page=1; selected_int=0; fi; redraw_misc=1; selected_int=$(( (page-1)*height )) ;;
+				page_up) if ((page>1)); then ((page--)); else page=${pages}; fi; redraw_misc=1; selected_int=$(( (page-1)*height )) ;;
 			esac
 			if (( selected_int<(page-1)*height | selected_int>=page*height )); then page=$(( (selected_int/height)+1 )); redraw_misc=1; fi
 		fi

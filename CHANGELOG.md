@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.23
+
+* Added: Support for Raspberry Pi cpu temperature reporting
+* Fixed: Decreased chance of read command stalling on lower spec systems
+* Added: Failover to nproc if lscpu are reporting 0 cpu cores
+* Changed: Moved page display for options and help to bottom and changed to Page Up/Down for changing page
+
 ## v0.8.22
 
 * Added: Sorting option "tree", shows processes in a tree structure
