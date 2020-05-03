@@ -712,8 +712,13 @@ get_cpu_info() {
 	local lscpu_var param_var
 	lscpu_var="$(lscpu)"
 	if [[ -z ${cpu[threads]} || -z ${cpu[cores]} ]]; then
-		get_value -v 'cpu[threads]' -sv "lscpu_var" -k "CPU(s):" -i
+		if ! get_value -v 'cpu[threads]' -sv "lscpu_var" -k "CPU(s):" -i || [[ ${cpu[threads]} == "0" ]]; then
+			cpu[threads]="$(nproc 2>/dev/null ||true)"
+			if [[ -z ${cpu[threads]} ]]; then cpu[threads]="1"; fi
+			cpu[cores]=${cpu[threads]}
+		else
 		get_value -v 'cpu[cores]' -sv "lscpu_var" -k "Core(s)" -i
+		fi
 	fi
 	if [[ -z $custom_cpu_name ]]; then
 		if ! get_value -v 'cpu[model]' -sv "lscpu_var" -k "Model name:" -a -b -k "CPU" -mk -1; then
@@ -1691,7 +1696,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 			else breaking=1; fi
 		fi
 
-		if get_key -save && [[ ${#saved_key[@]} -gt 0 ]]; then proc_array=("${saved_proc_array[@]}"); return; fi
+		#if get_key -save && [[ ${#saved_key[@]} -gt 0 ]]; then proc_array=("${saved_proc_array[@]}"); return; fi
 
 		work_array=(${readline})
 
@@ -3365,7 +3370,7 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 		if [[ $key == "${enter_key}" ]]; then key="enter"
 		elif [[ $key == "${backspace}" ]]; then key="backspace"
 		elif [[ $key == "${tab}" ]]; then key="tab"
-		elif [[ $key == "$esc_character" ]]; then esc=1; read -rsn3 -t 0.001 key >/dev/null 2>&1 || true; fi
+		elif [[ $key == "$esc_character" ]]; then esc=1; read -rsn3 -t 0.001 key 2>/dev/null || true; fi
 		if [[ -z $key && $esc -eq 1 ]]; then key="escape"
 		elif [[ $esc -eq 1 ]]; then
 			case "${key}" in
