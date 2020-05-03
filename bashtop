@@ -1450,7 +1450,7 @@ collect_cpu_temps() { #? Collect cpu temperatures
 	#* Get CPU package temp for intel cpus
 	if get_value -v 'cpu[temp_0]' -sv "sens_var" -k "Package*:" -mk 1 || get_value -v 'cpu[temp_0]' -sv "sens_var" -k "Core 0:" -mk 1; then
 		#* If successful get temperature unit, convert temp to integer and get high and crit
-		cpu[temp_unit]=${cpu[temp_0]:(-2)}; cpu[temp_0]=${cpu[temp_0]%.*}; if [[ ${cpu[temp_0]::1} == "+" ]]; then cpu[temp_0]=${cpu[temp_0]#+}; fi
+		cpu[temp_unit]="${cpu[temp_0]:(-2)}"; cpu[temp_0]="${cpu[temp_0]%.*}"; if [[ ${cpu[temp_0]::1} == "+" ]]; then cpu[temp_0]="${cpu[temp_0]#+}"; fi
 		if [[ -z ${cpu[temp_high]} ]]; then
 			if ! get_value -v 'cpu[temp_high]' -sv "sens_var" -k "Package*high =" -m 2 -r "[^0-9.]" -b -i; then cpu[temp_high]="85"; cpu[temp_crit]=$((cpu[temp_high]+10))
 			else get_value -v 'cpu[temp_crit]' -sv "sens_var" -k "Package*crit =" -m 2 -r "[^0-9.]" -b -i; fi
@@ -1479,7 +1479,7 @@ collect_cpu_temps() { #? Collect cpu temperatures
 	#* Get CPU package temp for amd ryzen cpus
 	elif get_value -v 'cpu[temp_0]' -sv "sens_var" -k "Tdie:" -mk 1; then
 		#* If successful get temperature unit, convert temp to integer and get high
-		cpu[temp_unit]=${cpu[temp_0]:(-2)}; cpu[temp_0]=${cpu[temp_0]%.*}; if [[ ${cpu[temp_0]::1} == "+" ]]; then cpu[temp_0]=${cpu[temp_0]#+}; fi
+		cpu[temp_unit]="${cpu[temp_0]:(-2)}"; cpu[temp_0]="${cpu[temp_0]%.*}"; if [[ ${cpu[temp_0]::1} == "+" ]]; then cpu[temp_0]="${cpu[temp_0]#+}"; fi
 		if [[ -z ${cpu[temp_high]} ]]; then
 			if ! get_value -v 'cpu[temp_high]' -sv "sens_var" -k "Tdie*high =" -m 2 -r "[^0-9.]" -b -i; then cpu[temp_high]="85"; fi
 			cpu[temp_crit]=$((cpu[temp_high]+10))
@@ -1499,6 +1499,20 @@ collect_cpu_temps() { #? Collect cpu temperatures
 			done
 			z=$((z+i))
 		done
+
+	#* Get CPU package temp for Rapberry Pi cpus
+	elif command -v vcgencmd >/dev/null 2>&1; then
+		cpu[temp_0]="$(vcgencmd measure_temp 2>/dev/null ||true)"
+		if [[ -z ${cpu[temp_0]} ]]; then cpu[temp_0]="temp=0.0°C"; fi
+		cpu[temp_0]="${cpu[temp_0]#temp=}"
+		cpu[temp_unit]="°${cpu[temp_0]:(-1)}"; cpu[temp_0]=${cpu[temp_0]%.*}; if [[ ${cpu[temp_0]::1} == "+" ]]; then cpu[temp_0]=${cpu[temp_0]#+}; fi
+		cpu[temp_high]="75"; cpu[temp_crit]=$((cpu[temp_high]+10))
+
+		#* Copy cpu temp to cores
+		for((i=1;i<=threads;i++)); do
+			cpu[temp_${i}]="${cpu[temp_0]}"
+		done
+		
 
 	#* If unsuccessful turn off temperature checking
 	else
