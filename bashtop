@@ -64,7 +64,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.8.23"
+declare version="0.8.24"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -152,12 +152,13 @@ declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu 
 declare -a pid_history detail_graph detail_history detail_mem_history
 declare time_left timestamp_start timestamp_end timestamp_input_start timestamp_input_end time_string mem_out proc_misc prev_screen pause_screen filter input_to_filter
 declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2 proc_out curled git_version has_iostat
-declare esc_character tab backspace sleepy late_update skip_process_draw winches quitting theme_int notifier
+declare esc_character tab backspace sleepy late_update skip_process_draw winches quitting theme_int notifier saved_stty
 declare -a disks_free disks_total disks_name disks_free_percent disks_io saved_key themes
 printf -v esc_character "\u1b"
 printf -v tab "\u09"
 printf -v backspace "\u7F"
-printf -v enter_key "\uA"
+#printf -v enter_key "\uA"
+printf -v enter_key "\uD"
 
 read tty_height tty_width < <(stty size)
 
@@ -213,6 +214,7 @@ fi
 init_() { #? Collect needed information and set options before startig main loop
 	local i
 	#* Set terminal options, save and clear screen
+	saved_stty="$(stty -g)"
 	tput smcup
 	stty -echo
 	tput civis
@@ -444,6 +446,7 @@ quit_() { #? Clean exit
 	tput rmcup
 	stty echo
 	tput cnorm
+	stty "${saved_stty}"
 
 	#* Save any changed values to config file
 	if [[ $config_file != "/dev/null" ]]; then
@@ -457,6 +460,7 @@ sleep_() { #? Restore terminal options, stop and send to background if caught SI
 	tput rmcup
 	stty echo
 	tput cnorm
+	stty "${saved_stty}"
 
 	kill -s SIGSTOP $$
 }
@@ -2760,9 +2764,12 @@ menu_() { #? Shows the main menu overlay
 
 		get_ms timestamp_end
 		time_left=$((timestamp_start+update_ms-timestamp_end))
-		if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
-		elif ((time_left>1)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
-		else wait_string="0.001"; time_left=0; fi
+		# if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
+		# elif ((time_left>1)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
+		# else wait_string="0.001"; time_left=0; fi
+		if ((time_left>1000)); then wait_string=10; time_left=$((time_left-1000))
+		elif ((time_left>100)); then wait_string=$((time_left/100)); time_left=0
+		else wait_string="0"; time_left=0; fi
 
 		get_key -v keypress -w ${wait_string}
 		if [[ $(stty size) != "$tty_height $tty_width" ]]; then resized; fi
@@ -2785,7 +2792,7 @@ menu_() { #? Shows the main menu overlay
 			q|Q) quit_ ;;
 		esac
 
-		if ((time_left==0)); then get_ms timestamp_start; collect_and_draw; fi
+		if ((time_left==0)) && [[ -z $keypress ]]; then get_ms timestamp_start; collect_and_draw; fi
 		if ((resized>=5)); then resized=0; fi
 
 	done
@@ -2877,9 +2884,13 @@ help_() { #? Shows the help overlay
 		get_ms timestamp_end
 		time_left=$((timestamp_start+update_ms-timestamp_end))
 
-		if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
-		elif ((time_left>0)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
-		else wait_string="0.001"; time_left=0; fi
+		# if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
+		# elif ((time_left>0)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
+		# else wait_string="0.001"; time_left=0; fi
+
+		if ((time_left>1000)); then wait_string=10; time_left=$((time_left-1000))
+		elif ((time_left>100)); then wait_string=$((time_left/100)); time_left=0
+		else wait_string="0"; time_left=0; fi
 
 		get_key -v help_key -w "${wait_string}"
 
@@ -3101,9 +3112,13 @@ options_() { #? Shows the options overlay
 		get_ms timestamp_end
 		if [[ -z $theme_check ]]; then time_left=$((timestamp_start+update_ms-timestamp_end))
 		else unset theme_check; time_left=0; fi
-		if ((time_left>500)); then wait_string=0.5
-		elif ((time_left>0)); then printf -v wait_string ".%03d" "${time_left}"
-		else wait_string="0.001"; time_left=0; fi
+		# if ((time_left>500)); then wait_string=0.5
+		# elif ((time_left>0)); then printf -v wait_string ".%03d" "${time_left}"
+		# else wait_string="0.001"; time_left=0; fi
+
+		if ((time_left>500)); then wait_string=5; time_left=$((time_left-500))
+		elif ((time_left>100)); then wait_string=$((time_left/100)); time_left=0
+		else wait_string="0"; time_left=0; fi
 
 		get_key -v keypress -w ${wait_string}
 
@@ -3306,9 +3321,13 @@ killer_() { #? Kill process with selected signal
 
 		get_ms timestamp_end
 		time_left=$((timestamp_start+update_ms-timestamp_end))
-		if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
-		elif ((time_left>1)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
-		else wait_string="0.001"; time_left=0; fi
+		# if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
+		# elif ((time_left>1)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
+		# else wait_string="0.001"; time_left=0; fi
+
+		if ((time_left>1000)); then wait_string=10; time_left=$((time_left-1000))
+		elif ((time_left>100)); then wait_string=$((time_left/100)); time_left=0
+		else wait_string="0"; time_left=0; fi
 
 		get_key -v keypress -w ${wait_string}
 		if [[ $(stty size) != "$tty_height $tty_width" ]]; then resized; fi
@@ -3373,7 +3392,8 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 	if [[ -z $save && -n ${saved_key[0]} ]]; then key="${saved_key[0]}"; unset 'saved_key[0]'; saved_key=("${saved_key[@]}")
 	else
 		unset key
-		IFS= read -rsd '' -t ${wait_time:-0.001} -n 1 key 2>/dev/null ||true
+		#IFS= read -rsd '' -t ${wait_time:-0.001} -n 1 key 2>/dev/null ||true
+		key=$(stty -cooked min 0 time ${wait_time:-0}; dd bs=1 count=1 2>/dev/null)
 
 		if [[ -z ${key:+s} ]]; then
 			key_out=""
@@ -3385,25 +3405,26 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 		if [[ $key == "${enter_key}" ]]; then key="enter"
 		elif [[ $key == "${backspace}" ]]; then key="backspace"
 		elif [[ $key == "${tab}" ]]; then key="tab"
-		elif [[ $key == "$esc_character" ]]; then esc=1; read -rsn3 -t 0.001 key 2>/dev/null || true; fi
+		elif [[ $key == "$esc_character" ]]; then 
+			esc=1; key=$(stty -cooked min 0 time 0; dd bs=1 count=3 2>/dev/null); fi # read -rsn3 -t 0.001 key 2>/dev/null || true
 		if [[ -z $key && $esc -eq 1 ]]; then key="escape"
 		elif [[ $esc -eq 1 ]]; then
 			case "${key}" in
-				'[A') key="up" ;;
-				'[B') key="down" ;;
-				'[D') key="left" ;;
-				'[C') key="right" ;;
+				'[A'*) key="up" ;;
+				'[B'*) key="down" ;;
+				'[D'*) key="left" ;;
+				'[C'*) key="right" ;;
 				'[2~') key="insert" ;;
 				'[3~') key="delete" ;;
-				'[H') key="home" ;;
-				'[F') key="end" ;;
+				'[H'*) key="home" ;;
+				'[F'*) key="end" ;;
 				'[5~') key="page_up" ;;
 				'[6~') key="page_down" ;;
-				'[Z') key="shift_tab" ;;
-				'OP') key="f1";;
-				'OQ') key="f2";;
-				'OR') key="f3";;
-				'OS') key="f4";;
+				'[Z'*) key="shift_tab" ;;
+				'OP'*) key="f1";;
+				'OQ'*) key="f2";;
+				'OR'*) key="f3";;
+				'OS'*) key="f4";;
 				'[15') key="f5";;
 				'[17') key="f6";;
 				'[18') key="f7";;
@@ -3418,7 +3439,8 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 
 	fi
 
-	read -rst 0.001 -n 1000 2>/dev/null ||true
+	#read -rst 0.001 -n 1000 2>/dev/null ||true
+	stty -cooked min 0 time 0; dd bs=512 count=1 >/dev/null 2>&1
 
 	if [[ -n $save && -n $key ]]; then saved_key+=("${key}"); return 0; fi
 
@@ -3594,7 +3616,7 @@ collect_and_draw() { #? Run all collect and draw functions
 		elif [[ -z $pause_screen ]]; then
 			input_runs=0
 			while [[ -n ${saved_key[0]} ]] && ((time_left>0)) && ((++input_runs<=5)); do
-				process_input 0.001
+				process_input
 				unset late_update
 			done
 		fi
@@ -3651,17 +3673,22 @@ main_loop() { #? main loop...
 
 			#* If NOT waiting for input and time left is greater than 500ms, wait 500ms and loop
 			if [[ -z $input_to_filter ]] && ((time_left>=500)); then
-				wait_string="0.5"
+				# wait_string="0.5"
+				wait_string="5"
 				time_left=$((time_left-500))
 
 			#* If waiting for input and time left is greater than "50 ms", wait 50ms and loop
-			elif [[ -n $input_to_filter ]] && ((time_left>=50)); then
-				wait_string="0.05"
-				time_left=$((time_left-50))
+			# elif [[ -n $input_to_filter ]] && ((time_left>=50)); then
+			# 	wait_string="0.05"
+			# 	time_left=$((time_left-50))
+			elif [[ -n $input_to_filter ]] && ((time_left>=100)); then
+				wait_string="1"
+				time_left=$((time_left-100))
 
 			#* Else format wait string with padded zeroes if needed and break loop
 			else
-				printf -v wait_string ".%03d" "${time_left}"
+				#printf -v wait_string ".%03d" "${time_left}"
+				if ((time_left>=100)); then wait_string=$((time_left/100)); else wait_string=0; fi
 				time_left=0
 			fi
 

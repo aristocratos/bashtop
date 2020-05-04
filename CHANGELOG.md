@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.8.24
+
+* Fixed: Input error freezes, by changing from using "read" command to using "dd" for reading keyboard input.
+
 ## v0.8.23
 
 * Added: Support for Raspberry Pi cpu temperature reporting
