@@ -14,7 +14,7 @@
 * [Description](#description)
 * [Features](#features)
 * [Themes](#themes)
-* [Upcoming](#upcoming) (Updated)
+* [Upcoming](#upcoming) (Updated, Python port)
 * [Support and funding](#support-and-funding)
 * [Compatibility](#compatibility) (Updated)
 * [Dependencies](#dependencies) (Updated)
@@ -62,6 +62,12 @@ This will add python 3 and psutil as dependencies, but will make bashtop cross p
 ~~This will be in a new branch called bashtop-psutil when I'm done with initial testing~~
 
 This will be integrated in to main version when done and add the possibility to switch between psutil and linux tools for users running linux.
+
+#### Update
+
+Work on a complete python port will begin this summer. My aim is to keep it compatible with pypy3 for a lot of added efficiency.
+
+Bash(py)top?
 
 ## Support and funding
 
