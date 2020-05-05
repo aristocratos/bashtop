@@ -452,7 +452,8 @@ quit_() { #? Clean exit
 	if [[ $config_file != "/dev/null" ]]; then
 		save_config "${save_array[@]}"
 	fi
-
+	
+	clear
 	exit 0
 }
 
