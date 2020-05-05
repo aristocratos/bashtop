@@ -156,7 +156,8 @@ declare esc_character tab backspace sleepy late_update skip_process_draw winches
 declare -a disks_free disks_total disks_name disks_free_percent disks_io saved_key themes
 printf -v esc_character "\u1b"
 printf -v tab "\u09"
-printf -v backspace "\u7F"
+printf -v backspace "\u7F" #? Backspace set to DELETE
+printf -v backspace_real "\u08" #? Real backspace
 #printf -v enter_key "\uA"
 printf -v enter_key "\uD"
 
@@ -3403,7 +3404,7 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 
 		#* Read 3 more characters if a leading escape character is detected
 		if [[ $key == "${enter_key}" ]]; then key="enter"
-		elif [[ $key == "${backspace}" ]]; then key="backspace"
+		elif [[ $key == "${backspace}" || $key == "${backspace_real}" ]]; then key="backspace"
 		elif [[ $key == "${tab}" ]]; then key="tab"
 		elif [[ $key == "$esc_character" ]]; then 
 			esc=1; key=$(stty -cooked min 0 time 0; dd bs=1 count=3 2>/dev/null); fi # read -rsn3 -t 0.001 key 2>/dev/null || true
