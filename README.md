@@ -187,7 +187,6 @@ Available for Ubuntu from [PPA repository](https://code.launchpad.net/~bashtop-m
  sudo add-apt-repository ppa:bashtop-monitor/bashtop
  sudo apt update
  sudo apt install bashtop
-
 ```
 
 #### Fedora
@@ -198,6 +197,28 @@ Available in the Fedora repository.
 
 ``` bash
 sudo dnf install bashtop
+```
+
+#### CentOS
+
+>Installation
+
+``` bash
+dnf config-manager --set-enabled PowerTools
+dnf install epel-release
+dnf install bashtop
+```
+
+#### RHEL 8
+
+>Installation
+
+``` bash
+ARCH=$( /bin/arch )
+subscription-manager repos --enable
+"codeready-builder-for-rhel-8-${ARCH}-rpms"
+dnf install epel-release
+dnf install bashtop
 ```
 
 ## Configurability
