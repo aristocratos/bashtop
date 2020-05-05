@@ -1247,7 +1247,7 @@ create_mini_graph() { 	#? Create a one line high graph from an array of percenta
 			#* Round current input_array value divided by 10 to closest whole number
 			org_value=${input_array[offset+x]}
 			if ((org_value<0)); then org_value=0; fi
-			if ((org_value>=100)); then cur_value=10
+			if ((org_value>=100)); then cur_value=10; org_value=100
 			elif [[ ${#org_value} -gt 1 && ${org_value:(-1)} -ge 5 ]]; then cur_value=$((${org_value::1}+1))
 			elif [[ ${#org_value} -gt 1 && ${org_value:(-1)} -lt 5 ]]; then cur_value=$((${org_value::1}))
 			elif [[ ${org_value:(-1)} -ge 5 ]]; then cur_value=1
