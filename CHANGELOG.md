@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.8.25
+
+* Fixed: Backspace not registering when not set to send ascii delete
+* Fixed: Broken cpu temperature graph when is value over cpu high temp
+* Added: Possibilty to run date through background fifo for bash <5
+
 ## v0.8.24
 
 * Fixed: Input error freezes, by changing from using "read" command to using "dd" for reading keyboard input.
