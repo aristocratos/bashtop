@@ -1,4 +1,4 @@
-PREFIX ?= /usr
+PREFIX ?= /usr/local
 DOCDIR ?= $(PREFIX)/share/doc/bashtop
 
 all:
