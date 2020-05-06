@@ -578,6 +578,8 @@ save_config() { #? Saves variables to config file if not same, usage: save_confi
 			if [[ ${tmp_value//\"/} != "${!var}" ]]; then
 				original="${var}=${tmp_value}"
 				new="${var}=\"${!var}\""
+				original="${original//'/'/'\/'}"
+				new="${new//'/'/'\/'}"
 				sed -i "s/${original}/${new}/" "${config_file}"
 			fi
 		else
