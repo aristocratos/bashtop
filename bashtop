@@ -513,7 +513,7 @@ traperr() { #? Function for reporting error line numbers
 	fi
 	if ((len>100)); then unset 'trace_array[@]'; fi
 	trace_array+=("$err")
-	echo "$(printf "%(%X)T") ERROR: On line $err $trap_muted" >> "${config_dir}/error.log"
+	printf "%(%X)T ERROR: On line %s %s\n" -1 "$err" "$trap_muted" >> "${config_dir}/error.log"
 
 }
 
@@ -1472,7 +1472,7 @@ collect_cpu_temps() { #? Collect cpu temperatures
 	local -a ccd_array core_array
 
 	#* Fetch output from "sensors" command to a variable
-	sens_var="$(sensors)"
+	read -rd '' sens_var < <(sensors) ||true
 
 	#* Get CPU package temp for intel cpus
 	if get_value -v 'cpu[temp_0]' -sv "sens_var" -k "Package*:" -mk 1 || get_value -v 'cpu[temp_0]' -sv "sens_var" -k "Core 0:" -mk 1; then
@@ -1529,7 +1529,7 @@ collect_cpu_temps() { #? Collect cpu temperatures
 
 	#* Get CPU package temp for Rapberry Pi cpus
 	elif command -v vcgencmd >/dev/null 2>&1; then
-		cpu[temp_0]="$(vcgencmd measure_temp 2>/dev/null ||true)"
+		read -r cpu[temp_0] < <(vcgencmd measure_temp 2>/dev/null ||true) ||true
 		if [[ -z ${cpu[temp_0]} ]]; then cpu[temp_0]="temp=0.0°C"; fi
 		cpu[temp_0]="${cpu[temp_0]#temp=}"
 		cpu[temp_unit]="°${cpu[temp_0]:(-1)}"; cpu[temp_0]=${cpu[temp_0]%.*}; if [[ ${cpu[temp_0]::1} == "+" ]]; then cpu[temp_0]=${cpu[temp_0]#+}; fi
@@ -1568,7 +1568,7 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 	local -a mem_array swap_array available=("mem")
 
 	#* Get memory and swap information from "/proc/meminfo" and calculate percentages
-	mem_info="$(</proc/meminfo)"
+	read -rd '' mem_info </proc/meminfo ||true
 
 	get_value -v 'mem[total]' -sv "mem_info" -k "MemTotal:" -i
 	get_value -v 'mem[available]' -sv "mem_info" -k "MemAvailable:" -i
@@ -1732,14 +1732,18 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 	for readline in "${proc_array[@]:1}"; do
 		 ((++count))
 
-		if ((count==height-3)); then
+		if ((count==height-3 & breaking==0)); then
 			if [[ -n $filter || $proc_sorting != "cpu lazy" || ${proc[selected]} -gt 0 || ${proc[page]} -gt 1 || ${proc_reversed} == true ]]; then :
 			else breaking=1; fi
 		fi
 
 		#if get_key -save && [[ ${#saved_key[@]} -gt 0 ]]; then proc_array=("${saved_proc_array[@]}"); return; fi
 
-		work_array=(${readline})
+		if ((breaking==2)); then
+			work_array=(${proc_array[-1]})
+		else
+			work_array=(${readline})
+		fi
 
 		pid="${work_array[0]}"
 		pcpu_usage="${work_array[-1]}"
@@ -1803,21 +1807,22 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 				#* Get info for detailed box if enabled
 				if [[ ${pid} == "${proc[detailed_pid]}" ]]; then
 					if [[ -z ${proc[detailed_name]} ]]; then
-						local get_mem
+						local get_mem mem_string cmdline=""
 						local -a det_array
 						read -r proc[detailed_name] </proc/${pid}/comm ||true
-						proc[detailed_cmd]="$(tr '\000' ' ' </proc/${pid}/cmdline)"
+						mapfile -d $'\0' -n 0 cmdline </proc/${pid}/cmdline ||true
+						proc[detailed_cmd]="${cmdline[*]}"
 						proc[detailed_name]="${proc[detailed_name]::15}"
-						det_array=($(ps -o ppid:4,euser:15 --no-headers -p $pid || true))
+						read -ra det_array < <(ps -o ppid:4,euser:15 --no-headers -p $pid || true)
 						proc[detailed_parent_pid]="${det_array[0]}"
 						proc[detailed_user]="${det_array[*]:1}"
-						proc[detailed_parent_name]="$(ps -o comm --no-headers -p ${det_array[0]} || true)"
+						read -r proc[detailed_parent_name] < <(ps -o comm --no-headers -p ${det_array[0]} || true)
 						get_mem=1
 					fi
 					proc[detailed_cpu]="${cpu_percent_string// /}"
 					proc[detailed_cpu_int]="${cpu_int}"
 					proc[detailed_threads]="${work_array[-4]}"
-					proc[detailed_runtime]="$(ps -o etime:4 --no-headers -p $pid || true)"
+					read -r proc[detailed_runtime] < <(ps -o etime:4 --no-headers -p $pid || true)
 
 					if [[ ${proc[detailed_mem]} != "${work_array[-2]}" || -n $get_mem ]] || ((++proc[detailed_mem_count]>5)); then
 						proc[detailed_mem_count]=0
@@ -1831,7 +1836,8 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 						elif ((proc[detailed_mem_int]>100)); then proc[detailed_mem_int]=$((proc[detailed_mem_int]/2))
 						elif ((proc[detailed_mem_int]<50)); then proc[detailed_mem_int]=$((proc[detailed_mem_int]*2)); fi
 						unset 'proc[detailed_mem_string]'
-						floating_humanizer -v proc[detailed_mem_string] -B -s 1 "$(ps -o rss:1 --no-headers -p ${pid} || true)"
+						read -r mem_string < <(ps -o rss:1 --no-headers -p ${pid} || true)
+						floating_humanizer -v proc[detailed_mem_string] -B -s 1 $mem_string
 						if [[ -z ${proc[detailed_mem_string]} ]]; then proc[detailed_mem_string]="? Byte"; fi
 					fi
 
@@ -1888,9 +1894,13 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 		if ((breaking==1)); then
 			if [[ ${proc[detailed]} == "1" && -z ${proc[detailed_cpu]} ]] && ps ${proc[detailed_pid]} >/dev/null 2>&1; then
 				readarray ${options} -O ${#proc_array[@]} proc_array < <(ps -o pid:${proc[pid_len]}=Pid:,comm:${format_cmd}=${tree:-Program:}${format_args},nlwp:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --no-headers -p ${proc[detailed_pid]} || true)
+				((++breaking))
 			else
 				break
 			fi
+		elif ((breaking==2)); then
+			unset 'proc_array[-1]'
+			break
 		fi
 
 	done
