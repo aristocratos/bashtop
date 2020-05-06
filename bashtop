@@ -212,10 +212,10 @@ else
 	fi
 
 	if [[ -n $tmpdir ]] && command -v stdbuf >/dev/null 2>&1; then
-		mkfifo "${tmpdir}/bashtop_datefifo"
-		exec 5> >(exec stdbuf -o0 date -f - +%s%3N > "${tmpdir}/bashtop_datefifo" 2>&1)
-		exec 6< "${tmpdir}/bashtop_datefifo"
-		rm  "${tmpdir}/bashtop_datefifo"
+		mkfifo "$tmpdir/bashtop_datefifo"
+		exec 5> >(exec stdbuf -o0 date -f - +%s%3N > "$tmpdir/bashtop_datefifo" 2>&1)
+		exec 6< "$tmpdir/bashtop_datefifo"
+		rm  "$tmpdir/bashtop_datefifo"
 		
 		get_ms() { #? Set given variable to current epoch millisecond with date command through background fifo
 			local -n ms_out=$1
@@ -303,23 +303,23 @@ init_() { #? Collect needed information and set options before startig main loop
 			if [[ $letter == " " ]]; then
 				print -v banner_out[y] -r 1
 			else
-				print -v banner_out[y] -fg ${b_color} "${letter}"
+				print -v banner_out[y] -fg $b_color "$letter"
 			fi
 		done <<<"$banner_line"
 		((++y))
 	done
 	print -v banner_out[y] -rs -fg cc -b "← esc"
 	if [[ -n $git_version && $git_version != "$version" ]]; then
-		print -v banner_out[y] -rs -fg "#80cc80" -r 15 "[${git_version} available!]" -r $((9-${#git_version}))
+		print -v banner_out[y] -rs -fg "#80cc80" -r 15 "[$git_version available!]" -r $((9-${#git_version}))
 		if [[ -n $notifier ]]; then
 			notify-send -u normal\
-			"Bashtop Update!" "New version of Bashtop available\!\nCurrent version: ${version}\n\New version: ${git_version}\nDownload at github.com/aristocratos/bashtop"\
+			"Bashtop Update!" "New version of Bashtop available\!\nCurrent version: $version\n\New version: $git_version\nDownload at github.com/aristocratos/bashtop"\
 			-i face-glasses -t 10000
 		fi
 	else
 		print -v banner_out[y] -r 37
 	fi
-	print -v banner_out[y] -fg cc -i -b "Version: ${version}" -rs
+	print -v banner_out[y] -fg cc -i -b "Version: $version" -rs
 	unset 'banner[@]'
 	banner=("${banner_out[@]}")
 
@@ -328,7 +328,7 @@ init_() { #? Collect needed information and set options before startig main loop
 
 	#* Set up internals for quick processes sorting switching
 	for((i=0;i<${#sorting[@]};i++)); do
-		if [[ ${sorting[i]} == "${proc_sorting}" ]]; then
+		if [[ ${sorting[i]} == "$proc_sorting" ]]; then
 			proc[sorting_int]=$i
 			break
 		fi
@@ -338,7 +338,7 @@ init_() { #? Collect needed information and set options before startig main loop
 		proc_sorting="${sorting[0]}"
 	fi
 
-	if [[ ${proc_reversed} == true ]]; then
+	if [[ $proc_reversed == true ]]; then
 		proc[reverse]="+"
 	else
 		unset 'proc[reverse]'
@@ -363,37 +363,37 @@ color_init_() { #? Check for theme file and set colors
 	local -a convert_color=("main_bg" "temp_start" "temp_mid" "temp_end" "cpu_start" "cpu_mid" "cpu_end" "upload_start" "upload_mid" "upload_end" "download_start" "download_mid" "download_end" "used_start" "used_mid" "used_end" "available_start" "available_mid" "available_end" "cached_start" "cached_mid" "cached_end" "free_start" "free_mid" "free_end" "proc_misc" "main_fg_dec")
 
 	for theme_unset in ${!theme[@]}; do
-		unset 'theme[${theme_unset}]'
+		unset 'theme[$theme_unset]'
 	done
 
 	#* Check if theme set in config exists and source it if it does
-	if [[ -n ${color_theme} && ${color_theme} != "Default" && -e "${theme_dir}/${color_theme%.theme}.theme" ]]; then
+	if [[ -n $color_theme && $color_theme != "Default" && -e "$theme_dir/${color_theme%.theme}.theme" ]]; then
 		# shellcheck source=/dev/null
-		source "${theme_dir}/${color_theme%.theme}.theme"
+		source "$theme_dir/${color_theme%.theme}.theme"
 		sourced=1
 	else
 		color_theme="Default"
 	fi
 
 	main_fg_dec="${theme[main_fg]:-$main_fg}"
-	theme[main_fg_dec]="${main_fg_dec}"
+	theme[main_fg_dec]="$main_fg_dec"
 
 	#* Convert colors for graphs and meters from rgb hexadecimal to rgb decimal if needed
 	for color_name in ${convert_color[@]}; do
-		if [[ -n $sourced ]]; then hex2rgb="${theme[${color_name}]}"
+		if [[ -n $sourced ]]; then hex2rgb="${theme[$color_name]}"
 		else hex2rgb="${!color_name}"; fi
 
 		hex2rgb=${hex2rgb//#/}
 
-	 	if [[ ${#hex2rgb} == 6 ]] && is_hex "$hex2rgb"; then hex2rgb="$((${hex}${hex2rgb:0:2})) $((${hex}${hex2rgb:2:2})) $((${hex}${hex2rgb:4:2}))"
-	 	elif [[ ${#hex2rgb} == 2 ]] && is_hex "$hex2rgb"; then hex2rgb="$((${hex}${hex2rgb:0:2})) $((${hex}${hex2rgb:0:2})) $((${hex}${hex2rgb:0:2}))"
+	 	if [[ ${#hex2rgb} == 6 ]] && is_hex "$hex2rgb"; then hex2rgb="$(($hex${hex2rgb:0:2})) $(($hex${hex2rgb:2:2})) $(($hex${hex2rgb:4:2}))"
+	 	elif [[ ${#hex2rgb} == 2 ]] && is_hex "$hex2rgb"; then hex2rgb="$(($hex${hex2rgb:0:2})) $(($hex${hex2rgb:0:2})) $(($hex${hex2rgb:0:2}))"
 		else
-			dec_test=(${hex2rgb})
+			dec_test=($hex2rgb)
 			if [[ ${#dec_test[@]} -eq 3 ]] && is_int "${dec_test[@]}"; then hex2rgb="${dec_test[*]}"
 			else unset hex2rgb; fi
 		fi
 
-		theme[${color_name}]="${hex2rgb}"
+		theme[$color_name]="$hex2rgb"
 	done
 
 	#* Set background color if set, otherwise use terminal default
@@ -467,7 +467,7 @@ quit_() { #? Clean exit
 	tput rmcup
 	stty echo
 	tput cnorm
-	stty "${saved_stty}"
+	stty "$saved_stty"
 
 	#* Save any changed values to config file
 	if [[ $config_file != "/dev/null" ]]; then
@@ -481,7 +481,7 @@ sleep_() { #? Restore terminal options, stop and send to background if caught SI
 	tput rmcup
 	stty echo
 	tput cnorm
-	stty "${saved_stty}"
+	stty "$saved_stty"
 
 	kill -s SIGSTOP $$
 }
@@ -495,7 +495,7 @@ resume_() { #? Set terminal options and resume if caught SIGCONT ('fg' from term
 	if [[ -n $pause_screen ]]; then
 		echo -en "$pause_screen"
 	else
-		echo -en "${boxes_out}${proc_det}${last_screen}${mem_out}${proc_misc}${proc_misc2}${update_string}${clock_out}"
+		echo -en "$boxes_out$proc_det$last_screen$mem_out$proc_misc$proc_misc2$update_string$clock_out"
 	fi
 }
 
@@ -513,7 +513,7 @@ traperr() { #? Function for reporting error line numbers
 	fi
 	if ((len>100)); then unset 'trace_array[@]'; fi
 	trace_array+=("$err")
-	printf "%(%X)T ERROR: On line %s %s\n" -1 "$err" "$trap_muted" >> "${config_dir}/error.log"
+	printf "%(%X)T ERROR: On line %s %s\n" -1 "$err" "$trap_muted" >> "$config_dir/error.log"
 
 }
 
@@ -527,7 +527,7 @@ resized() { #? Get new terminal size if terminal is resized
 			winches=0
 		else
 			create_box -w 30 -h 3 -c 1 -l 1 -lc "#EE2020" -title "resizing"
-			print -jc 28 -fg ${theme[title]} "New size: ${tty_width}x${tty_height}"
+			print -jc 28 -fg ${theme[title]} "New size: ${tty_width}x$tty_height"
 			sleep 0.2
 			if [[ $(stty size) != "$tty_height $tty_width" ]]; then winches=0; fi
 		fi
@@ -539,7 +539,7 @@ size_error_msg() { #? Shows error message if terminal size is below 80x25
 	local height=$tty_height
 	tput clear
 	create_box -full -lc "#EE2020" -title "resize window"
-	print -rs -m $((tty_height/2-1)) 2 -fg ${theme[title]} -c -l 11 "Current size: " -bg "#00" -fg dd2020 -d 1 -c "${tty_width}x${tty_height}" -rs
+	print -rs -m $((tty_height/2-1)) 2 -fg ${theme[title]} -c -l 11 "Current size: " -bg "#00" -fg dd2020 -d 1 -c "${tty_width}x$tty_height" -rs
 	print -d 1 -fg ${theme[title]} -c -l 15 "Need to be atleast:" -bg "#00" -fg 30dd50 -d 1 -c "80x24" -rs
 	while [[ $(stty size) == "$tty_height $tty_width" ]]; do sleep 0.2; if [[ -n $quitting ]]; then quit_; fi ; done
 
@@ -551,16 +551,16 @@ draw_banner() { #? Draw banner, usage: draw_banner <line> [output variable]
 	xpos=$(( (tty_width/2)-(banner_width/2) ))
 
 	for banner_line in "${banner[@]}"; do
-		print -v banner_out -rs -move $((ypos+++y)) $xpos -t "${banner_line}"
+		print -v banner_out -rs -move $((ypos+++y)) $xpos -t "$banner_line"
 	done
 
-	if [[ -z $2 ]]; then echo -en "${banner_out}"; fi
+	if [[ -z $2 ]]; then echo -en "$banner_out"; fi
 }
 
 create_config() { #? Creates a new config file with default values from above
 	local c_line c_read this_file
 	this_file="$(realpath "$0")"
-	echo "#? Config file for bashtop v. ${version}" > "$config_file"
+	echo "#? Config file for bashtop v. $version" > "$config_file"
 	while IFS= read -r c_line; do
 		if [[ $c_line =~ aaz_config() ]]; then break
 		elif [[ $c_read == "1" ]]; then echo "$c_line" >> "$config_file"
@@ -573,17 +573,17 @@ save_config() { #? Saves variables to config file if not same, usage: save_confi
 	local var tmp_conf tmp_value quote original new
 	tmp_conf="$(<"$config_file")"
 	for var in "$@"; do
-		if [[ ${tmp_conf} =~ ${var} ]]; then
-			get_value -v "tmp_value" -sv "tmp_conf" -k "${var}="
+		if [[ $tmp_conf =~ $var ]]; then
+			get_value -v "tmp_value" -sv "tmp_conf" -k "$var="
 			if [[ ${tmp_value//\"/} != "${!var}" ]]; then
-				original="${var}=${tmp_value}"
-				new="${var}=\"${!var}\""
+				original="$var=$tmp_value"
+				new="$var=\"${!var}\""
 				original="${original//'/'/'\/'}"
 				new="${new//'/'/'\/'}"
-				sed -i "s/${original}/${new}/" "${config_file}"
+				sed -i "s/$original/$new/" "$config_file"
 			fi
 		else
-			echo "${var}=\"${!var}\"" >> "$config_file"
+			echo "$var=\"${!var}\"" >> "$config_file"
 		fi
 	done
 }
@@ -602,35 +602,35 @@ set_font() { #? Take a string and generate a string of unicode characters of giv
 		"fraktur bold") lower_start="1D586"; upper_start="1D56C"; digit_start="1D7EC";;
 		"monospace") lower_start="1D68A"; upper_start="1D670"; digit_start="1D7F6";;
 		"double-struck") lower_start="1D552"; upper_start="1D538"; digit_start="1D7D8";;
-		*) echo -n "${string_in}"; return;;
+		*) echo -n "$string_in"; return;;
 	esac
 
 	for((i=0;i<${#string_in};i++)); do
 		letter=${string_in:i:1}
 		if [[ $letter =~ [a-z] ]]; then #61
 			printf -v letter_hex '%X\n' "'$letter"
-			printf -v add_hex '%X' "$((${hex}${letter_hex}-${hex}61))"
-			printf -v new_hex '%X' "$((${hex}${lower_start}+${hex}${add_hex}))"
-			string_out="${string_out}\U${new_hex}"
-			#if [[ $font =~ sans-serif && $letter =~ m|w ]]; then string_out="${string_out} "; fi
+			printf -v add_hex '%X' "$(($hex$letter_hex-${hex}61))"
+			printf -v new_hex '%X' "$(($hex$lower_start+$hex$add_hex))"
+			string_out="$string_out\U$new_hex"
+			#if [[ $font =~ sans-serif && $letter =~ m|w ]]; then string_out="$string_out "; fi
 			#\U205F
 		elif [[ $letter =~ [A-Z] ]]; then #41
 			printf -v letter_hex '%X\n' "'$letter"
-			printf -v add_hex '%X' "$((${hex}${letter_hex}-${hex}41))"
-			printf -v new_hex '%X' "$((${hex}${upper_start}+${hex}${add_hex}))"
-			string_out="${string_out}\U${new_hex}"
-			#if [[ $font =~ sans-serif && $letter =~ M|W ]]; then string_out="${string_out} "; fi
+			printf -v add_hex '%X' "$(($hex$letter_hex-${hex}41))"
+			printf -v new_hex '%X' "$(($hex$upper_start+$hex$add_hex))"
+			string_out="$string_out\U$new_hex"
+			#if [[ $font =~ sans-serif && $letter =~ M|W ]]; then string_out="$string_out "; fi
 		elif [[ $letter =~ [0-9] ]]; then #30
 			printf -v letter_hex '%X\n' "'$letter"
-			printf -v add_hex '%X' "$((${hex}${letter_hex}-${hex}30))"
-			printf -v new_hex '%X' "$((${hex}${digit_start}+${hex}${add_hex}))"
-			string_out="${string_out}\U${new_hex}"
+			printf -v add_hex '%X' "$(($hex$letter_hex-${hex}30))"
+			printf -v new_hex '%X' "$(($hex$digit_start+$hex$add_hex))"
+			string_out="$string_out\U$new_hex"
 		else
-			string_out="${string_out} \e[1D${letter}"
+			string_out="$string_out \e[1D$letter"
 		fi
 	done
 
-	echo -en "${string_out}"
+	echo -en "$string_out"
 }
 
 sort_array_int() {	#? Copy and sort an array of integers from largest to smallest value, usage: sort_array_int "input array" "output array"
@@ -663,9 +663,9 @@ sort_array_int() {	#? Copy and sort an array of integers from largest to smalles
 subscript() { #? Convert an integer to a string of subscript numbers
 	local i out int=$1
 	for((i=0;i<${#int};i++)); do
-		out="${out}${subscript[${int:$i:1}]}"
+		out="$out${subscript[${int:$i:1}]}"
 	done
-	echo -n "${out}"
+	echo -n "$out"
 }
 
 spaces() { #? Prints back spaces, usage: spaces "number of spaces"
@@ -725,14 +725,14 @@ floating_humanizer() { 	#? Convert integer to floating point and scale up in ste
 
 		if [[ -z $short ]] && ((${#value}<5 & ${#value}>=2 & selector>0)); then
 			decimals=$((5-${#value}))
-			value="${value::-2}.${value:(-${decimals})}"
+			value="${value::-2}.${value:(-$decimals)}"
 		elif ((${#value}>=2)); then
 			value="${value::-2}"
 		fi
 	fi
 
-	out_var="${value}${sep}${unit[$selector]::${short:-${#unit[$selector]}}}${per_second}"
-	if [[ -z $ext_var ]]; then echo -n "${out_var}"; fi
+	out_var="$value$sep${unit[$selector]::${short:-${#unit[$selector]}}}$per_second"
+	if [[ -z $ext_var ]]; then echo -n "$out_var"; fi
 }
 
 get_cpu_info() {
@@ -752,7 +752,7 @@ get_cpu_info() {
 			get_value -v 'cpu[model]' -sv "lscpu_var" -k "Model name:" -r "  "
 		fi
 	else
-		cpu[model]="${custom_cpu_name}"
+		cpu[model]="$custom_cpu_name"
 	fi
 }
 
@@ -789,17 +789,17 @@ get_value() { #? Get a value from a file, variable or array by searching for a n
 
 		while IFS='' read -r input_line; do
 			((++current_line))
-			if [[ -n $line_nr && $current_line -eq $line_nr || -z $line_nr && -n $key && ${input_line/${key}/} != "$input_line" ]]; then
+			if [[ -n $line_nr && $current_line -eq $line_nr || -z $line_nr && -n $key && ${input_line/$key/} != "$input_line" ]]; then
 				if [[ -n $all ]]; then
-					found="${input_line}"
+					found="$input_line"
 					break
 
 				elif [[ -z $match && -z $match_key && -z $reg ]]; then
-					found="${input_line/${key}/}"
+					found="${input_line/$key/}"
 					break
 
 				else
-					line_array=(${input_line/${key}/${key// /}})
+					line_array=(${input_line/$key/${key// /}})
 
 				fi
 
@@ -815,55 +815,55 @@ get_value() { #? Get a value from a file, variable or array by searching for a n
 					elif [[ -n $match_key ]]; then
 						((++line_pos))
 
-					elif [[ -n $reg && $line_val =~ ^${reg}$ || -z $reg && -n $match ]]; then
+					elif [[ -n $reg && $line_val =~ ^$reg$ || -z $reg && -n $match ]]; then
 						if ((line_pos==match)); then
-							found=${line_val}
+							found=$line_val
 							break 2
 						fi
 						((++line_pos))
 					fi
 				done
 			fi
-		done <<<"${input}"
+		done <<<"$input"
 
 		if [[ -z $found ]]; then return 1; fi
 
 		if [[ -n ${remove[*]} ]]; then
 			for removing in "${remove[@]}"; do
-				found="${found//${removing}/}"
+				found="${found//$removing/}"
 			done
 		fi
 
 		if [[ -n $int && $found =~ [.,] ]]; then
 			found="${found/,/.}"
-			printf -v found "%.0f" "${found}"
+			printf -v found "%.0f" "$found"
 		fi
 
 		if [[ -n $math && -n $int ]]; then
 			math="${math//x/$found}"
-			found=$((${math}))
+			found=$(($math))
 		fi
 
 		if (($#>0)); then
-			input="${found}"
+			input="$found"
 			unset key match match_key all reg found int 'remove[@]' current_line
 			line_pos=1
 		fi
 
 	done
 
-	if [[ -z $ext_var ]]; then echo "${found}"; fi
-	if [[ -n $ext_arr ]]; then array_out=(${found}); fi
+	if [[ -z $ext_var ]]; then echo "$found"; fi
+	if [[ -n $ext_arr ]]; then array_out=($found); fi
 }
 
 get_themes() {
 	local file
 	theme_int=0
 	themes=("Default")
-	for file in "${theme_dir}"/*.theme; do
+	for file in "$theme_dir"/*.theme; do
 		file="${file##*/}"
-		if [[ ${file} != "*.theme" ]]; then themes+=("${file%.theme}"); fi
-		if [[ ${themes[-1]} == "${color_theme}" ]]; then theme_int=${#themes[@]}-1; fi
+		if [[ $file != "*.theme" ]]; then themes+=("${file%.theme}"); fi
+		if [[ ${themes[-1]} == "$color_theme" ]]; then theme_int=${#themes[@]}-1; fi
 	done
 }
 
@@ -934,7 +934,7 @@ create_box() { #? Draw a box with an optional title at given location
 
 	print -v box_out -rs -m $((line+1)) $((col+1))
 
-	if [[ -z $ext_var ]]; then echo -en "${box_out}"; fi
+	if [[ -z $ext_var ]]; then echo -en "$box_out"; fi
 
 
 }
@@ -967,7 +967,7 @@ create_meter() { 	#? Create a horizontal percentage meter, usage; create_meter <
 	#* If no color array was given, create a simple greyscale array
 	if [[ -z $colors ]]; then
 		for ((i=0,ic=50;i<=100;i++,ic=ic+2)); do
-			colors[i]="${ic} ${ic} ${ic}"
+			colors[i]="$ic $ic $ic"
 		done
 	fi
 
@@ -981,16 +981,16 @@ create_meter() { 	#? Create a horizontal percentage meter, usage; create_meter <
 		if [[ -n $invert ]]; then print -v meter_var -l 2; fi
 
 		if ((val>=i*100/width)); then
-			print -v meter_var -fg ${colors[$((i*100/width))]} -t "${block}"
+			print -v meter_var -fg ${colors[$((i*100/width))]} -t "$block"
 		elif ((fill_empty==1)); then
 			if [[ -n $invert ]]; then print -v meter_var -l $((width-i)); fi
-			print -v meter_var -fg $bg_color -rp $((1+width-i)) -t "${block}"; break
+			print -v meter_var -fg $bg_color -rp $((1+width-i)) -t "$block"; break
 		else
 			if [[ -n $invert ]]; then break; print -v meter_var -l $((1+width-i))
 			else print -v meter_var -r $((1+width-i)); break; fi
 		fi
 	done
-	if [[ -z $ext_var ]]; then echo -en "${meter_var}"; fi
+	if [[ -z $ext_var ]]; then echo -en "$meter_var"; fi
 }
 
 create_graph() { 	#? Create a graph from an array of percentage values, usage; 	create_graph <options> <value-array>
@@ -1041,7 +1041,7 @@ create_graph() { 	#? Create a graph from an array of percentage values, usage; 	
 			return
 		fi
 		height=$((${#graph_array[@]}-1))
-		input_array[0]=${add}
+		input_array[0]=$add
 
 		#* Remove last value in current graph
 
@@ -1076,22 +1076,22 @@ create_graph() { 	#? Create a graph from an array of percentage values, usage; 	
 
 		#* Set up graph array print side numbers and lines
 		print -v graph_array[0] -rs
-		print -v graph_array[0] -m $((line+g_index[0])) ${col} ${normal_vals:+-jr 3 -fg ee -b -t "${side_num[0]}" -rs -fg ${theme[main_fg]} -t "${g_char[0]}"} -fg ${colors[100]}
+		print -v graph_array[0] -m $((line+g_index[0])) $col ${normal_vals:+-jr 3 -fg ee -b -t "${side_num[0]}" -rs -fg ${theme[main_fg]} -t "${g_char[0]}"} -fg ${colors[100]}
 		for((i=1;i<height;i++)); do
-			print -v graph_array[i] -m $((line+g_index[i])) ${col} ${normal_vals:+-r 3 -fg ${theme[main_fg]} -t "${g_char[0]}"} -fg ${colors[$((100-i*100/height))]}
+			print -v graph_array[i] -m $((line+g_index[i])) $col ${normal_vals:+-r 3 -fg ${theme[main_fg]} -t "${g_char[0]}"} -fg ${colors[$((100-i*100/height))]}
 		done
 
 		if [[ -z $no_guide ]]; then width=$((width-5)); fi
 
 		graph_array[height]=""
 		if [[ -z $no_guide ]]; then
-			print -v graph_array[$height] -m $((line+g_index[(-1)])) ${col} -jr 3 -fg ee -b -t "${side_num[1]}" -rs -fg ${theme[main_fg]} -t "${g_char[1]}" -rp ${width} -t "${g_char[2]}"
+			print -v graph_array[$height] -m $((line+g_index[(-1)])) $col -jr 3 -fg ee -b -t "${side_num[1]}" -rs -fg ${theme[main_fg]} -t "${g_char[1]}" -rp $width -t "${g_char[2]}"
 		fi
 
 		#* If no color array was given, create a simple greyscale array
 		if [[ -z $colors ]]; then
 			for ((i=0,ic=50;i<=100;i++,ic=ic+2)); do
-				colors[i]="${ic} ${ic} ${ic}"
+				colors[i]="$ic $ic $ic"
 			done
 		fi
 	fi
@@ -1103,7 +1103,7 @@ create_graph() { 	#? Create a graph from an array of percentage values, usage; 	
 	elif ((${#input_array[@]}<=width)); then
 		value_width=${#input_array[@]};
 	else
-		value_width=${width}
+		value_width=$width
 		input_array=("${input_array[@]:(-$width)}")
 	fi
 
@@ -1148,7 +1148,7 @@ create_graph() { 	#? Create a graph from an array of percentage values, usage; 	
 				((++x))
 			done
 			if ((count>0)); then
-				print -v graph_array[y] -rp ${count} -t " "
+				print -v graph_array[y] -rp $count -t " "
 				count=0
 			fi
 
@@ -1164,7 +1164,7 @@ create_graph() { 	#? Create a graph from an array of percentage values, usage; 	
 				((++x))
 			done
 			if ((count>0)); then
-				print -v graph_array[y] -rp ${count} -t "${graph_symbol[10]}"
+				print -v graph_array[y] -rp $count -t "${graph_symbol[10]}"
 				count=0
 			fi
 		done
@@ -1211,17 +1211,17 @@ create_mini_graph() { 	#? Create a one line high graph from an array of percenta
 		local cut_left search
 		#if [[ -n ${input_array[0]} ]]; then return; fi
 		if [[ -n $output_var ]]; then
-			graph_var="${output_var}"
-			if [[ -z ${graph_var} ]]; then return; fi
+			graph_var="$output_var"
+			if [[ -z $graph_var ]]; then return; fi
 		else
 			return
 		fi
 
 		declare -a input_array
-		input_array[0]=${add}
+		input_array[0]=$add
 
 		#* Remove last value in current graph
-		if [[ -n ${graph_var} && -z $no_color ]]; then
+		if [[ -n $graph_var && -z $no_color ]]; then
 			if [[ ${graph_var::5} == "\e[1C" ]]; then
 				graph_var="${graph_var#'\e[1C'}"
 			else
@@ -1229,7 +1229,7 @@ create_mini_graph() { 	#? Create a one line high graph from an array of percenta
 				search=$((${#cut_left}+1))
 				graph_var="${graph_var:$((search+1))}"
 			fi
-		elif [[ -n ${graph_var} && -n $no_color ]]; then
+		elif [[ -n $graph_var && -n $no_color ]]; then
 			if [[ ${graph_var::5} == "\e[1C" ]]; then
 				#cut_left="${graph_var%%C*}"
 				#search=$((${#cut_left}+1))
@@ -1245,7 +1245,7 @@ create_mini_graph() { 	#? Create a one line high graph from an array of percenta
 	#* If no color array was given, create a simple greyscale array
 	if [[ -z $colors && -z $no_color ]]; then
 		for ((i=0,ic=50;i<=100;i++,ic=ic+2)); do
-			colors[i]="${ic} ${ic} ${ic}"
+			colors[i]="$ic $ic $ic"
 		done
 	fi
 
@@ -1257,7 +1257,7 @@ create_mini_graph() { 	#? Create a one line high graph from an array of percenta
 	elif ((${#input_array[@]}<=width)); then
 		value_width=${#input_array[@]};
 	else
-		value_width=${width}
+		value_width=$width
 		offset=$((${#input_array[@]}-width))
 	fi
 
@@ -1284,14 +1284,14 @@ create_mini_graph() { 	#? Create a one line high graph from an array of percenta
 			if [[ $cur_value == 0 ]]; then
 				print -v graph_var -t "\e[1C"
 			else
-				print -v graph_var ${color}-t "${graph_symbol[${invert:+-}$cur_value]}"
+				print -v graph_var $color-t "${graph_symbol[${invert:+-}$cur_value]}"
 			fi
 			((++x))
 		done
 
 	#* Echo out graph if no argument for a output array was given
-	if [[ -z $ext_var && -z $add ]]; then echo -en "${graph_var}"
-	else output_var="${graph_var}"; fi
+	if [[ -z $ext_var && -z $add ]]; then echo -en "$graph_var"
+	else output_var="$graph_var"; fi
 }
 
 print() {	#? Print text, set true-color foreground/background color, add effects, center text, move cursor, save cursor position and restore cursor postion
@@ -1322,41 +1322,41 @@ print() {	#? Print text, set true-color foreground/background color, add effects
 				-fg|-foreground)	#? Set text foreground color, accepts either 6 digit hexadecimal "#RRGGBB", 2 digit hex (greyscale) or decimal RGB "<0-255> <0-255> <0-255>"
 					val=${2//#/}
 					if is_int "${@:2:3}"; then fgc="\e[38;2;$2;$3;$4m"; shift 3
-					elif [[ ${#val} == 6 ]] && is_hex "$val"; then fgc="\e[38;2;$((${hex}${val:0:2}));$((${hex}${val:2:2}));$((${hex}${val:4:2}))m"; shift
-					elif [[ ${#val} == 2 ]] && is_hex "$val"; then fgc="\e[38;2;$((${hex}${val:0:2}));$((${hex}${val:0:2}));$((${hex}${val:0:2}))m"; shift
+					elif [[ ${#val} == 6 ]] && is_hex "$val"; then fgc="\e[38;2;$(($hex${val:0:2}));$(($hex${val:2:2}));$(($hex${val:4:2}))m"; shift
+					elif [[ ${#val} == 2 ]] && is_hex "$val"; then fgc="\e[38;2;$(($hex${val:0:2}));$(($hex${val:0:2}));$(($hex${val:0:2}))m"; shift
 					fi
 					;;
 				-bg|-background)	#? Set text background color, accepts either 6 digit hexadecimal "#RRGGBB", 2 digit hex (greyscale) or decimal RGB "<0-255> <0-255> <0-255>"
 					val=${2//#/}
 					if is_int "${@:2:3}"; then bgc="\e[48;2;$2;$3;$4m"; shift 3
-					elif [[ ${#val} == 6 ]] && is_hex "$val"; then bgc="\e[48;2;$((${hex}${val:0:2}));$((${hex}${val:2:2}));$((${hex}${val:4:2}))m"; shift
-					elif [[ ${#val} == 2 ]] && is_hex "$val"; then bgc="\e[48;2;$((${hex}${val:0:2}));$((${hex}${val:0:2}));$((${hex}${val:0:2}))m"; shift
+					elif [[ ${#val} == 6 ]] && is_hex "$val"; then bgc="\e[48;2;$(($hex${val:0:2}));$(($hex${val:2:2}));$(($hex${val:4:2}))m"; shift
+					elif [[ ${#val} == 2 ]] && is_hex "$val"; then bgc="\e[48;2;$(($hex${val:0:2}));$(($hex${val:0:2}));$(($hex${val:0:2}))m"; shift
 					fi
 					;;
 				-c|-center) center=1;;																										#? Center text horizontally on screen
-				-rs|-reset) effect="0${effect}${theme[main_bg]}";;																			#? Reset text colors and effects
-				-b|-bold) effect="${effect}${effect:+;}1"; bold=1;;																			#? Enable bold text
-				+b|+bold) effect="${effect}${effect:+;}21"; bold=0;;																		#? Disable bold text
-				-da|-dark) effect="${effect}${effect:+;}2";;																				#? Enable dark text
-				+da|+dark) effect="${effect}${effect:+;}22";;																				#? Disable dark text
-				-i|-italic) effect="${effect}${effect:+;}3"; italic=1;;																		#? Enable italic text
-				+i|+italic) effect="${effect}${effect:+;}23"; italic=0;;																	#? Disable italic text
-				-ul|-underline) effect="${effect}${effect:+;}4";;																			#? Enable underlined text
-				+ul|+underline) effect="${effect}${effect:+;}24";;																			#? Disable underlined text
-				-bl|-blink) effect="${effect}${effect:+;}5";;																				#? Enable blinking text
-				+bl|+blink) effect="${effect}${effect:+;}25";;																				#? Disable blinking text
+				-rs|-reset) effect="0$effect${theme[main_bg]}";;																			#? Reset text colors and effects
+				-b|-bold) effect="$effect${effect:+;}1"; bold=1;;																			#? Enable bold text
+				+b|+bold) effect="$effect${effect:+;}21"; bold=0;;																		#? Disable bold text
+				-da|-dark) effect="$effect${effect:+;}2";;																				#? Enable dark text
+				+da|+dark) effect="$effect${effect:+;}22";;																				#? Disable dark text
+				-i|-italic) effect="$effect${effect:+;}3"; italic=1;;																		#? Enable italic text
+				+i|+italic) effect="$effect${effect:+;}23"; italic=0;;																	#? Disable italic text
+				-ul|-underline) effect="$effect${effect:+;}4";;																			#? Enable underlined text
+				+ul|+underline) effect="$effect${effect:+;}24";;																			#? Disable underlined text
+				-bl|-blink) effect="$effect${effect:+;}5";;																				#? Enable blinking text
+				+bl|+blink) effect="$effect${effect:+;}25";;																				#? Disable blinking text
 				-f|-font) if [[ $2 =~ ^(sans-serif|script|fraktur|monospace|double-struck)$ ]]; then custom_font="$2"; shift; fi;;			#? Set custom font
-				-m|-move) if is_int "${@:2:2}"; then add_command="${add_command}\e[${2};${3}f"; shift 2; fi;;								#? Move to postion "LINE" "COLUMN"
-				-l|-left) if is_int "$2"; then add_command="${add_command}\e[${2}D"; shift; fi;;											#? Move left x columns
-				-r|-right) if is_int "$2"; then add_command="${add_command}\e[${2}C"; shift; fi;;											#? Move right x columns
-				-u|-up) if is_int "$2"; then add_command="${add_command}\e[${2}A"; shift; fi;;												#? Move up x lines
-				-d|-down) if is_int "$2"; then add_command="${add_command}\e[${2}B"; shift; fi;;											#? Move down x lines
-				-jl|-justify-left) if is_int "$2"; then justify_left="${2}"; shift; fi;;													#? Justify string left within given width
-				-jr|-justify-right) if is_int "$2"; then justify_right="${2}"; shift; fi;;													#? Justify string right within given width
-				-jc|-justify-center) if is_int "$2"; then justify_center="${2}"; shift; fi;;												#? Justify string center within given width
-				-rp|-repeat) if is_int "$2"; then repeat=${2}; shift; fi;;																	#? Repeat next string x number of times
-				-sc|-save) add_command="\e[s${add_command}";;																				#? Save cursor position
-				-rc|-restore) add_command="${add_command}\e[u";;																			#? Restore cursor position
+				-m|-move) if is_int "${@:2:2}"; then add_command="$add_command\e[$2;${3}f"; shift 2; fi;;								#? Move to postion "LINE" "COLUMN"
+				-l|-left) if is_int "$2"; then add_command="$add_command\e[${2}D"; shift; fi;;											#? Move left x columns
+				-r|-right) if is_int "$2"; then add_command="$add_command\e[${2}C"; shift; fi;;											#? Move right x columns
+				-u|-up) if is_int "$2"; then add_command="$add_command\e[${2}A"; shift; fi;;												#? Move up x lines
+				-d|-down) if is_int "$2"; then add_command="$add_command\e[${2}B"; shift; fi;;											#? Move down x lines
+				-jl|-justify-left) if is_int "$2"; then justify_left="$2"; shift; fi;;													#? Justify string left within given width
+				-jr|-justify-right) if is_int "$2"; then justify_right="$2"; shift; fi;;													#? Justify string right within given width
+				-jc|-justify-center) if is_int "$2"; then justify_center="$2"; shift; fi;;												#? Justify string center within given width
+				-rp|-repeat) if is_int "$2"; then repeat=$2; shift; fi;;																	#? Repeat next string x number of times
+				-sc|-save) add_command="\e[s$add_command";;																				#? Save cursor position
+				-rc|-restore) add_command="$add_command\e[u";;																			#? Restore cursor position
 				-trans) trans=1;;																											#? Make whitespace transparent
 				-v|-variable) local -n var=$2; ext_var=1; shift;;																			#? Send output to a variable, appending if not unset
 				*) text="$1"; shift; break;;																								#? Assumes text string if no argument is found
@@ -1372,23 +1372,23 @@ print() {	#? Print text, set true-color foreground/background color, add effects
 
 		#* Set correct placement for screen centered text
 		if ((center==1 & ${#text}>0 & ${#text}<tty_width-4)); then
-			add_command="${add_command}\e[${tty_width}D\e[$(( (tty_width/2)-(${#text}/2) ))C"
+			add_command="$add_command\e[${tty_width}D\e[$(( (tty_width/2)-(${#text}/2) ))C"
 		fi
 
 		#* Convert text string to custom font if set and remove non working effects
 		if [[ -n $custom_font ]]; then
 			unset effect
-			text=$(set_font "${custom_font}${bold:+" bold"}${italic:+" italic"}" "${text}")
+			text=$(set_font "$custom_font${bold:+" bold"}${italic:+" italic"}" "$text")
 		fi
 
 		#* Set text justification if set
 		if [[ -n $justify_left ]] && ((${#text}<justify_left)); then
-			printf -v text "%s%$((justify_left-${#text}))s" "${text}" ""
+			printf -v text "%s%$((justify_left-${#text}))s" "$text" ""
 		elif [[ -n $justify_right ]] && ((${#text}<justify_right)); then
-			printf -v text "%$((justify_right-${#text}))s%s" "" "${text}"
+			printf -v text "%$((justify_right-${#text}))s%s" "" "$text"
 		elif [[ -n $justify_center ]] && ((${#text}<justify_center)); then
-			printf -v text "%$(( (justify_center/2)-(${#text}/2) ))s%s" "" "${text}"
-			printf -v text "%s%-$((justify_center-${#text}))s" "${text}" ""
+			printf -v text "%$(( (justify_center/2)-(${#text}/2) ))s%s" "" "$text"
+			printf -v text "%s%-$((justify_center-${#text}))s" "$text" ""
 		fi
 
 		if [[ -n $trans ]]; then
@@ -1397,13 +1397,13 @@ print() {	#? Print text, set true-color foreground/background color, add effects
 
 		#* Create text string
 		if [[ -n $effect ]]; then effect="\e[${effect}m"; fi
-		out="${out}${add_command}${effect}${bgc}${fgc}${text}"
+		out="$out$add_command$effect$bgc$fgc$text"
 		unset add_command effect fgc bgc center justify_left justify_right justify_center custom_font text repeat trans justify
 	done
 
 	#* Print the string to stdout if variable out hasn't been set
 	if [[ -z $ext_var ]]; then echo -en "$out"
-	else var="${var}${out}"; fi
+	else var="$var$out"; fi
 
 }
 
@@ -1414,13 +1414,13 @@ collect_cpu() { #? Collects cpu stats from /proc/stat and compares with previous
 	#* Get values from /proc/stat, compare to get cpu usage
 	thread=0
 	while ((thread<threads+1)) && read -ra stat_array; do
-		cpu[new_${thread}]=$((stat_array[1]+stat_array[2]+stat_array[3]+stat_array[4]))
-		cpu[idle_new_${thread}]=${stat_array[4]}
-		if [[ -n ${cpu[old_${thread}]} && -n ${cpu[idle_new_${thread}]} && ${cpu[old_${thread}]} -ne ${cpu[new_${thread}]} ]]; then
-			cpu_usage[${thread}]="$(( ( 100*(${cpu[old_${thread}]}-${cpu[new_${thread}]}-${cpu[idle_old_${thread}]}+${cpu[idle_new_${thread}]}) ) / (${cpu[old_${thread}]}-${cpu[new_${thread}]}) ))"
+		cpu[new_$thread]=$((stat_array[1]+stat_array[2]+stat_array[3]+stat_array[4]))
+		cpu[idle_new_$thread]=${stat_array[4]}
+		if [[ -n ${cpu[old_$thread]} && -n ${cpu[idle_new_$thread]} && ${cpu[old_$thread]} -ne ${cpu[new_$thread]} ]]; then
+			cpu_usage[$thread]="$(( ( 100*(${cpu[old_$thread]}-${cpu[new_$thread]}-${cpu[idle_old_$thread]}+${cpu[idle_new_$thread]}) ) / (${cpu[old_$thread]}-${cpu[new_$thread]}) ))"
 		fi
-		cpu[old_${thread}]=${cpu[new_${thread}]}
-		cpu[idle_old_${thread}]=${cpu[idle_new_${thread}]}
+		cpu[old_$thread]=${cpu[new_$thread]}
+		cpu[idle_old_$thread]=${cpu[idle_new_$thread]}
 		((++thread))
 	done </proc/stat
 
@@ -1485,7 +1485,7 @@ collect_cpu_temps() { #? Collect cpu temperatures
 
 		#* Get core temps
 		i=0
-		while get_value -v "core_value" -sv "sens_var" -k "Core ${i}:" -mk 1 -r "[^0-9.]" -b -i && ((i<=threads)); do core_array+=("$core_value"); ((++i)) ; done
+		while get_value -v "core_value" -sv "sens_var" -k "Core $i:" -mk 1 -r "[^0-9.]" -b -i && ((i<=threads)); do core_array+=("$core_value"); ((++i)) ; done
 
 		if [[ -z ${core_array[0]} ]]; then core_array=("${cpu[temp_0]}"); fi
 
@@ -1498,8 +1498,8 @@ collect_cpu_temps() { #? Collect cpu temperatures
 		#* Copy core values to hyperthreading cores
 		i=1
 		for core_value in "${core_array[@]}"; do
-			cpu[temp_$((i))]="${core_value}"
-			cpu[temp_$((threads/2+i))]="${core_value}"
+			cpu[temp_$((i))]="$core_value"
+			cpu[temp_$((threads/2+i))]="$core_value"
 			((i++))
 		done
 
@@ -1514,7 +1514,7 @@ collect_cpu_temps() { #? Collect cpu temperatures
 
 		#* Get ccd module temps
 		i=1
-		while get_value -v "ccd_value" -sv "sens_var" -k "Tccd${i}:" -mk 1 -r "[^0-9.]" -b -i && ((i<=threads)); do ccd_array+=("$ccd_value"); ((i++)) ; done
+		while get_value -v "ccd_value" -sv "sens_var" -k "Tccd$i:" -mk 1 -r "[^0-9.]" -b -i && ((i<=threads)); do ccd_array+=("$ccd_value"); ((i++)) ; done
 
 		if [[ -z ${ccd_array[0]} ]]; then ccd_array=("${cpu[temp_0]}"); fi
 
@@ -1522,7 +1522,7 @@ collect_cpu_temps() { #? Collect cpu temperatures
 		z=1
 		for ccd_value in "${ccd_array[@]}"; do
 			for((i=0;i<threads/${#ccd_array[@]};i++)); do
-				cpu[temp_$((z+i))]="${ccd_value}"
+				cpu[temp_$((z+i))]="$ccd_value"
 			done
 			z=$((z+i))
 		done
@@ -1537,7 +1537,7 @@ collect_cpu_temps() { #? Collect cpu temperatures
 
 		#* Copy cpu temp to cores
 		for((i=1;i<=threads;i++)); do
-			cpu[temp_${i}]="${cpu[temp_0]}"
+			cpu[temp_$i]="${cpu[temp_0]}"
 		done
 		
 
@@ -1550,9 +1550,9 @@ collect_cpu_temps() { #? Collect cpu temperatures
 		for((i=0;i<=threads;i++)); do
 			local -n cpu_temp_history="cpu_temp_history_$i"
 			if ((${#cpu_temp_history[@]}>15)); then
-				cpu_temp_history=( "${cpu_temp_history[@]:10}" "$(( (${cpu[temp_${i}]}-15)*100/(cpu[temp_high]-15) ))")
+				cpu_temp_history=( "${cpu_temp_history[@]:10}" "$(( (${cpu[temp_$i]}-15)*100/(cpu[temp_high]-15) ))")
 			else
-				cpu_temp_history+=("$(( (${cpu[temp_${i}]}-15)*100/(cpu[temp_high]-15) ))")
+				cpu_temp_history+=("$(( (${cpu[temp_$i]}-15)*100/(cpu[temp_high]-15) ))")
 			fi
 		done
 	fi
@@ -1599,8 +1599,8 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 	for array in ${available[@]}; do
 		for value in total used free available cached; do
 			if [[ $array == "swap" && $value == "available" ]]; then break 2; fi
-			local -n this_value="${array}[${value}]" this_string="${array}[${value}_string]"
-			floating_humanizer -v this_string -s 1 -B "${this_value}"
+			local -n this_value="$array[$value]" this_string="$array[${value}_string]"
+			floating_humanizer -v this_string -s 1 -B "$this_value"
 		done
 	done
 
@@ -1610,7 +1610,7 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 	unset 'disks_free[@]' 'disks_used[@]' 'disks_used_percent[@]' 'disks_total[@]' 'disks_name[@]' 'disks_free_percent[@]' 'disks_io[@]'
 	readarray -t df_array < <(df -x squashfs -x tmpfs -x devtmpfs -x overlay)
 	for df_line in "${df_array[@]:1}"; do
-		line_array=(${df_line})
+		line_array=($df_line)
 
 		if [[ ${line_array[5]} == "/" ]]; then disks_name+=("root")
 		else disks_name+=("${line_array[5]##*/}"); fi
@@ -1618,7 +1618,7 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 		#* Filter disks showed if $disks_filter is set
 		if [[ -n $disks_filter ]]; then
 			unset found
-			for filter_value in ${disks_filter}; do
+			for filter_value in $disks_filter; do
 				if [[ $filter_value == "${disks_name[-1]}" ]]; then found=1; fi
 			done
 		fi
@@ -1633,19 +1633,19 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 			#* Get read/write stats for disk if "iostat" is available
 			if [[ -n $has_iostat ]]; then
 				dev_name="${line_array[0]##*/}"
-				dev_path="${line_array[0]%${dev_name}}"
+				dev_path="${line_array[0]%$dev_name}"
 				if [[ ${dev_name::2} == "md" ]]; then dev_name="${dev_name::3}"; fi
 				unset iostat_var disk_io_string 'iostat_array[@]'
-				read -r iostat_var < <(iostat -dkz "${dev_path}${dev_name}" | tail -n +4)
-				iostat_array=(${iostat_var})
+				read -r iostat_var < <(iostat -dkz "$dev_path$dev_name" | tail -n +4)
+				iostat_array=($iostat_var)
 				if [[ -n ${iostat_array[-2]} ]]; then
 
 					disk_read=$((iostat_array[-2]-${disks[${dev_name}_read]:-${iostat_array[-2]}}))
 					disk_write=$((iostat_array[-1]-${disks[${dev_name}_write]:-${iostat_array[-1]}}))
 
 					if ((box[m_width2]>25)); then
-						if ((disk_read>0)); then disk_io_string="▲$(floating_humanizer -s 1 -short -B ${disk_read}) "; fi
-						if ((disk_write>0)); then disk_io_string+="▼$(floating_humanizer -s 1 -short -B ${disk_write})"; fi
+						if ((disk_read>0)); then disk_io_string="▲$(floating_humanizer -s 1 -short -B $disk_read) "; fi
+						if ((disk_write>0)); then disk_io_string+="▼$(floating_humanizer -s 1 -short -B $disk_write)"; fi
 					elif ((disk_read+disk_write>0)); then
 						disk_io_string+="▼▲$(floating_humanizer -s 1 -short -B $((disk_read+disk_write)))"
 					fi
@@ -1675,7 +1675,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 	if [[ $argument == "now" ]]; then skip_process_draw=1; fi
 
 	if [[ -n ${proc[reverse]} ]]; then symbol="▲"; fi
-	case ${proc_sorting} in
+	case $proc_sorting in
 		"pid") selected="Pid:"; sort="pid";;
 		"program") selected="Program:"; sort="comm";;
 		"arguments") selected="Arguments:"; sort="args";;
@@ -1707,14 +1707,14 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 	 	options="-t"
 	fi
 
-	readarray ${options} proc_array < <(ps ax${tree:+f} -o pid:${proc[pid_len]}=Pid:,comm:${format_cmd}=${tree:-Program:}${format_args},nlwp:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --sort ${proc[reverse]:--}${sort})
+	readarray $options proc_array < <(ps ax${tree:+f} -o pid:${proc[pid_len]}=Pid:,comm:$format_cmd=${tree:-Program:}$format_args,nlwp:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --sort ${proc[reverse]:--}$sort)
 
 	proc_array[0]="${proc_array[0]/      Tr:/ Threads:}"
-	proc_array[0]="${proc_array[0]/ ${selected}/${symbol}${selected}}"
+	proc_array[0]="${proc_array[0]/ $selected/$symbol$selected}"
 
 	if [[ -n $filter ]]; then
 		grep_array[0]="${proc_array[0]}"
-	 	readarray -O 1 -t grep_array < <(echo -e " ${proc_array[*]:1}" | grep -e "${filter}" ${proc[detailed_pid]:+-e ${proc[detailed_pid]}} | cut -c 2- || true)
+	 	readarray -O 1 -t grep_array < <(echo -e " ${proc_array[*]:1}" | grep -e "$filter" ${proc[detailed_pid]:+-e ${proc[detailed_pid]}} | cut -c 2- || true)
 		proc_array=("${grep_array[@]}")
 	fi
 
@@ -1733,7 +1733,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 		 ((++count))
 
 		if ((count==height-3 & breaking==0)); then
-			if [[ -n $filter || $proc_sorting != "cpu lazy" || ${proc[selected]} -gt 0 || ${proc[page]} -gt 1 || ${proc_reversed} == true ]]; then :
+			if [[ -n $filter || $proc_sorting != "cpu lazy" || ${proc[selected]} -gt 0 || ${proc[page]} -gt 1 || $proc_reversed == true ]]; then :
 			else breaking=1; fi
 		fi
 
@@ -1742,7 +1742,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 		if ((breaking==2)); then
 			work_array=(${proc_array[-1]})
 		else
-			work_array=(${readline})
+			work_array=($readline)
 		fi
 
 		pid="${work_array[0]}"
@@ -1760,17 +1760,17 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 			fi
 		fi
 
-		if [[ ! ${pid_history[*]} =~ ${pid} ]]; then
-			pid_history+=("${pid}")
+		if [[ ! ${pid_history[*]} =~ $pid ]]; then
+			pid_history+=("$pid")
 		fi
 
 		if [[ -n $filter || $proc_sorting == "cpu responsive" ]] && [[ ${proc_array[count]:${proc[pid_len]}:1} != " " ]]; then
 			unset pid_string
-			printf -v pid_string "%${proc[pid_len]}s" "${pid}"
-			proc_array[count]="${pid_string}${proc_array[count]#*${pid}}"
+			printf -v pid_string "%${proc[pid_len]}s" "$pid"
+			proc_array[count]="$pid_string${proc_array[count]#*$pid}"
 		fi
 
-		if [[ -r "/proc/${pid}/stat" ]] && read -ra statfile </proc/${pid}/stat 2>/dev/null; then
+		if [[ -r "/proc/$pid/stat" ]] && read -ra statfile </proc/$pid/stat 2>/dev/null; then
 
 			utime=${statfile[13]}
 			stime=${statfile[14]}
@@ -1796,7 +1796,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 
 				printf -v cpu_percent_string "%5s" "${cpu_percent_string::4}"
 
-				proc_array[count]="${proc_array[count]::-5}${cpu_percent_string}"
+				proc_array[count]="${proc_array[count]::-5}$cpu_percent_string"
 
 
 				pid_graph="pid_${pid}_graph"
@@ -1805,12 +1805,12 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 				printf -v cpu_int "%01d" "${cpu_percent[count]::-1}"
 
 				#* Get info for detailed box if enabled
-				if [[ ${pid} == "${proc[detailed_pid]}" ]]; then
+				if [[ $pid == "${proc[detailed_pid]}" ]]; then
 					if [[ -z ${proc[detailed_name]} ]]; then
 						local get_mem mem_string cmdline=""
 						local -a det_array
-						read -r proc[detailed_name] </proc/${pid}/comm ||true
-						mapfile -d $'\0' -n 0 cmdline </proc/${pid}/cmdline ||true
+						read -r proc[detailed_name] </proc/$pid/comm ||true
+						mapfile -d $'\0' -n 0 cmdline </proc/$pid/cmdline ||true
 						proc[detailed_cmd]="${cmdline[*]}"
 						proc[detailed_name]="${proc[detailed_name]::15}"
 						read -ra det_array < <(ps -o ppid:4,euser:15 --no-headers -p $pid || true)
@@ -1820,7 +1820,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 						get_mem=1
 					fi
 					proc[detailed_cpu]="${cpu_percent_string// /}"
-					proc[detailed_cpu_int]="${cpu_int}"
+					proc[detailed_cpu_int]="$cpu_int"
 					proc[detailed_threads]="${work_array[-4]}"
 					read -r proc[detailed_runtime] < <(ps -o etime:4 --no-headers -p $pid || true)
 
@@ -1836,7 +1836,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 						elif ((proc[detailed_mem_int]>100)); then proc[detailed_mem_int]=$((proc[detailed_mem_int]/2))
 						elif ((proc[detailed_mem_int]<50)); then proc[detailed_mem_int]=$((proc[detailed_mem_int]*2)); fi
 						unset 'proc[detailed_mem_string]'
-						read -r mem_string < <(ps -o rss:1 --no-headers -p ${pid} || true)
+						read -r mem_string < <(ps -o rss:1 --no-headers -p $pid || true)
 						floating_humanizer -v proc[detailed_mem_string] -B -s 1 $mem_string
 						if [[ -z ${proc[detailed_mem_string]} ]]; then proc[detailed_mem_string]="? Byte"; fi
 					fi
@@ -1863,20 +1863,20 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 				fi
 
 				#* Create small graphs for all visible processes using more than 1% cpu time
-				if [[ ${cpu_int} -gt 0 ]]; then pid_count=5; fi
+				if [[ $cpu_int -gt 0 ]]; then pid_count=5; fi
 
-				if [[ -z ${!pid_graph} && ${cpu_int} -gt 0 ]]; then
+				if [[ -z ${!pid_graph} && $cpu_int -gt 0 ]]; then
 						tmp_value_array=("$((cpu_int+4))")
 					create_mini_graph -o "pid_${pid}_graph" -nc -w 5 "tmp_value_array"
-				elif [[ ${pid_count} -gt 0 ]]; then
-					if [[ ${cpu_int} -gt 9 ]]; then
+				elif [[ $pid_count -gt 0 ]]; then
+					if [[ $cpu_int -gt 9 ]]; then
 						create_mini_graph -nc -add-value "pid_${pid}_graph" "$((cpu_int+20))"
 					else
 						create_mini_graph -nc -add-value "pid_${pid}_graph" "$((cpu_int+4))"
 					fi
 
-					pid_count=$((${pid_count}-1))
-				elif [[ ${pid_count} == "0" ]]; then
+					pid_count=$(($pid_count-1))
+				elif [[ $pid_count == "0" ]]; then
 					unset "pid_${pid}_graph"
 					unset "pid_${pid}_count"
 				fi
@@ -1893,7 +1893,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 
 		if ((breaking==1)); then
 			if [[ ${proc[detailed]} == "1" && -z ${proc[detailed_cpu]} ]] && ps ${proc[detailed_pid]} >/dev/null 2>&1; then
-				readarray ${options} -O ${#proc_array[@]} proc_array < <(ps -o pid:${proc[pid_len]}=Pid:,comm:${format_cmd}=${tree:-Program:}${format_args},nlwp:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --no-headers -p ${proc[detailed_pid]} || true)
+				readarray $options -O ${#proc_array[@]} proc_array < <(ps -o pid:${proc[pid_len]}=Pid:,comm:$format_cmd=${tree:-Program:}$format_args,nlwp:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --no-headers -p ${proc[detailed_pid]} || true)
 				((++breaking))
 			else
 				break
@@ -1912,11 +1912,11 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 	elif [[ -n ${proc[detailed_cpu]} ]]; then unset 'proc[detailed_killed]'; fi
 
 	#* Sort output array based on cpu usage if "cpu responsive" is selected
-	if [[ ${proc_sorting} == "cpu responsive" ]]; then
+	if [[ $proc_sorting == "cpu responsive" ]]; then
 		local -a sort_array
 		if [[ -z ${proc[reverse]} ]]; then local sort_rev="-r"; fi
 		sort_array[0]="${proc_array[0]}"
-		readarray -O 1 -t sort_array < <(printf "%s\n" "${proc_array[@]:1}" | awk '{ print $NF, $0 }' | sort -n -k1 ${sort_rev}| sed 's/^[0-9\.]* //')
+		readarray -O 1 -t sort_array < <(printf "%s\n" "${proc_array[@]:1}" | awk '{ print $NF, $0 }' | sort -n -k1 $sort_rev| sed 's/^[0-9\.]* //')
 		proc_array=("${sort_array[@]}")
 	fi
 
@@ -1930,7 +1930,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 				unset "pid_${pid_history[$i]}_count"
 				unset "proc[new_${pid_history[$i]}_ticks]"
 				unset "proc[old_${pid_history[$i]}_ticks]"
-				unset "pid_history[${i}]"
+				unset "pid_history[$i]"
 			fi
 		done
 		pid_history=(${pid_history[@]})
@@ -1961,31 +1961,31 @@ collect_net() { #? Collect information from "/proc/net/dev"
 		if [[ $direction == "download" ]]; then index=1
 		else index=9; fi
 
-		net[new_${direction}]=${net_dev[index]}
+		net[new_$direction]=${net_dev[index]}
 
-		if [[ -n ${net[old_${direction}]} ]]; then
+		if [[ -n ${net[old_$direction]} ]]; then
 			#* Get total, convert to floating point and format string to best fitting unit in Bytes
-			if ((net[reset]==1)) && [[ -z ${net[total_offset_${direction}]} || ${net[total_offset_${direction}]} -gt ${net[new_${direction}]} ]]; then net[total_offset_${direction}]=${net[new_${direction}]}
-			elif ((net[reset]==0)) && [[ -n ${net[total_offset_${direction}]} ]]; then unset "net[total_offset_${direction}]"; fi
+			if ((net[reset]==1)) && [[ -z ${net[total_offset_$direction]} || ${net[total_offset_$direction]} -gt ${net[new_$direction]} ]]; then net[total_offset_$direction]=${net[new_$direction]}
+			elif ((net[reset]==0)) && [[ -n ${net[total_offset_$direction]} ]]; then unset "net[total_offset_$direction]"; fi
 
-			floating_humanizer -Byte -v net[total_${direction}] $((${net[new_${direction}]}-${net[total_offset_${direction}]:-0}))
+			floating_humanizer -Byte -v net[total_$direction] $((${net[new_$direction]}-${net[total_offset_$direction]:-0}))
 
 			#* Calculate current speeds: ("New value" - "Old value") * 1000(for ms to seconds) / ("new_timestamp" - "old_timestamp")
-			net[speed_${direction}]=$(( (${net[new_${direction}]}-${net[old_${direction}]})*1000/(net[new_timestamp]-net[old_timestamp]) ))
+			net[speed_$direction]=$(( (${net[new_$direction]}-${net[old_$direction]})*1000/(net[new_timestamp]-net[old_timestamp]) ))
 
 			#* Convert to floating point and format string to best fitting unit in Bytes and Bits per second
-			floating_humanizer -Byte -per-second -v net[speed_${direction}_byteps] ${net[speed_${direction}]}
-			floating_humanizer -bit -per-second -v net[speed_${direction}_bitps] ${net[speed_${direction}]}
+			floating_humanizer -Byte -per-second -v net[speed_${direction}_byteps] ${net[speed_$direction]}
+			floating_humanizer -bit -per-second -v net[speed_${direction}_bitps] ${net[speed_$direction]}
 
 			#* Update download and upload max values for graph
-			if ((${net[speed_${direction}]}>${net[${direction}_max]})); then
-				net[${direction}_max]=${net[speed_${direction}]}
+			if ((${net[speed_$direction]}>${net[${direction}_max]})); then
+				net[${direction}_max]=${net[speed_$direction]}
 			fi
 
-			if ((${net[speed_${direction}]}>${net[${direction}_graph_max]})); then
+			if ((${net[speed_$direction]}>${net[${direction}_graph_max]})); then
 					((++net[${direction}_new_max]))
 					if ((net[${direction}_new_low]>0)); then ((net[${direction}_new_low]--)); fi
-			elif ((${net[${direction}_graph_max]}>10<<10 & ${net[speed_${direction}]}<${net[${direction}_graph_max]}/8)); then
+			elif ((${net[${direction}_graph_max]}>10<<10 & ${net[speed_$direction]}<${net[${direction}_graph_max]}/8)); then
 				((++net[${direction}_new_low]))
 				if ((net[${direction}_new_max]>0)); then ((net[${direction}_new_max]--)); fi
 			# else
@@ -1994,11 +1994,11 @@ collect_net() { #? Collect information from "/proc/net/dev"
 			fi
 
 			#* Copy download and upload speed to history arrays and trim earlier entries
-			local -n history="net_history_${direction}"
+			local -n history="net_history_$direction"
 			if ((${#history[@]}>box[net_width]*2)); then
-				history=( "${history[@]:${box[net_width]}}" "${net[speed_${direction}]}")
+				history=( "${history[@]:${box[net_width]}}" "${net[speed_$direction]}")
 			else
-				history+=("${net[speed_${direction}]}")
+				history+=("${net[speed_$direction]}")
 			fi
 
 			#* Check for new max value and set flag to adjust resolution of graph if needed
@@ -2019,7 +2019,7 @@ collect_net() { #? Collect information from "/proc/net/dev"
 			fi
 		fi
 
-		net[old_${direction}]=${net[new_${direction}]}
+		net[old_$direction]=${net[new_$direction]}
 	done
 
 	net[old_timestamp]=${net[new_timestamp]}
@@ -2140,12 +2140,12 @@ draw_bg() { #? Draw all box outlines
 
 	unset boxes_out
 	for this_box in ${box[boxes]}; do
-		create_box -v boxes_out -col ${box[${this_box}_col]} -line ${box[${this_box}_line]} -width ${box[${this_box}_width]} -height ${box[${this_box}_height]} -fill -lc "${box[${this_box}_color]}" -title ${this_box}
+		create_box -v boxes_out -col ${box[${this_box}_col]} -line ${box[${this_box}_line]} -width ${box[${this_box}_width]} -height ${box[${this_box}_height]} -fill -lc "${box[${this_box}_color]}" -title $this_box
 	done
 
 	#* Misc cpu box
 	if [[ $check_temp == true ]]; then cpu_model_len=18; else cpu_model_len=9; fi
-	create_box -v boxes_out -col $((box[p_col]-1)) -line $((box[p_line]-1)) -width ${box[p_width]} -height ${box[p_height]} -lc ${theme[div_line]} -t "${cpu[model]:0:${cpu_model_len}}"
+	create_box -v boxes_out -col $((box[p_col]-1)) -line $((box[p_line]-1)) -width ${box[p_width]} -height ${box[p_height]} -lc ${theme[div_line]} -t "${cpu[model]:0:$cpu_model_len}"
 	print -v boxes_out -m ${box[cpu_line]} $((box[cpu_col]+10)) -rs \
 	-fg ${box[cpu_color]} -t "┤" -b -fg ${theme[hi_fg]} -t "m" -fg ${theme[title]} -t "enu" -rs -fg ${box[cpu_color]} -t "├"
 
@@ -2163,8 +2163,8 @@ draw_bg() { #? Draw all box outlines
 	print -v boxes_out -m $((box[n_line]+box[n_height]-2)) $((box[n_col]+1)) -rs -fg ${theme[div_line]} -t "┤" -fg ${theme[title]} -b -t "Upload" -rs -fg ${theme[div_line]} -t "├"
 
 
-	if [[ $1 == "quiet" ]]; then draw_out="${boxes_out}"
-	else echo -en "${boxes_out}"; fi
+	if [[ $1 == "quiet" ]]; then draw_out="$boxes_out"
+	else echo -en "$boxes_out"; fi
 	draw_update_string $1
 }
 
@@ -2179,11 +2179,11 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 	#* If resized recreate cpu meter/graph box, cpu graph and core graphs
 	if ((resized>0)); then
 		local graph_a_size graph_b_size
-		graph_a_size=$((height/2)); graph_b_size=${graph_a_size}
+		graph_a_size=$((height/2)); graph_b_size=$graph_a_size
 
 		if ((graph_a_size*2<height)); then ((graph_a_size++)); fi
-		create_graph -o cpu_graph_a -d ${line} ${col} ${graph_a_size} $((width-p_width-2)) -c color_cpu_graph -n cpu_history
-		create_graph -o cpu_graph_b -d $((line+graph_a_size)) ${col} ${graph_b_size} $((width-p_width-2)) -c color_cpu_graph -i -n cpu_history
+		create_graph -o cpu_graph_a -d $line $col $graph_a_size $((width-p_width-2)) -c color_cpu_graph -n cpu_history
+		create_graph -o cpu_graph_b -d $((line+graph_a_size)) $col $graph_b_size $((width-p_width-2)) -c color_cpu_graph -i -n cpu_history
 
 		for((i=1;i<=threads;i++)); do
 			create_mini_graph -o "cpu_core_graph_$i" -w 10 -c color_cpu_graph "cpu_core_history_$i"
@@ -2191,7 +2191,7 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 
 		if [[ $check_temp == true ]]; then
 			for((i=0;i<=threads;i++)); do
-				if [[ -n ${cpu[temp_${i}]} ]]; then create_mini_graph -o "cpu_temp_graph_$i" -w 5 -c color_temp_graph "cpu_temp_history_$i"; fi
+				if [[ -n ${cpu[temp_$i]} ]]; then create_mini_graph -o "cpu_temp_graph_$i" -w 5 -c color_temp_graph "cpu_temp_history_$i"; fi
 			done
 		fi
 		((resized++))
@@ -2202,14 +2202,14 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 		create_graph -add-last cpu_graph_a cpu_history
 		create_graph -i -add-last cpu_graph_b cpu_history
 		for((i=1;i<=threads;i++)); do
-			declare -n core_hist="cpu_core_history_${i}[-1]"
-			create_mini_graph -w 10 -c color_cpu_graph -add-value "cpu_core_graph_$i" ${core_hist}
+			declare -n core_hist="cpu_core_history_$i[-1]"
+			create_mini_graph -w 10 -c color_cpu_graph -add-value "cpu_core_graph_$i" $core_hist
 		done
 		if [[ $check_temp == true ]]; then
 			for((i=0;i<=threads;i++)); do
-				if [[ -n ${cpu[temp_${i}]} ]]; then
-					declare -n temp_hist="cpu_temp_history_${i}[-1]"
-					create_mini_graph -w 5 -c color_temp_graph -add-value "cpu_temp_graph_$i" ${temp_hist}
+				if [[ -n ${cpu[temp_$i]} ]]; then
+					declare -n temp_hist="cpu_temp_history_$i[-1]"
+					create_mini_graph -w 5 -c color_temp_graph -add-value "cpu_temp_graph_$i" $temp_hist
 				fi
 			done
 		fi
@@ -2217,7 +2217,7 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 
 	#* Print CPU total and all cpu core percentage meters in box
 	for((i=0;i<=threads;i++)); do
-		if ((i==0)); then name="CPU"; else name="Core${i}"; fi
+		if ((i==0)); then name="CPU"; else name="Core$i"; fi
 
 		#* Get color of cpu text depending on current usage
 		cpu_p_color="${color_cpu_graph[cpu_usage[i]]}"
@@ -2227,8 +2227,8 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 		#* Set temperature string if "sensors" is available
 		if [[ $check_temp == true ]]; then
 			#* Get color of temperature text depending on current temp vs factory high temp
-			declare -n temp_hist="cpu_temp_history_${i}[-1]"
-			temp_color="${color_temp_graph[${temp_hist}]}"
+			declare -n temp_hist="cpu_temp_history_$i[-1]"
+			temp_color="${color_temp_graph[$temp_hist]}"
 			temp_name="cpu_temp_graph_$i"
 			temp_width=13
 		fi
@@ -2253,8 +2253,8 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 
 		print -v cpu_out_var -m $((pt_line+y)) $pt_col -rs -fg $p_normal_color -jl 7 -t "$name" -fg ${theme[inactive_fg]} "⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀" -l 10 -t "$meter"\
 		-fg $cpu_p_color -jr 4 -t "${cpu_usage[i]}" -fg $p_normal_color -t "%"
-		if [[ $check_temp == true && -n ${cpu[temp_${i}]} ]]; then
-			print -v cpu_out_var -fg ${theme[inactive_fg]} "  ⡀⡀⡀⡀⡀" -l 7 -t "  ${!temp_name}" -fg $temp_color -jr 4 -t ${cpu[temp_${i}]} -fg $p_normal_color -t ${cpu[temp_unit]}
+		if [[ $check_temp == true && -n ${cpu[temp_$i]} ]]; then
+			print -v cpu_out_var -fg ${theme[inactive_fg]} "  ⡀⡀⡀⡀⡀" -l 7 -t "  ${!temp_name}" -fg $temp_color -jr 4 -t ${cpu[temp_$i]} -fg $p_normal_color -t ${cpu[temp_unit]}
 		fi
 
 		if (( i>(p_height-2)*( p_width/(24+temp_width) )-( p_width/(24+temp_width) )-1 )); then break; fi
@@ -2264,7 +2264,7 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 	if ((pt_line+y+3<p_line+p_height)); then
 		local avg_string avg_width
 		if [[ $check_temp == true ]]; then avg_string="Load Average: "; avg_width=7; else avg_string="L AVG: "; avg_width=5; fi
-		print -v cpu_out_var -m $((pt_line+y+1)) $pt_col -fg ${theme[main_fg]} -t "${avg_string}"
+		print -v cpu_out_var -m $((pt_line+y+1)) $pt_col -fg ${theme[main_fg]} -t "$avg_string"
 		for avg_string in ${cpu[load_avg]}; do
 			print -v cpu_out_var -jc $avg_width -t "${avg_string::4}"
 		done
@@ -2275,7 +2275,7 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 	if [[ -n ${cpu[freq_string]} ]]; then print -v cpu_out_var -m $((p_line-1)) $((p_col+p_width-5-${#cpu[freq_string]})) -fg ${theme[div_line]} -t "┤" -fg ${theme[title]} -b -t "${cpu[freq_string]}" -rs -fg ${theme[div_line]} -t "├"; fi
 
 	#* Print created text, graph and meters to output variable
-	draw_out+="${cpu_graph_a[*]}${cpu_graph_b[*]}${cpu_out_var}"
+	draw_out+="${cpu_graph_a[*]}${cpu_graph_b[*]}$cpu_out_var"
 
 }
 
@@ -2360,11 +2360,11 @@ draw_mem() { #? Draw mem, swap and disk statistics
 		else
 			just_val=$((m_width-name_len-2))
 		fi
-		print -v mem_out -jr ${just_val} -fg ${theme[title]} -b -t "${disks_total[disk_num]::$((m_width-11))}"
+		print -v mem_out -jr $just_val -fg ${theme[title]} -b -t "${disks_total[disk_num]::$((m_width-11))}"
 
 		for value in "used" "free"; do
 			if ((height<v_height*3)) && [[ $value == "free" ]]; then break; fi
-			local -n disk_value="disks_${value}"
+			local -n disk_value="disks_$value"
 
 			#* Print name of value and value amount in humanized base 2 bytes
 			print -v mem_out -m $((y_pos++)) $m_col -rs -fg $normal_color -jl 9 -t "${value^}:" -jr $((m_width-11)) -t "${disk_value[disk_num]::$((m_width-11))}"
@@ -2396,7 +2396,7 @@ draw_mem() { #? Draw mem, swap and disk statistics
 
 	if ((resized>0)); then ((resized++)); fi
 	#* Print created text, graph and meters to output variable
-	draw_out+="${mem_graph[*]}${swap_graph[*]}${mem_out}"
+	draw_out+="${mem_graph[*]}${swap_graph[*]}$mem_out"
 
 }
 
@@ -2438,22 +2438,22 @@ draw_processes() { #? Draw processes and values to screen
 
 			if [[ ${#detail_history[@]} -eq 1 ]] || ((resized>0)); then
 				unset proc_det2
-				create_graph -o detail_graph -d $((d_line+1)) $((d_col+1)) ${detail_graph_height} ${detail_graph_width} -c color_cpu_graph -n detail_history
+				create_graph -o detail_graph -d $((d_line+1)) $((d_col+1)) $detail_graph_height $detail_graph_width -c color_cpu_graph -n detail_history
 				if ((tty_width>120)); then create_mini_graph -o detail_mem_graph -w $((right_width/3-3)) -nc detail_mem_history; fi
 				det_no_add=1
 
-				for detail_location in "${d_line}" "$((d_line+d_height))"; do
-					print -v proc_det2 -m ${detail_location} $((d_col+1)) -rs -fg ${box[processes_color]} -rp $((d_width-2)) -t "─"
+				for detail_location in "$d_line" "$((d_line+d_height))"; do
+					print -v proc_det2 -m $detail_location $((d_col+1)) -rs -fg ${box[processes_color]} -rp $((d_width-2)) -t "─"
 				done
 				for((i=1;i<d_height;i++)); do
 					print -v proc_det2 -m $((d_line+i)) $((d_col+3+detail_graph_width)) -rp $((right_width-1)) -t " "
-					print -v proc_det2 -m $((d_line+i)) ${d_col} -fg ${box[processes_color]} -t "│" -r $((detail_graph_width+1)) -fg ${theme[div_line]} -t "│" -r $((right_width+1)) -fg ${box[processes_color]} -t "│"
+					print -v proc_det2 -m $((d_line+i)) $d_col -fg ${box[processes_color]} -t "│" -r $((detail_graph_width+1)) -fg ${theme[div_line]} -t "│" -r $((right_width+1)) -fg ${box[processes_color]} -t "│"
 				done
 
-				print -v proc_det2 -m ${d_line} ${d_col} -t "┌" -m ${d_line} $((d_col+d_width)) -t "┐"
-				print -v proc_det2 -m ${d_line} $((d_col+2+detail_graph_width)) -t "┬" -m $((d_line+d_height)) $((d_col+detail_graph_width+2)) -t "┴"
-				print -v proc_det2 -m $((d_line+d_height)) ${d_col} -t "├" -r 1 -t "┤" -fg ${theme[title]} -b -t "${this_box}" -rs -fg ${box[processes_color]} -t "├" -r $((d_width-5-${#this_box})) -t "┤"
-				print -v proc_det2 -m ${d_line} $((d_col+2)) -t "┤" -fg ${theme[title]} -b -t "${proc[detailed_name],,}" -rs -fg ${box[processes_color]} -t "├"
+				print -v proc_det2 -m $d_line $d_col -t "┌" -m $d_line $((d_col+d_width)) -t "┐"
+				print -v proc_det2 -m $d_line $((d_col+2+detail_graph_width)) -t "┬" -m $((d_line+d_height)) $((d_col+detail_graph_width+2)) -t "┴"
+				print -v proc_det2 -m $((d_line+d_height)) $d_col -t "├" -r 1 -t "┤" -fg ${theme[title]} -b -t "$this_box" -rs -fg ${box[processes_color]} -t "├" -r $((d_width-5-${#this_box})) -t "┤"
+				print -v proc_det2 -m $d_line $((d_col+2)) -t "┤" -fg ${theme[title]} -b -t "${proc[detailed_name],,}" -rs -fg ${box[processes_color]} -t "├"
 				if ((tty_width>128)); then print -v proc_det2 -m -r 1 -t "┤" -fg ${theme[title]} -b -t "${proc[detailed_pid]}" -rs -fg ${box[processes_color]} -t "├"; fi
 
 
@@ -2477,20 +2477,20 @@ draw_processes() { #? Draw processes and values to screen
 			if ((proc[selected]>0)); then enter_fg="${theme[inactive_fg]}"; enter_a_fg="${theme[inactive_fg]}"; else enter_fg="${theme[title]}"; enter_a_fg="${theme[hi_fg]}"; fi
 			if [[ -n ${proc[detailed_killed]} ]]; then misc_fg="${theme[title]}"; misc_a_fg="${theme[hi_fg]}"
 			else misc_fg=$enter_fg; misc_a_fg=$enter_a_fg; fi
-			print -v proc_det -m ${d_line} $((d_col+d_width-11)) -fg ${box[processes_color]} -t "┤" -fg $enter_fg -b -t "close " -fg $enter_a_fg -t "↲" -rs -fg ${box[processes_color]} -t "├"
+			print -v proc_det -m $d_line $((d_col+d_width-11)) -fg ${box[processes_color]} -t "┤" -fg $enter_fg -b -t "close " -fg $enter_a_fg -t "↲" -rs -fg ${box[processes_color]} -t "├"
 			if ((tty_width<129)); then det_mod="-8"; fi
 
-			print -v proc_det -m ${d_line} $((d_col+detail_graph_width+4+det_mod)) -t "┤" -fg $misc_a_fg -b -t "t" -fg $misc_fg -t "erminate" -rs -fg ${box[processes_color]} -t "├"
+			print -v proc_det -m $d_line $((d_col+detail_graph_width+4+det_mod)) -t "┤" -fg $misc_a_fg -b -t "t" -fg $misc_fg -t "erminate" -rs -fg ${box[processes_color]} -t "├"
 			print -v proc_det -r 1 -t "┤" -fg $misc_a_fg -b -t "k" -fg $misc_fg -t "ill" -rs -fg ${box[processes_color]} -t "├"
 			if ((tty_width>104)); then print -v proc_det -r 1 -t "┤" -fg $misc_a_fg -b -t "i" -fg $misc_fg -t "nterrupt" -rs -fg ${box[processes_color]} -t "├"; fi
 
 
-			proc_det="${proc_det2}${proc_det}"
-			proc_out="${proc_det}"
+			proc_det="$proc_det2$proc_det"
+			proc_out="$proc_det"
 
 		elif ((resized==0)); then
 			unset proc_det
-			create_box -v proc_out -col ${box[${this_box}_col]} -line ${box[${this_box}_line]} -width ${box[${this_box}_width]} -height ${box[${this_box}_height]} -fill -lc "${box[${this_box}_color]}" -title ${this_box}
+			create_box -v proc_out -col ${box[${this_box}_col]} -line ${box[${this_box}_line]} -width ${box[${this_box}_width]} -height ${box[${this_box}_height]} -fill -lc "${box[${this_box}_color]}" -title $this_box
 		fi
 	fi
 
@@ -2512,15 +2512,15 @@ draw_processes() { #? Draw processes and values to screen
 
 		if [[ -n ${proc[detailed_killed]} ]]; then det_status="stopped"; status_color="${theme[inactive_fg]}"
 		else det_status="running"; status_color="${theme[proc_misc]}"; fi
-		print -v proc_out -m $((d_line+1)) ${right_col} -fg ${theme[title]} -b -jc $((right_width/det_columns-1)) -t "Status:" -jc $((right_width/det_columns)) -t "Elapsed:" -jc $((right_width/det_columns)) -t "Parent:"
+		print -v proc_out -m $((d_line+1)) $right_col -fg ${theme[title]} -b -jc $((right_width/det_columns-1)) -t "Status:" -jc $((right_width/det_columns)) -t "Elapsed:" -jc $((right_width/det_columns)) -t "Parent:"
 		if ((det_columns>=4)); then print -v proc_out -jc $((right_width/det_columns-1)) -t "User:"; fi
 		if ((det_columns>=5)); then print -v proc_out -jc $((right_width/det_columns-1)) -t "Threads:"; fi
-		print -v proc_out -m $((d_line+2)) ${right_col} -rs -fg ${status_color} -jc $((right_width/det_columns-1)) -t "${det_status}" -jc $((right_width/det_columns)) -fg ${theme[main_fg]} -t "${proc[detailed_runtime]::$((right_width/det_columns-1))}" -jc $((right_width/det_columns)) -t "${proc[detailed_parent_name]::$((right_width/det_columns-2))}"
+		print -v proc_out -m $((d_line+2)) $right_col -rs -fg $status_color -jc $((right_width/det_columns-1)) -t "$det_status" -jc $((right_width/det_columns)) -fg ${theme[main_fg]} -t "${proc[detailed_runtime]::$((right_width/det_columns-1))}" -jc $((right_width/det_columns)) -t "${proc[detailed_parent_name]::$((right_width/det_columns-2))}"
 		if ((det_columns>=4)); then print -v proc_out -jc $((right_width/det_columns-1)) -t "${proc[detailed_user]::$((right_width/det_columns-2))}"; fi
 		if ((det_columns>=5)); then print -v proc_out -jc $((right_width/det_columns-1)) -t "${proc[detailed_threads]}"; fi
 
-		print -v proc_out -m $((d_line+4)) ${right_col} -fg ${theme[title]} -b -jr $((right_width/3+2)) -t "Memory: ${proc[detailed_mem]}%" -t " "
-		if ((tty_width>120)); then print -v proc_out -rs -fg ${theme[inactive_fg]} -rp $((right_width/3-3)) "⡀" -l $((right_width/3-3)) -fg ${theme[proc_misc]} -t "${detail_mem_graph}" -t " "; fi
+		print -v proc_out -m $((d_line+4)) $right_col -fg ${theme[title]} -b -jr $((right_width/3+2)) -t "Memory: ${proc[detailed_mem]}%" -t " "
+		if ((tty_width>120)); then print -v proc_out -rs -fg ${theme[inactive_fg]} -rp $((right_width/3-3)) "⡀" -l $((right_width/3-3)) -fg ${theme[proc_misc]} -t "$detail_mem_graph" -t " "; fi
 		print -v proc_out -fg ${theme[title]} -b -t "${proc[detailed_mem_string]}"
 	fi
 
@@ -2595,26 +2595,26 @@ draw_processes() { #? Draw processes and values to screen
 			reverse_string="-fg ${box[processes_color]} -t ┤ -fg ${theme[hi_fg]}${proc[reverse]:+ -ul} -b -t r -fg ${theme[title]} -t everse -rs -fg ${box[processes_color]} -t ├"
 			reverse_pos=9
 		fi
-		print -v proc_misc -m $line $((col+width-${#proc_sorting}-8-reverse_pos)) -rs ${reverse_string}\
-		-fg ${box[processes_color]} -t "┤" -fg ${theme[hi_fg]} -b -t "‹" -fg ${theme[title]} -t " ${proc_sorting} "  -fg ${theme[hi_fg]} -t "›" -rs -fg ${box[processes_color]} -t "├"
+		print -v proc_misc -m $line $((col+width-${#proc_sorting}-8-reverse_pos)) -rs $reverse_string\
+		-fg ${box[processes_color]} -t "┤" -fg ${theme[hi_fg]} -b -t "‹" -fg ${theme[title]} -t " $proc_sorting "  -fg ${theme[hi_fg]} -t "›" -rs -fg ${box[processes_color]} -t "├"
 
 		if [[ -z $filter && -z $input_to_filter ]]; then
 			print -v proc_misc -m $line $((col+14)) -fg ${box[processes_color]} -t "┤" -fg ${theme[hi_fg]} -b -t "f" -fg ${theme[title]} -t "ilter" -rs -fg ${box[processes_color]} -t "├"
 		elif [[ -n $input_to_filter ]]; then
-			if [[ ${#filter} -le $((width-35-reverse_pos)) ]]; then filter_string="${filter}"
+			if [[ ${#filter} -le $((width-35-reverse_pos)) ]]; then filter_string="$filter"
 			elif [[ ${#filter} -gt $((width-35-reverse_pos)) ]]; then filter_string="${filter: (-$((width-35-reverse_pos)))}"
 			fi
-			print -v proc_misc -m $line $((col+14)) -fg ${box[processes_color]} -t "┤" -fg ${theme[title]} -b -t "${filter_string}" -fg ${theme[proc_misc]} -bl -t "█" -rs -fg ${box[processes_color]} -t "├"
+			print -v proc_misc -m $line $((col+14)) -fg ${box[processes_color]} -t "┤" -fg ${theme[title]} -b -t "$filter_string" -fg ${theme[proc_misc]} -bl -t "█" -rs -fg ${box[processes_color]} -t "├"
 		elif [[ -n $filter ]]; then
-			if [[ ${#filter} -le $((width-35-reverse_pos-4)) ]]; then filter_string="${filter}"
+			if [[ ${#filter} -le $((width-35-reverse_pos-4)) ]]; then filter_string="$filter"
 			elif [[ ${#filter} -gt $((width-35-reverse_pos-4)) ]]; then filter_string="${filter::$((width-35-reverse_pos-4))}"
 			fi
-			print -v proc_misc -m $line $((col+14)) -fg ${box[processes_color]} -t "┤" -fg ${theme[hi_fg]} -b -t "f" -fg ${theme[title]} -t " ${filter_string} " -fg ${theme[hi_fg]} -t "c" -rs -fg ${box[processes_color]} -t "├"
+			print -v proc_misc -m $line $((col+14)) -fg ${box[processes_color]} -t "┤" -fg ${theme[hi_fg]} -b -t "f" -fg ${theme[title]} -t " $filter_string " -fg ${theme[hi_fg]} -t "c" -rs -fg ${box[processes_color]} -t "├"
 		fi
 
 
 
-		proc_out+="${proc_misc}"
+		proc_out+="$proc_misc"
 	fi
 
 	if ((proc[page_change]==1 | resized>0)); then
@@ -2635,15 +2635,15 @@ draw_processes() { #? Draw processes and values to screen
 		if ((tty_width>111)); then print -v proc_misc2 -r 1 -t "┤" -fg $kill_fg -b -t "k" -fg $com_fg -t "ill" -rs -fg ${box[processes_color]} -t "├"; fi
 		if ((tty_width>126)); then print -v proc_misc2 -r 1 -t "┤" -fg $kill_fg -b -t "i" -fg $com_fg -t "nterrupt" -rs -fg ${box[processes_color]} -t "├"; fi
 
-		proc_out+="${proc_misc2}"
+		proc_out+="$proc_misc2"
 	fi
 
-	proc_out="${detail_graph[*]}${proc_out}"
+	proc_out="${detail_graph[*]}$proc_out"
 
 	if ((resized>0)); then ((resized++)); fi
 
 	if [[ $argument == "now" ]]; then
-		echo -en "${proc_out}"
+		echo -en "$proc_out"
 	fi
 
 }
@@ -2657,7 +2657,7 @@ draw_net() { #? Draw net information and graphs to screen
 	#* If resized recreate net meter box and net graphs
 	if ((resized>0)); then
 		local graph_a_size graph_b_size
-		graph_a_size=$(( (height)/2 )); graph_b_size=${graph_a_size}
+		graph_a_size=$(( (height)/2 )); graph_b_size=$graph_a_size
 		if ((graph_a_size*2<height)); then ((graph_a_size++)); fi
 		net[graph_a_size]=$graph_a_size
 		net[graph_b_size]=$graph_b_size
@@ -2685,59 +2685,59 @@ draw_net() { #? Draw net information and graphs to screen
 	#* Create text depening on box height
 	local ypos=$n_line
 
-	print -v net_out -fg ${main_fg} -m $((ypos++)) $n_col -jl 10 -t "▼ Byte:" -jr 12 -t "${net[speed_download_byteps]}"
-	if ((height>4)); then print -v net_out -fg ${main_fg} -m $((ypos++)) $n_col -jl 10 -t "▼ Bit:" -jr 12 -t "${net[speed_download_bitps]}"; fi
-	if ((height>6)); then print -v net_out -fg ${main_fg} -m $((ypos++)) $n_col -jl 10 -t "▼ Total:" -jr 12 -t "${net[total_download]}"; fi
+	print -v net_out -fg $main_fg -m $((ypos++)) $n_col -jl 10 -t "▼ Byte:" -jr 12 -t "${net[speed_download_byteps]}"
+	if ((height>4)); then print -v net_out -fg $main_fg -m $((ypos++)) $n_col -jl 10 -t "▼ Bit:" -jr 12 -t "${net[speed_download_bitps]}"; fi
+	if ((height>6)); then print -v net_out -fg $main_fg -m $((ypos++)) $n_col -jl 10 -t "▼ Total:" -jr 12 -t "${net[total_download]}"; fi
 
 	if ((height>8)); then ((ypos++)); fi
-	print -v net_out -fg ${main_fg} -m $((ypos++)) $n_col -jl 10 -t "▲ Byte:" -jr 12 -t "${net[speed_upload_byteps]}"
-	if ((height>7)); then print -v net_out -fg ${main_fg} -m $((ypos++)) $n_col -jl 10 -t "▲ Bit:" -jr 12 -t "${net[speed_upload_bitps]}"; fi
-	if ((height>5)); then print -v net_out -fg ${main_fg} -m $((ypos++)) $n_col -jl 10 -t "▲ Total:" -jr 12 -t "${net[total_upload]}"; fi
+	print -v net_out -fg $main_fg -m $((ypos++)) $n_col -jl 10 -t "▲ Byte:" -jr 12 -t "${net[speed_upload_byteps]}"
+	if ((height>7)); then print -v net_out -fg $main_fg -m $((ypos++)) $n_col -jl 10 -t "▲ Bit:" -jr 12 -t "${net[speed_upload_bitps]}"; fi
+	if ((height>5)); then print -v net_out -fg $main_fg -m $((ypos++)) $n_col -jl 10 -t "▲ Total:" -jr 12 -t "${net[total_upload]}"; fi
 
 
 	#* Print graphs and text to output variable
-	draw_out+="${download_graph[*]}${upload_graph[*]}${net_out}"
+	draw_out+="${download_graph[*]}${upload_graph[*]}$net_out"
 }
 
 draw_clock() { #? Draw a clock at top of screen
 	if [[ -z $draw_clock ]]; then return; fi
 	if [[ $resized -gt 0 && $resized -lt 5 ]]; then unset clock_out; return; fi
-	local width=${box[cpu_width]} color=${box[cpu_color]} old_time_string="${time_string}"
-	#time_string="$(date ${draw_clock})"
-	printf -v time_string "%(${draw_clock})T"
+	local width=${box[cpu_width]} color=${box[cpu_color]} old_time_string="$time_string"
+	#time_string="$(date $draw_clock)"
+	printf -v time_string "%($draw_clock)T"
 	if [[ $old_time_string != "$time_string" || -z $clock_out ]]; then
 		unset clock_out
-		print -v clock_out -m 1 $((width/2-${#time_string}/2)) -rs -fg ${color} -t "┤" -fg ${theme[title]} -b -t "${time_string}" -fg ${color} -t "├"
+		print -v clock_out -m 1 $((width/2-${#time_string}/2)) -rs -fg $color -t "┤" -fg ${theme[title]} -b -t "$time_string" -fg $color -t "├"
 	fi
-	if [[ $1 == "now" ]]; then echo -en "${clock_out}"; fi
+	if [[ $1 == "now" ]]; then echo -en "$clock_out"; fi
 }
 
 draw_update_string() {
 	unset update_string
 	print -v update_string -m ${box[cpu_line]} $((box[cpu_col]+box[cpu_width]-${#update_ms}-14)) -rs -fg ${box[cpu_color]} -t "────┤"  -fg ${theme[hi_fg]} -b -t "+" -fg ${theme[title]} -b -t " ${update_ms}ms "  -fg ${theme[hi_fg]} -b -t "-" -rs -fg ${box[cpu_color]} -t "├"
-	if [[ $1 == "quiet" ]]; then draw_out+="${update_string}"
-	else echo -en "${update_string}"; fi
+	if [[ $1 == "quiet" ]]; then draw_out+="$update_string"
+	else echo -en "$update_string"; fi
 }
 
 pause_() { #? Pause input and draw a darkened version of main ui
 	local pause_out ext_var
-	if [[ -n $1 && $1 != "off" ]]; then local -n pause_out=${1}; ext_var=1; fi
+	if [[ -n $1 && $1 != "off" ]]; then local -n pause_out=$1; ext_var=1; fi
 	if [[ $1 != "off" ]]; then
-		prev_screen="${boxes_out}${proc_det}${last_screen}${mem_out}${detail_graph[*]}${proc_out}${proc_misc}${proc_misc2}${update_string}${clock_out}"
+		prev_screen="$boxes_out$proc_det$last_screen$mem_out${detail_graph[*]}$proc_out$proc_misc$proc_misc2$update_string$clock_out"
 		if [[ -n $skip_process_draw ]]; then
-			prev_screen+="${proc_out}"
+			prev_screen+="$proc_out"
 			unset skip_process_draw proc_out
 		fi
 
 		unset pause_screen
 		print -v pause_screen -rs -b -fg ${theme[inactive_fg]}
-		pause_screen+="${theme[main_bg]}m$(sed -E 's/\\e\[[0-9;\-]*m//g' <<< "${prev_screen}")\e[0m" #\e[1;38;5;236
+		pause_screen+="${theme[main_bg]}m$(sed -E 's/\\e\[[0-9;\-]*m//g' <<< "$prev_screen")\e[0m" #\e[1;38;5;236
 
-		if [[ -z $ext_var ]]; then echo -en "${pause_screen}"
-		else pause_out="${pause_screen}"; fi
+		if [[ -z $ext_var ]]; then echo -en "$pause_screen"
+		else pause_out="$pause_screen"; fi
 
 	elif [[ $1 == "off" ]]; then
-		echo -en "${prev_screen}"
+		echo -en "$prev_screen"
 		unset pause_screen prev_screen
 	fi
 }
@@ -2764,13 +2764,13 @@ menu_() { #? Shows the main menu overlay
 
 		unset draw_out
 
-		if [[ -z ${bannerd} ]]; then
+		if [[ -z $bannerd ]]; then
 			draw_banner "$((tty_height/2-10))" bannerd
 			unset d_banner
 		fi
-		if [[ -n ${keypress} || -z ${menu_out} ]]; then
+		if [[ -n $keypress || -z $menu_out ]]; then
 			unset menu_out
-			print -v menu_out -t "${bannerd}"
+			print -v menu_out -t "$bannerd"
 			print -v menu_out -d 1 -rs
 			selected="${menus[selected_int]}"
 			unset up
@@ -2780,31 +2780,31 @@ menu_() { #? Shows the main menu overlay
 					local -n menu_array="menu_${menu}_selected"
 					color=("#c55e5e" "#c23d3d" "#a13030" "#8c2626")
 				else
-					local -n menu_array="menu_${menu}"
+					local -n menu_array="menu_$menu"
 					color=("#bb" "#aa" "#99" "#88")
 				fi
 				up=$((up+${#menu_array[@]}))
 				for((i=0;i<${#menu_array[@]};i++)); do
-					print -v menu_out -d 1 -fg ${color[i]} -c${trans} -t "${menu_array[i]}"
+					print -v menu_out -d 1 -fg ${color[i]} -c$trans -t "${menu_array[i]}"
 				done
 			done
-			print -v menu_out -rs -u ${up}
+			print -v menu_out -rs -u $up
 		fi
 		unset out_out
-		out_out="${menu_pause}${menu_out}"
-		echo -e "${out_out}"
+		out_out="$menu_pause$menu_out"
+		echo -e "$out_out"
 
 
 		get_ms timestamp_end
 		time_left=$((timestamp_start+update_ms-timestamp_end))
 		# if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
-		# elif ((time_left>1)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
+		# elif ((time_left>1)); then printf -v wait_string ".%03d" "$time_left"; time_left=0
 		# else wait_string="0.001"; time_left=0; fi
 		if ((time_left>1000)); then wait_string=10; time_left=$((time_left-1000))
 		elif ((time_left>100)); then wait_string=$((time_left/100)); time_left=0
 		else wait_string="0"; time_left=0; fi
 
-		get_key -v keypress -w ${wait_string}
+		get_key -v keypress -w $wait_string
 		if [[ $(stty size) != "$tty_height $tty_width" ]]; then resized; fi
 		if ((resized>0)); then
 			calc_sizes; draw_bg quiet; time_left=0; unset menu_out
@@ -2899,7 +2899,7 @@ help_() { #? Shows the help overlay
 
 			if [[ -n $pages ]]; then
 				print -v help_out -m $((line+height+1)) $((col+72-16)) -rs -fg ${theme[div_line]} -t "┤" -fg ${theme[title]} -b -t "pg" -fg ${theme[hi_fg]} -t "↑"\
-				-fg ${theme[title]} -t " ${page}/${pages} " -fg ${theme[title]} -t "pg" -fg ${theme[hi_fg]} -t "↓" -rs -fg ${theme[div_line]} -t "├"
+				-fg ${theme[title]} -t " $page/$pages " -fg ${theme[title]} -t "pg" -fg ${theme[hi_fg]} -t "↓" -rs -fg ${theme[div_line]} -t "├"
 			fi
 			((++col))
 
@@ -2912,25 +2912,25 @@ help_() { #? Shows the help overlay
 
 
 		unset draw_out
-		echo -en "${help_pause}${help_out}"
+		echo -en "$help_pause$help_out"
 
 		get_ms timestamp_end
 		time_left=$((timestamp_start+update_ms-timestamp_end))
 
 		# if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
-		# elif ((time_left>0)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
+		# elif ((time_left>0)); then printf -v wait_string ".%03d" "$time_left"; time_left=0
 		# else wait_string="0.001"; time_left=0; fi
 
 		if ((time_left>1000)); then wait_string=10; time_left=$((time_left-1000))
 		elif ((time_left>100)); then wait_string=$((time_left/100)); time_left=0
 		else wait_string="0"; time_left=0; fi
 
-		get_key -v help_key -w "${wait_string}"
+		get_key -v help_key -w "$wait_string"
 
 		if [[ -n $pages ]]; then
 			case $help_key in
 				down|page_down) if ((page<pages)); then ((page++)); else page=1; fi; redraw=1; unset help_key ;;
-				up|page_up) if ((page>1)); then ((page--)); else page=${pages}; fi; redraw=1; unset help_key ;;
+				up|page_up) if ((page>1)); then ((page--)); else page=$pages; fi; redraw=1; unset help_key ;;
 			esac
 		fi
 
@@ -3071,14 +3071,14 @@ options_() { #? Shows the options overlay
 			create_box -v options_misc -w 29 -h $((height*2+2)) -l $line -c $((col-1)) -fill -lc ${theme[div_line]} -title "options"
 			if [[ -n $pages ]]; then
 				print -v options_misc -m $((line+height*2+1)) $((col+29-16)) -rs -fg ${theme[div_line]} -t "┤" -fg ${theme[title]} -b -t "pg" -fg ${theme[hi_fg]} -t "↑"\
-				-fg ${theme[title]} -t " ${page}/${pages} " -fg ${theme[title]} -t "pg" -fg ${theme[hi_fg]} -t "↓" -rs -fg ${theme[div_line]} -t "├"
+				-fg ${theme[title]} -t " $page/$pages " -fg ${theme[title]} -t "pg" -fg ${theme[hi_fg]} -t "↓" -rs -fg ${theme[div_line]} -t "├"
 			fi
 		fi
 
 		if [[ -n $keypress || -z $options_out ]]; then
 			unset options_out desc_height lr inp valid
 			selected="${options_array[selected_int]}"
-			local -n selected_desc="desc_${selected}"
+			local -n selected_desc="desc_$selected"
 			if [[ $background_update == false ]]; then desc_pos=$line; desc_height=$((height*2+2))
 			elif (( (selected_int-( (page-1)*height) )*2+${#selected_desc[@]}<height*2 )); then desc_pos=$((line+(selected_int-( (page-1)*height) )*2))
 			else desc_pos=$((line+height*2-${#selected_desc[@]})); fi
@@ -3086,14 +3086,14 @@ options_() { #? Shows the options overlay
 			for((i=(page-1)*height,ypos=1;i<page*height;i++,ypos=ypos+2)); do
 				if [[ -z ${options_array[i]} ]]; then break; fi
 				option_string="${options_array[i]}"
-				if [[ -n $inputting && ${option_string} == "${selected}" ]]; then
+				if [[ -n $inputting && $option_string == "$selected" ]]; then
 					if [[ ${#inputting_value} -gt 14 ]]; then option_value="${inputting_value:(-14)}_"
 					else option_value="${inputting_value}_"; fi
 				else
 					option_value="${!option_string}"
 				fi
 
-				if [[ ${option_string} == "${selected}" ]]; then
+				if [[ $option_string == "$selected" ]]; then
 					if is_int "$option_value" || [[ $selected == "color_theme" && -n $curled ]]; then
 						enter="↲"; inp=1
 					fi
@@ -3108,8 +3108,8 @@ options_() { #? Shows the options overlay
 				option_string="${option_string//_/ }:"
 				if [[ $option_string == "proc sorting:" ]]; then option_string+=" $((proc[sorting_int]+1))/${#sorting[@]}"
 				elif [[ $option_string == "color theme:" ]]; then option_string+=" $((theme_int+1))/${#themes[@]}"; fi
-				print -v options_out -m $((line+ypos)) $((col+1)) -rs -fg ${fg:-${theme[title]}}${bg} -b -jc 25 -t "${option_string^}"
-				print -v options_out -m $((line+ypos+1)) $((col+1)) -rs -fg ${fg:-${theme[main_fg]}}${bg} -jc 25 -t "${enter:+ } ${left} \"${option_value::15}\" ${right} ${enter}"
+				print -v options_out -m $((line+ypos)) $((col+1)) -rs -fg ${fg:-${theme[title]}}$bg -b -jc 25 -t "${option_string^}"
+				print -v options_out -m $((line+ypos+1)) $((col+1)) -rs -fg ${fg:-${theme[main_fg]}}$bg -jc 25 -t "${enter:+ } $left \"${option_value::15}\" $right $enter"
 				unset right left enter bg fg
 			done
 
@@ -3118,7 +3118,7 @@ options_() { #? Shows the options overlay
 			done
 		fi
 
-		echo -en "${options_pause}${options_misc}${options_out}"
+		echo -en "$options_pause$options_misc$options_out"
 		unset draw_out keypress
 
 		if [[ -n $theme_check ]]; then
@@ -3128,14 +3128,14 @@ options_() { #? Shows the options overlay
 			theme_index=($(curl -m 3 --raw https://raw.githubusercontent.com/aristocratos/bashtop/master/themes/index.txt 2>/dev/null))
 			if [[ ${theme_index[*]} =~ .theme ]]; then
 				for git_theme in ${theme_index[@]}; do
-					if [[ $git_theme =~ .theme && ! -e "${theme_dir}/${git_theme}" ]]; then
-						if curl -m 3 --raw "https://raw.githubusercontent.com/aristocratos/bashtop/master/themes/${git_theme}" >"${theme_dir}/${git_theme}" 2>/dev/null; then
+					if [[ $git_theme =~ .theme && ! -e "$theme_dir/$git_theme" ]]; then
+						if curl -m 3 --raw "https://raw.githubusercontent.com/aristocratos/bashtop/master/themes/$git_theme" >"$theme_dir/$git_theme" 2>/dev/null; then
 							((++new_themes))
 							themes+=("${git_theme%.theme}")
 						fi
 					fi
 				done
-				desc_color_theme+=("Found ${new_themes} new theme(s)!")
+				desc_color_theme+=("Found $new_themes new theme(s)!")
 			else
 				desc_color_theme+=("ERROR: Couldn't get theme index!")
 			fi
@@ -3146,14 +3146,14 @@ options_() { #? Shows the options overlay
 		if [[ -z $theme_check ]]; then time_left=$((timestamp_start+update_ms-timestamp_end))
 		else unset theme_check; time_left=0; fi
 		# if ((time_left>500)); then wait_string=0.5
-		# elif ((time_left>0)); then printf -v wait_string ".%03d" "${time_left}"
+		# elif ((time_left>0)); then printf -v wait_string ".%03d" "$time_left"
 		# else wait_string="0.001"; time_left=0; fi
 
 		if ((time_left>500)); then wait_string=5; time_left=$((time_left-500))
 		elif ((time_left>100)); then wait_string=$((time_left/100)); time_left=0
 		else wait_string="0"; time_left=0; fi
 
-		get_key -v keypress -w ${wait_string}
+		get_key -v keypress -w $wait_string
 
 		if [[ -n $inputting ]]; then
 			case "$keypress" in
@@ -3169,15 +3169,15 @@ options_() { #? Shows the options overlay
 				left|right) if [[ -n $lr && -z $inputting ]]; then valid=1; fi ;;
 				enter) if [[ -n $inp ]]; then valid=1; fi ;;
 				page_down) if ((page<pages)); then ((page++)); else page=1; selected_int=0; fi; redraw_misc=1; selected_int=$(( (page-1)*height )) ;;
-				page_up) if ((page>1)); then ((page--)); else page=${pages}; fi; redraw_misc=1; selected_int=$(( (page-1)*height )) ;;
+				page_up) if ((page>1)); then ((page--)); else page=$pages; fi; redraw_misc=1; selected_int=$(( (page-1)*height )) ;;
 			esac
 			if (( selected_int<(page-1)*height | selected_int>=page*height )); then page=$(( (selected_int/height)+1 )); redraw_misc=1; fi
 		fi
 
-		if [[ ${selected} == "color_theme" && ${keypress} =~ left|right && ${#themes} -lt 2 ]]; then unset valid; fi
+		if [[ $selected == "color_theme" && $keypress =~ left|right && ${#themes} -lt 2 ]]; then unset valid; fi
 
 		if [[ -n $valid ]]; then
-			case "${selected} ${keypress}" in
+			case "$selected $keypress" in
 				"update_ms right")
 						if ((update_ms<86399900)); then
 							update_ms=$((update_ms+100))
@@ -3191,7 +3191,7 @@ options_() { #? Shows the options overlay
 						fi
 					;;
 				"update_ms enter")
-						if [[ -z $inputting ]]; then inputting=1; inputting_value="${update_ms}"
+						if [[ -z $inputting ]]; then inputting=1; inputting_value="$update_ms"
 						else
 							if ((inputting_value<86400000)); then update_ms="${inputting_value:-0}"; updated_ms=1; fi
 							unset inputting inputting_value
@@ -3206,24 +3206,24 @@ options_() { #? Shows the options overlay
 						inputting_value+="${keypress//[^0-9]/}"
 					;;
 				"draw_clock enter")
-						if [[ -z $inputting ]]; then inputting=1; inputting_value="${draw_clock}"
-						else draw_clock="${inputting_value}"; unset inputting inputting_value clock_out; fi
+						if [[ -z $inputting ]]; then inputting=1; inputting_value="$draw_clock"
+						else draw_clock="$inputting_value"; unset inputting inputting_value clock_out; fi
 					;;
 				"custom_cpu_name enter")
-						if [[ -z $inputting ]]; then inputting=1; inputting_value="${custom_cpu_name}"
-						else custom_cpu_name="${inputting_value}"; changed_cpu_name=1; unset inputting inputting_value; fi
+						if [[ -z $inputting ]]; then inputting=1; inputting_value="$custom_cpu_name"
+						else custom_cpu_name="$inputting_value"; changed_cpu_name=1; unset inputting inputting_value; fi
 					;;
 				"disks_filter enter")
-						if [[ -z $inputting ]]; then inputting=1; inputting_value="${disks_filter}"
-						else disks_filter="${inputting_value}"; mem[counter]=10; resized=1; unset inputting inputting_value; fi
+						if [[ -z $inputting ]]; then inputting=1; inputting_value="$disks_filter"
+						else disks_filter="$inputting_value"; mem[counter]=10; resized=1; unset inputting inputting_value; fi
 					;;
 				"net_totals_reset enter")
 						if ((net[reset]==1)); then net_totals_reset="Off"; net[reset]=0
 						else net_totals_reset="On"; net[reset]=1; fi
 					;;
 				"check_temp"*|"error_logging"*|"background_update"*|"proc_reversed"*|"proc_gradient"*|"proc_per_core"*)
-						local -n selected_var=${selected}
-						if [[ ${selected_var} == "true" ]]; then
+						local -n selected_var=$selected
+						if [[ $selected_var == "true" ]]; then
 							selected_var="false"
 							if [[ $selected == "proc_reversed" ]]; then proc[order_change]=1; unset 'proc[reverse]'; fi
 						else
@@ -3299,14 +3299,14 @@ options_() { #? Shows the options overlay
 	done
 
 	if [[ -n $from_menu ]]; then pause_
-	elif [[ -n ${pause_screen} ]]; then unpause_; draw_update_string; fi
+	elif [[ -n $pause_screen ]]; then unpause_; draw_update_string; fi
 }
 
 killer_() { #? Kill process with selected signal
 	local kill_op="$1" kill_pid="$2" killer_out killer_box col line program keypress selected selected_int=0 sig confirmed=0 option killer_pause status msg
 	local -a options=("yes" "no")
 
-	if ! program="$(ps -o comm --no-header -p ${kill_pid})"; then return; fi
+	if ! program="$(ps -o comm --no-header -p $kill_pid)"; then return; fi
 
 	case $kill_op in
 		t|T) kill_op="terminate"; sig="SIGTERM" ;;
@@ -3329,40 +3329,40 @@ killer_() { #? Kill process with selected signal
 		if [[ -z $killer_box ]]; then
 			col=$((tty_width/2-15)); line=$((tty_height/2-4)); y=1
 			unset redraw killer_box
-			create_box -v killer_box -w 40 -h 9 -l $line -c $((col++)) -fill -lc "${theme[proc_box]}" -title "${kill_op}"
+			create_box -v killer_box -w 40 -h 9 -l $line -c $((col++)) -fill -lc "${theme[proc_box]}" -title "$kill_op"
 		fi
 
 		if ((confirmed==0)); then
 			selected="${options[selected_int]}"
 			print -v killer_out -m $((line+2)) $col -fg ${theme[title]} -b -jc 38 -t "${kill_op^} ${program::20}?" -m $((line+4)) $((col+3))
 			for option in "${options[@]}"; do
-				if [[ $option == "${selected}" ]]; then print -v killer_out -bg ${theme[selected_bg]} -fg ${theme[selected_fg]}; else print -v killer_out -fg ${theme[title]}; fi
+				if [[ $option == "$selected" ]]; then print -v killer_out -bg ${theme[selected_bg]} -fg ${theme[selected_fg]}; else print -v killer_out -fg ${theme[title]}; fi
 				print -v killer_out -b -r 5 -t "[  ${option^}  ]" -rs
 			done
 
 		elif ((confirmed==1)); then
 			selected="ok"
-			print -v killer_out -m $((line+2)) $col -fg ${theme[title]} -b -jc 38 -t "Sending signal ${sig} to pid ${kill_pid}!"
+			print -v killer_out -m $((line+2)) $col -fg ${theme[title]} -b -jc 38 -t "Sending signal $sig to pid $kill_pid!"
 			print -v killer_out -m $((line+4)) $col -fg ${theme[main_fg]} -jc 38 -t "${status^}!" -m $((line+6)) $col
-			if [[ -n $msg ]]; then print -v killer_out -m $((line+5)) $col -fg ${theme[main_fg]} -jc 38 -t "${msg}" -m $((line+7)) $col; fi
+			if [[ -n $msg ]]; then print -v killer_out -m $((line+5)) $col -fg ${theme[main_fg]} -jc 38 -t "$msg" -m $((line+7)) $col; fi
 			print -v killer_out -fg ${theme[selected_fg]} -bg ${theme[selected_bg]} -b -r 15 -t "[  Ok  ]" -rs
 		fi
 
-		echo -en "${killer_pause}${killer_box}${killer_out}"
+		echo -en "$killer_pause$killer_box$killer_out"
 		unset killer_out draw_out
 
 
 		get_ms timestamp_end
 		time_left=$((timestamp_start+update_ms-timestamp_end))
 		# if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
-		# elif ((time_left>1)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
+		# elif ((time_left>1)); then printf -v wait_string ".%03d" "$time_left"; time_left=0
 		# else wait_string="0.001"; time_left=0; fi
 
 		if ((time_left>1000)); then wait_string=10; time_left=$((time_left-1000))
 		elif ((time_left>100)); then wait_string=$((time_left/100)); time_left=0
 		else wait_string="0"; time_left=0; fi
 
-		get_key -v keypress -w ${wait_string}
+		get_key -v keypress -w $wait_string
 		if [[ $(stty size) != "$tty_height $tty_width" ]]; then resized; fi
 		if ((resized>0)); then
 			calc_sizes; draw_bg quiet; time_left=0; unset killer_out killer_box
@@ -3386,10 +3386,10 @@ killer_() { #? Kill process with selected signal
 			unpause_
 			break
 		elif ((confirmed>0)) && [[ -z $status ]]; then
-			if kill -${sig} ${kill_pid} >/dev/null 2>&1; then
+			if kill -$sig $kill_pid >/dev/null 2>&1; then
 				status="success"
 			else
-				if ! ps -p ${kill_pid} >/dev/null 2>&1; then
+				if ! ps -p $kill_pid >/dev/null 2>&1; then
 					msg="Process not running."
 				elif [[ $UID != 0 ]]; then
 					msg="Try restarting with sudo."
@@ -3435,14 +3435,14 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 		fi
 
 		#* Read 3 more characters if a leading escape character is detected
-		if [[ $key == "${enter_key}" ]]; then key="enter"
-		elif [[ $key == "${backspace}" || $key == "${backspace_real}" ]]; then key="backspace"
-		elif [[ $key == "${tab}" ]]; then key="tab"
+		if [[ $key == "$enter_key" ]]; then key="enter"
+		elif [[ $key == "$backspace" || $key == "$backspace_real" ]]; then key="backspace"
+		elif [[ $key == "$tab" ]]; then key="tab"
 		elif [[ $key == "$esc_character" ]]; then 
 			esc=1; key=$(stty -cooked min 0 time 0; dd bs=1 count=3 2>/dev/null); fi # read -rsn3 -t 0.001 key 2>/dev/null || true
 		if [[ -z $key && $esc -eq 1 ]]; then key="escape"
 		elif [[ $esc -eq 1 ]]; then
-			case "${key}" in
+			case "$key" in
 				'[A'*) key="up" ;;
 				'[B'*) key="down" ;;
 				'[D'*) key="left" ;;
@@ -3475,17 +3475,17 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 	#read -rst 0.001 -n 1000 2>/dev/null ||true
 	stty -cooked min 0 time 0; dd bs=512 count=1 >/dev/null 2>&1
 
-	if [[ -n $save && -n $key ]]; then saved_key+=("${key}"); return 0; fi
+	if [[ -n $save && -n $key ]]; then saved_key+=("$key"); return 0; fi
 
-	if [[ -n $ext_out ]]; then key_out="${key}"
-	else echo -n "${key}"; fi
+	if [[ -n $ext_out ]]; then key_out="$key"
+	else echo -n "$key"; fi
 }
 
 process_input() { #? Process keypresses for main ui
 	local wait_time="$1" keypress esc prev_screen anykey filter_change
 	late_update=0
 	#* Wait while reading input
-	get_key -v keypress -w "${wait_time}"
+	get_key -v keypress -w "$wait_time"
 	if [[ -z $keypress ]]; then return; fi
 
 	if [[ -n $input_to_filter ]]; then
@@ -3653,15 +3653,15 @@ collect_and_draw() { #? Run all collect and draw functions
 				unset late_update
 			done
 		fi
-		collect_${task}
+		collect_$task
 		if get_key -save && [[ -z $pause_screen ]]; then process_input; fi
-		draw_${task}
+		draw_$task
 		if get_key -save && [[ -z $pause_screen ]]; then process_input; fi
 		draw_clock "$1"
 		if ((resized>0 & resized<task_int)); then return; fi
 	done
 
-	last_screen="${draw_out}"
+	last_screen="$draw_out"
 }
 
 #? ----------------------------------------------------------------------------------------------------------------------- ?#
@@ -3690,7 +3690,7 @@ main_loop() { #? main loop...
 	elif ((resized>0)); then unset draw_out proc_out clock_out; return; fi
 
 	#* Echo everyting out to screen in one command to get a smooth transition between updates
-	echo -en "${draw_out}${proc_out}${clock_out}"
+	echo -en "$draw_out$proc_out$clock_out"
 	unset draw_out
 
 	#* Compare timestamps to get exact time needed to wait until next loop
@@ -3720,13 +3720,13 @@ main_loop() { #? main loop...
 
 			#* Else format wait string with padded zeroes if needed and break loop
 			else
-				#printf -v wait_string ".%03d" "${time_left}"
+				#printf -v wait_string ".%03d" "$time_left"
 				if ((time_left>=100)); then wait_string=$((time_left/100)); else wait_string=0; fi
 				time_left=0
 			fi
 
 			#* Wait while reading input
-			process_input "${wait_string}"
+			process_input "$wait_string"
 
 			#* Draw clock if set
 			draw_clock now
@@ -3746,16 +3746,16 @@ main_loop() { #? main loop...
 
 #* Read config file or create if non existant
 config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/bashtop"
-if [[ -d "${config_dir}" && -w "${config_dir}" ]] || mkdir -p "${config_dir}"; then
-	theme_dir="${config_dir}/themes"
-	if [[ ! -d "${theme_dir}" ]]; then mkdir -p "${theme_dir}"; fi
-	config_file="${config_dir}/bashtop.cfg"
+if [[ -d "$config_dir" && -w "$config_dir" ]] || mkdir -p "$config_dir"; then
+	theme_dir="$config_dir/themes"
+	if [[ ! -d "$theme_dir" ]]; then mkdir -p "$theme_dir"; fi
+	config_file="$config_dir/bashtop.cfg"
 	# shellcheck source=/dev/null
 	if [[ -e "$config_file" ]]; then
 		source "$config_file"
 
 		#* If current config is from an older version recreate config file and save user changes
-		if [[ $(get_value -sf "${config_file}" -k "bashtop v." -mk 1) != "${version}" ]]; then
+		if [[ $(get_value -sf "$config_file" -k "bashtop v." -mk 1) != "$version" ]]; then
 			create_config
 			save_config "${save_array[@]}"
 		fi
@@ -3783,15 +3783,15 @@ if [[ $error_logging == true ]]; then
 	trap 'traperr' ERR
 
 	#* Remove everything but the last 500 lines of error log if larger than 500 lines
-	if [[ -e "${config_dir}/error.log" && $(wc -l <"${config_dir}/error.log") -gt 500 ]]; then
-		tail -n 500 "${config_dir}/error.log" > "${config_dir}/tmp"
-		rm "${config_dir}/error.log"
-		mv "${config_dir}/tmp" "${config_dir}/error.log"
+	if [[ -e "$config_dir/error.log" && $(wc -l <"$config_dir/error.log") -gt 500 ]]; then
+		tail -n 500 "$config_dir/error.log" > "$config_dir/tmp"
+		rm "$config_dir/error.log"
+		mv "$config_dir/tmp" "$config_dir/error.log"
 	fi
-	( echo " " ; echo "New instance of bashtop version: ${version} Pid: $$" ) >> "${config_dir}/error.log"
-	exec 2>>"${config_dir}/error.log"
+	( echo " " ; echo "New instance of bashtop version: $version Pid: $$" ) >> "$config_dir/error.log"
+	exec 2>>"$config_dir/error.log"
 	if [[ $1 == "--debug" ]]; then
-		exec 19>"${config_dir}/tracing.log"
+		exec 19>"$config_dir/tracing.log"
 		BASH_XTRACEFD=19
 		set -x
 	fi

@@ -216,7 +216,7 @@ dnf install bashtop
 ``` bash
 ARCH=$( /bin/arch )
 subscription-manager repos --enable
-"codeready-builder-for-rhel-8-${ARCH}-rpms"
+"codeready-builder-for-rhel-8-$ARCH-rpms"
 dnf install epel-release
 dnf install bashtop
 ```

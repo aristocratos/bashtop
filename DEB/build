@@ -20,7 +20,7 @@ declare    version  build_version
 
 [[  ROOT::PERMISSION ]] 
 {
-    [[ $UID -ne ${root_uid} ]]  && {
+    [[ $UID -ne $root_uid ]]  && {
         echo -e  "require root user"
         exit  $UID
     }
@@ -31,8 +31,8 @@ declare    version  build_version
     if [[ -n $1 ]] ; then
         case $1 in  
             "--remove")
-                [[  -x  /${ubin}/${file_name} ]] && {
-                    dpkg --remove  ${file_name}
+                [[  -x  /$ubin/$file_name ]] && {
+                    dpkg --remove  $file_name
                     test $? -eq 0 && exit 0   
                 }||{
                     echo -e  "~ nothing  todo:  bashtop is removed " 
@@ -48,8 +48,8 @@ sleep 1
 [[ FILECHECK ]]  
 {
     #+ require  bashtop file to read inside  
-    [[ !  -f  ${file_src_location} ]]  &&   {
-        echo  -e  "undefine  ${file_name}"
+    [[ !  -f  $file_src_location ]]  &&   {
+        echo  -e  "undefine  $file_name"
         exit  3  #  just a basic exit   
     }|| {
         echo  -e "+ populate   DEB folder "
@@ -58,30 +58,30 @@ sleep 1
     }
 
     #+ require  control file  to write  inside  
-    [[ ! -f  ${ctrl_file}  ]]  && {
+    [[ ! -f  $ctrl_file  ]]  && {
       echo -e  "undefined ${ctrl_file##*/}"  
       exit  3   
     } 
 } 
 [[ IO::SEMVERS ]]  
 {
-    echo -e "+ fetching the lastest  version of  ${file_name}"
+    echo -e "+ fetching the lastest  version of  $file_name"
     
     get_current_version  () {
-        local watch_version=`grep  -i "declare version"  ${file_src_location}`
+        local watch_version=`grep  -i "declare version"  $file_src_location`
         local semvers=${watch_version##*=}
         echo  ${semvers:1:-1}  
     }
 
     set_new_version_ctrl() {
-        local catch_package_version=`grep -i  version  ${ctrl_file}` 
+        local catch_package_version=`grep -i  version  $ctrl_file` 
         version=${catch_package_version%%:*}
         build_version=${catch_package_version##*:} 
         [[  -n $1  ]] && build_version=$1 
-        version+=": ${build_version}"  
+        version+=": $build_version"  
      
         echo -e  "+ set  new version control"
-        `sed -i "s/$catch_package_version/${version}/g" ${ctrl_file}`
+        `sed -i "s/$catch_package_version/$version/g" $ctrl_file`
     }
 
 set_new_version_ctrl $(get_current_version)  
@@ -90,12 +90,12 @@ set_new_version_ctrl $(get_current_version)
 [[ PACKAGER_BUILD::DEB ]] 
 {
     build_for_debian_base (){ 
-        local debian_package_name=${file_name}_${build_version}-${architecture}.deb  
-        #echo  ${debian_package_name}
-        dpkg-deb --build   ../DEB   ${debian_package_name} 
+        local debian_package_name=${file_name}_$build_version-$architecture.deb  
+        #echo  $debian_package_name
+        dpkg-deb --build   ../DEB   $debian_package_name 
         test  $?  -eq 0  &&  {
-           if [[ -f   ${debian_package_name} ]] ;then
-               dpkg -i ${debian_package_name}
+           if [[ -f   $debian_package_name ]] ;then
+               dpkg -i $debian_package_name
                [[ $? -eq 0 ]] &&  {
                  exit $?
                }||{ 
