@@ -38,7 +38,7 @@ case "$(uname -s)" in
 	MINGW*)  system=MinGw;;
 	*)       system="Other"
 esac
-if [[ "$system" != "Linux" ]]; then
+if [[ $system != "Linux" ]]; then
 	echo "This version of bashtop does not support $system platform."
 	exit 1
 fi
@@ -46,7 +46,7 @@ fi
 #* Fail if Bash version is below 4.4
 bash_version_major=${BASH_VERSINFO[0]}
 bash_version_minor=${BASH_VERSINFO[1]}
-if [[ "$bash_version_major" -lt 4 ]] || [[ "$bash_version_major" == 4 && "$bash_version_minor" -lt 4 ]]; then
+if [[ $bash_version_major -lt 4 ]] || [[ $bash_version_major == 4 && "$bash_version_minor" -lt 4 ]]; then
 	echo "ERROR: Bash 4.4 or later is required (you are using Bash $bash_version_major.$bash_version_minor)."
 	echo "       Consider upgrading your distribution to get a more recent Bash version."
 	exit 1
@@ -203,7 +203,7 @@ if [[ -n $EPOCHREALTIME ]]; then
 #* If not, use date command, through fifo if possible
 else
 	tmpdir=""
-	if [[ -n $XDG_RUNTIME_DIR && -w "$XDG_RUNTIME_DIR" ]]; then 
+	if [[ -n $XDG_RUNTIME_DIR && -w $XDG_RUNTIME_DIR ]]; then 
 		tmpdir="$XDG_RUNTIME_DIR"
 	elif [[ -w /dev/shm ]]; then 
 		tmpdir="/dev/shm"
@@ -1446,7 +1446,7 @@ collect_cpu() { #? Collects cpu stats from /proc/stat and compares with previous
 	fi
 
 	#* If getting cpu frequency from "proc/cpuinfo" was unsuccessfull try "/sys/devices/../../scaling_cur_freq"
-	if [[ -n ${cpu[no_cpu_info]} && -e "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq" ]]; then
+	if [[ -n ${cpu[no_cpu_info]} && -e /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq ]]; then
 		get_value -v 'cpu[freq]' -sf "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq" -i
 		printf -v 'cpu[freq]' "%.0f0" "${cpu[freq]}e-4"
 	fi
@@ -1770,7 +1770,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 			proc_array[count]="${pid_string}${proc_array[count]#*${pid}}"
 		fi
 
-		if [[ -r "/proc/${pid}/stat" ]] && read -ra statfile </proc/${pid}/stat 2>/dev/null; then
+		if [[ -r /proc/${pid}/stat ]] && read -ra statfile </proc/${pid}/stat 2>/dev/null; then
 
 			utime=${statfile[13]}
 			stime=${statfile[14]}
@@ -3746,12 +3746,12 @@ main_loop() { #? main loop...
 
 #* Read config file or create if non existant
 config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/bashtop"
-if [[ -d "${config_dir}" && -w "${config_dir}" ]] || mkdir -p "${config_dir}"; then
+if [[ -d ${config_dir} && -w ${config_dir} ]] || mkdir -p "${config_dir}"; then
 	theme_dir="${config_dir}/themes"
-	if [[ ! -d "${theme_dir}" ]]; then mkdir -p "${theme_dir}"; fi
+	if [[ ! -d ${theme_dir} ]]; then mkdir -p "${theme_dir}"; fi
 	config_file="${config_dir}/bashtop.cfg"
 	# shellcheck source=/dev/null
-	if [[ -e "$config_file" ]]; then
+	if [[ -e $config_file ]]; then
 		source "$config_file"
 
 		#* If current config is from an older version recreate config file and save user changes
@@ -3783,7 +3783,7 @@ if [[ $error_logging == true ]]; then
 	trap 'traperr' ERR
 
 	#* Remove everything but the last 500 lines of error log if larger than 500 lines
-	if [[ -e "${config_dir}/error.log" && $(wc -l <"${config_dir}/error.log") -gt 500 ]]; then
+	if [[ -e ${config_dir}/error.log && $(wc -l <"${config_dir}/error.log") -gt 500 ]]; then
 		tail -n 500 "${config_dir}/error.log" > "${config_dir}/tmp"
 		rm "${config_dir}/error.log"
 		mv "${config_dir}/tmp" "${config_dir}/error.log"
