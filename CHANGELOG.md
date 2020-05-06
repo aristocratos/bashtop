@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.8.26
+
+* Fixed: Escaped delimter for sed to fix config not saving "/" character
+* Fixed: Detailed process view missing info and slowdown in certain cases
+* Optimization: Fork cleanup
+
 ## v0.8.25
 
 * Fixed: Backspace not registering when not set to send ascii delete
