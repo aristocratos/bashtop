@@ -16,12 +16,12 @@
 * [Themes](#themes)
 * [Upcoming](#upcoming) (Updated, Python port)
 * [Support and funding](#support-and-funding)
-* [Compatibility](#compatibility) (Updated)
-* [Dependencies](#dependencies) (Updated)
+* [Compatibility](#compatibility)
+* [Dependencies](#dependencies)
 * [Screenshots](#screenshots)
 * [Installation](#installation) (Updated)
-* [Configurability](#configurability) (Updated)
-* [TODO](#todo)
+* [Configurability](#configurability)
+* [TODO](#todo) (Updated)
 * [License](#license)
 
 ## Changelog
@@ -281,17 +281,23 @@ USAGE: bashtop
 Might finish off items out of order since I usually work on multiple at a time.
 
 - [x] Add options to change colors for text, graphs and meters.
-- [ ] Fix cross platform compatibility for Mac OSX and *BSD: Currently in testing, bashtop-psutil branch.
+- [ ] Fix cross platform compatibility for Mac OSX and *BSD: Currently in testing.
 - [x] Add support for showing AMD cpu temperatures.
 - [x] Add option to show tree view of processes.
 - [x] Add option to reset network download/upload totals.
 - [x] Add option to turn of gradient in processes list.
 - [ ] Add gpu temp and usage. (If feasible)
 - [x] Add io stats for disks.
+- [ ] Add cpu and mem stats for docker containers. (If feasible)
+- [ ] Change process list to line scroll instead of page change.
+- [ ] Add option for custom color gradient in process list in theme settings.
+- [ ] Add optional window for tailing log files.
 - [ ] Add options for resizing all boxes.
 - [ ] Add command line argument parsing.
 - [ ] Miscellaneous optimizations and code cleanup.
 - [ ] Add more commenting where it's sparse.
+
+- [ ] Python port.
 
 ## LICENSE
 
