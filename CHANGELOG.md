@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.8.27
+
+* Fixed: Use value for "Inactive"+"MemFree" if "MemAvailable" is missing in /proc/meminfo
+* Added: Option to toggle update check at start
+
 ## v0.8.26
 
 * Fixed: Escaped delimter for sed to fix config not saving "/" character
