@@ -8,7 +8,7 @@
 
 * Split up multiple unrelated changes in multiple pull requests.
 
-* [Shellcheck](https://github.com/koalaman/shellcheck) your work. Current shellsheck exeptions at the beginning of [bashtop](bashtop).
+* [Shellcheck](https://github.com/koalaman/shellcheck) your work. Current shellsheck exceptions at the beginning of [bashtop](bashtop).
 
 * Purely cosmetic changes won't be accepted without a very good explanation of its value.
   * (Some design choices are for better configurability of syntax highlighting.)

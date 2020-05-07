@@ -7,7 +7,7 @@
 
 ## v0.8.26
 
-* Fixed: Escaped delimter for sed to fix config not saving "/" character
+* Fixed: Escaped delimiter for sed to fix config not saving "/" character
 * Fixed: Detailed process view missing info and slowdown in certain cases
 * Optimization: Fork cleanup
 
@@ -15,7 +15,7 @@
 
 * Fixed: Backspace not registering when not set to send ascii delete
 * Fixed: Broken cpu temperature graph when is value over cpu high temp
-* Added: Possibilty to run date through background fifo for bash <5
+* Added: Possibility to run date through background fifo for bash <5
 
 ## v0.8.24
 
@@ -78,7 +78,7 @@
 ## v0.8.15
 
 * Added: deb build script by Jukoo
-* Fixed: load avarage and uptime not showing
+* Fixed: load average and uptime not showing
 * Fixed: freeze on reverse process order when showing detailed information
 * Fixed: single quotes on associative arrays
 
