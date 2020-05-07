@@ -203,11 +203,11 @@ if [[ -n $EPOCHREALTIME ]]; then
 #* If not, use date command, through fifo if possible
 else
 	tmpdir=""
-	if [[ -n $XDG_RUNTIME_DIR && -w "$XDG_RUNTIME_DIR" ]]; then 
+	if [[ -n $XDG_RUNTIME_DIR && -w "$XDG_RUNTIME_DIR" ]]; then
 		tmpdir="$XDG_RUNTIME_DIR"
-	elif [[ -w /dev/shm ]]; then 
+	elif [[ -w /dev/shm ]]; then
 		tmpdir="/dev/shm"
-	elif [[ -w /tmp ]]; then 
+	elif [[ -w /tmp ]]; then
 		tmpdir="/tmp"
 	fi
 
@@ -216,11 +216,11 @@ else
 		exec 5> >(exec stdbuf -o0 date -f - +%s%3N > "${tmpdir}/bashtop_datefifo" 2>&1)
 		exec 6< "${tmpdir}/bashtop_datefifo"
 		rm  "${tmpdir}/bashtop_datefifo"
-		
+
 		get_ms() { #? Set given variable to current epoch millisecond with date command through background fifo
 			local -n ms_out=$1
-     		echo now >&5 &&
-        	read -u 6 ms_out 
+			echo now >&5 &&
+			read -u 6 ms_out
 		}
 
 	else
@@ -646,15 +646,15 @@ sort_array_int() {	#? Copy and sort an array of integers from largest to smalles
 	local array=("${in_arr[@]}")
 
 	#* Start sorting
-    for ((start_n=0;start_n<=${#array[@]}-1;++start_n)); do
-        for ((search_n=start_n+1;search_n<=${#array[@]}-1;++search_n)); do
-            if ((array[start_n]<array[search_n])); then
-                tmp_array=${array[start_n]}
-                array[start_n]=${array[search_n]}
-                array[search_n]=$tmp_array
-            fi
-        done
-    done
+	for ((start_n=0;start_n<=${#array[@]}-1;++start_n)); do
+		for ((search_n=start_n+1;search_n<=${#array[@]}-1;++search_n)); do
+			if ((array[start_n]<array[search_n])); then
+				tmp_array=${array[start_n]}
+				array[start_n]=${array[search_n]}
+				array[search_n]=$tmp_array
+			fi
+		done
+	done
 
 	#* Write the sorted array to output array
 	out_arr=("${array[@]}")
@@ -673,24 +673,24 @@ spaces() { #? Prints back spaces, usage: spaces "number of spaces"
 }
 
 is_int() { #? Check if value(s) is integer
-    local param
-    for param; do
-        if [[ ! $param =~ ^[\-]?[0-9]+$ ]]; then return 1; fi
-    done
+	local param
+	for param; do
+		if [[ ! $param =~ ^[\-]?[0-9]+$ ]]; then return 1; fi
+	done
 }
 
 is_float() { #? Check if value(s) is floating point
-    local param
-    for param; do
-        if [[ ! $param =~ ^[\-]?[0-9]*[,.][0-9]+$ ]]; then return 1; fi
-    done
+	local param
+	for param; do
+		if [[ ! $param =~ ^[\-]?[0-9]*[,.][0-9]+$ ]]; then return 1; fi
+	done
 }
 
 is_hex() { #? Check if value(s) is hexadecimal
-    local param
-    for param; do
-        if [[ ! ${param//#/} =~ ^[0-9a-fA-F]*$ ]]; then return 1; fi
-    done
+	local param
+	for param; do
+		if [[ ! ${param//#/} =~ ^[0-9a-fA-F]*$ ]]; then return 1; fi
+	done
 }
 
 floating_humanizer() { 	#? Convert integer to floating point and scale up in steps of 1024 to highest positive unit
@@ -868,9 +868,9 @@ get_themes() {
 }
 
 cur_pos() { #? Get cursor postion, argument "line" prints current line, argument "col" prints current column, no argument prints both in format "line column"
-    local line col
-    IFS=';' read -sdR -p $'\E[6n' line col
-    if [[ -z $1 || $1 == "line" ]]; then echo -n "${line#*[}${1:-" "}"; fi
+	local line col
+	IFS=';' read -sdR -p $'\E[6n' line col
+	if [[ -z $1 || $1 == "line" ]]; then echo -n "${line#*[}${1:-" "}"; fi
 	if [[ -z $1 || $1 == "col" ]]; then echo -n "$col"; fi
 }
 
@@ -1539,7 +1539,7 @@ collect_cpu_temps() { #? Collect cpu temperatures
 		for((i=1;i<=threads;i++)); do
 			cpu[temp_${i}]="${cpu[temp_0]}"
 		done
-		
+
 
 	#* If unsuccessful turn off temperature checking
 	else
@@ -3438,7 +3438,7 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 		if [[ $key == "${enter_key}" ]]; then key="enter"
 		elif [[ $key == "${backspace}" || $key == "${backspace_real}" ]]; then key="backspace"
 		elif [[ $key == "${tab}" ]]; then key="tab"
-		elif [[ $key == "$esc_character" ]]; then 
+		elif [[ $key == "$esc_character" ]]; then
 			esc=1; key=$(stty -cooked min 0 time 0; dd bs=1 count=3 2>/dev/null); fi # read -rsn3 -t 0.001 key 2>/dev/null || true
 		if [[ -z $key && $esc -eq 1 ]]; then key="escape"
 		elif [[ $esc -eq 1 ]]; then
