@@ -10,7 +10,7 @@
 
 ## Index
 
-* [Changelog](#changelog)
+* [Documents](#documents)
 * [Description](#description)
 * [Features](#features)
 * [Themes](#themes)
@@ -24,9 +24,13 @@
 * [TODO](#todo) (Updated)
 * [License](#license)
 
-## Changelog
+## Documents
 
 #### [CHANGELOG.md](CHANGELOG.md)
+
+#### [CONTRIBUTING.md](CONTRIBUTING.md)
+
+#### [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 
 ## Description
 
