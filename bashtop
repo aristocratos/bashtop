@@ -110,6 +110,9 @@ proc_per_core="false"
 #* Optional filter for shown disks, should be names of mountpoints, "root" replaces "/", separate multiple values with space
 disks_filter=""
 
+#* Enable check for new version from github.com/aristocratos/bashtop at start
+update_check="true"
+
 aaz_config() { : ; } #! Do not remove this line!
 #? End default variables-------------------------------------------------------------------------------->
 
@@ -146,7 +149,7 @@ declare -a cpu_usage cpu_graph_a cpu_graph_b color_meter color_temp_graph color_
 declare -a mem_history swap_history net_history_download net_history_upload mem_graph swap_graph proc_array download_graph upload_graph trace_array
 declare resized=1 size_error clock tty_width tty_height hex="16#" cpu_p_box swap_on=1 draw_out esc_character boxes_out last_screen clock_out update_string
 declare -a options_array=("color_theme" "update_ms" "proc_sorting" "check_temp" "draw_clock" "background_update" "custom_cpu_name" "proc_per_core"
-		"proc_reversed" "proc_gradient" "disks_filter" "net_totals_reset" "error_logging")
+		"proc_reversed" "proc_gradient" "disks_filter" "net_totals_reset" "update_check" "error_logging")
 declare -a save_array=(${options_array[*]/net_totals_reset/})
 declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" "tree" )
 declare -a pid_history detail_graph detail_history detail_mem_history
@@ -287,7 +290,7 @@ init_() { #? Collect needed information and set options before startig main loop
 	collect_net init
 
 	#* Check if newer version of bashtop is available from https://github.com/aristocratos/bashtop
-	if [[ -n $curled ]]; then
+	if [[ -n $curled && $update_check == "true" ]]; then
 		if ! get_value -v git_version -ss "$(curl -m 2 --raw -r 0-3500 https://raw.githubusercontent.com/aristocratos/bashtop/master/bashtop 2>/dev/null)" -k "version=" -r "[^0-9.]"; then unset git_version; fi
 	fi
 
@@ -3045,6 +3048,12 @@ options_() { #? Shows the options overlay
 						""
 						"If true and process is multithreaded"
 						"cpu usage can reach over 100%.")
+	desc_update_check=( "Check for updates."
+						" "
+						"Enable check for new version from"
+						"github.com/aristocratos/bashtop at start."
+						" "
+						"True or False.")
 
 	if [[ -n $pause_screen ]]; then from_menu=1; fi
 
@@ -3222,7 +3231,7 @@ options_() { #? Shows the options overlay
 						if ((net[reset]==1)); then net_totals_reset="Off"; net[reset]=0
 						else net_totals_reset="On"; net[reset]=1; fi
 					;;
-				"check_temp"*|"error_logging"*|"background_update"*|"proc_reversed"*|"proc_gradient"*|"proc_per_core"*)
+				"check_temp"*|"error_logging"*|"background_update"*|"proc_reversed"*|"proc_gradient"*|"proc_per_core"*|"update_check"*)
 						local -n selected_var=${selected}
 						if [[ ${selected_var} == "true" ]]; then
 							selected_var="false"
