@@ -10,23 +10,27 @@
 
 ## Index
 
-* [Changelog](#changelog)
+* [Documents](#documents)
 * [Description](#description)
 * [Features](#features)
 * [Themes](#themes)
-* [Upcoming](#upcoming) (Updated)
+* [Upcoming](#upcoming) (Updated, Python port)
 * [Support and funding](#support-and-funding)
-* [Compatibility](#compatibility) (Updated)
-* [Dependencies](#dependencies) (Updated)
+* [Compatibility](#compatibility)
+* [Dependencies](#dependencies)
 * [Screenshots](#screenshots)
 * [Installation](#installation) (Updated)
 * [Configurability](#configurability)
-* [TODO](#todo)
+* [TODO](#todo) (Updated)
 * [License](#license)
 
-## Changelog
+## Documents
 
 #### [CHANGELOG.md](CHANGELOG.md)
+
+#### [CONTRIBUTING.md](CONTRIBUTING.md)
+
+#### [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 
 ## Description
 
@@ -62,6 +66,12 @@ This will add python 3 and psutil as dependencies, but will make bashtop cross p
 ~~This will be in a new branch called bashtop-psutil when I'm done with initial testing~~
 
 This will be integrated in to main version when done and add the possibility to switch between psutil and linux tools for users running linux.
+
+#### Update
+
+Work on a complete python port will begin this summer. My aim is to keep it compatible with pypy3 for a lot of added efficiency.
+
+Bash(py)top?
 
 ## Support and funding
 
@@ -181,7 +191,6 @@ Available for Ubuntu from [PPA repository](https://code.launchpad.net/~bashtop-m
  sudo add-apt-repository ppa:bashtop-monitor/bashtop
  sudo apt update
  sudo apt install bashtop
-
 ```
 
 #### Fedora
@@ -194,6 +203,28 @@ Available in the Fedora repository.
 sudo dnf install bashtop
 ```
 
+#### CentOS
+
+>Installation
+
+``` bash
+dnf config-manager --set-enabled PowerTools
+dnf install epel-release
+dnf install bashtop
+```
+
+#### RHEL 8
+
+>Installation
+
+``` bash
+ARCH=$( /bin/arch )
+subscription-manager repos --enable
+"codeready-builder-for-rhel-8-${ARCH}-rpms"
+dnf install epel-release
+dnf install bashtop
+```
+
 ## Configurability
 
 All options changeable from within UI.
@@ -202,7 +233,7 @@ Config files stored in "$HOME/.config/bashtop" folder
 #### bashtop.cfg: (auto generated if not found)
 
 ```bash
-#? Config file for bashtop v. 0.8.18
+#? Config file for bashtop v. 0.8.22
 
 #* Color theme, looks for a .theme file in "$HOME/.config/bashtop/themes", "Default" for builtin default theme
 color_theme="Default"
@@ -210,7 +241,7 @@ color_theme="Default"
 #* Update time in milliseconds, increases automatically if set below internal loops processing time, recommended 2000 ms or above for better sample times for graphs
 update_ms="2500"
 
-#* Processes sorting, "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive"
+#* Processes sorting, "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" "tree"
 #* "cpu lazy" updates sorting over time, "cpu responsive" updates sorting directly at a cpu usage cost
 proc_sorting="cpu lazy"
 
@@ -235,6 +266,9 @@ error_logging="true"
 #* Show color gradient in process list, "true" or "false"
 proc_gradient="true"
 
+#* If process cpu usage should be of the core it's running on or usage of the total available cpu power
+proc_per_core="false"
+
 #* Optional filter for shown disks, should be names of mountpoints, "root" replaces "/", separate multiple values with space
 disks_filter=""
 ```
@@ -251,17 +285,23 @@ USAGE: bashtop
 Might finish off items out of order since I usually work on multiple at a time.
 
 - [x] Add options to change colors for text, graphs and meters.
-- [ ] Fix cross platform compatibility for Mac OSX and *BSD: Currently in testing, bashtop-psutil branch.
+- [ ] Fix cross platform compatibility for Mac OSX and *BSD: Currently in testing.
 - [x] Add support for showing AMD cpu temperatures.
-- [ ] Add option to show tree view of processes.
+- [x] Add option to show tree view of processes.
 - [x] Add option to reset network download/upload totals.
 - [x] Add option to turn of gradient in processes list.
 - [ ] Add gpu temp and usage. (If feasible)
 - [x] Add io stats for disks.
+- [ ] Add cpu and mem stats for docker containers. (If feasible)
+- [ ] Change process list to line scroll instead of page change.
+- [ ] Add option for custom color gradient in process list in theme settings.
+- [ ] Add optional window for tailing log files.
 - [ ] Add options for resizing all boxes.
 - [ ] Add command line argument parsing.
 - [ ] Miscellaneous optimizations and code cleanup.
 - [ ] Add more commenting where it's sparse.
+
+- [ ] Python port.
 
 ## LICENSE
 

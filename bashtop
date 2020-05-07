@@ -64,7 +64,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.8.21"
+declare version="0.8.27"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -79,7 +79,7 @@ color_theme="Default"
 #* Update time in milliseconds, increases automatically if set below internal loops processing time, recommended 2000 ms or above for better sample times for graphs
 update_ms="2500"
 
-#* Processes sorting, "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive"
+#* Processes sorting, "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" "tree"
 #* "cpu lazy" updates sorting over time, "cpu responsive" updates sorting directly at a cpu usage cost
 proc_sorting="cpu lazy"
 
@@ -104,8 +104,14 @@ error_logging="true"
 #* Show color gradient in process list, "true" or "false"
 proc_gradient="true"
 
+#* If process cpu usage should be of the core it's running on or usage of the total available cpu power
+proc_per_core="false"
+
 #* Optional filter for shown disks, should be names of mountpoints, "root" replaces "/", separate multiple values with space
 disks_filter=""
+
+#* Enable check for new version from github.com/aristocratos/bashtop at start
+update_check="true"
 
 aaz_config() { : ; } #! Do not remove this line!
 #? End default variables-------------------------------------------------------------------------------->
@@ -155,21 +161,23 @@ declare -A cpu mem swap proc net box theme disks
 declare -a cpu_usage cpu_graph_a cpu_graph_b color_meter color_temp_graph color_cpu color_cpu_graph cpu_history color_mem_graph color_swap_graph
 declare -a mem_history swap_history net_history_download net_history_upload mem_graph swap_graph proc_array download_graph upload_graph trace_array
 declare resized=1 size_error clock tty_width tty_height hex="16#" cpu_p_box swap_on=1 draw_out esc_character boxes_out last_screen clock_out update_string
-declare -a options_array=("color_theme" "update_ms" "proc_sorting" "check_temp" "draw_clock" "background_update" "custom_cpu_name"
-		"proc_reversed" "proc_gradient" "disks_filter" "net_totals_reset" "error_logging")
+declare -a options_array=("color_theme" "update_ms" "proc_sorting" "check_temp" "draw_clock" "background_update" "custom_cpu_name" "proc_per_core"
+		"proc_reversed" "proc_gradient" "disks_filter" "net_totals_reset" "update_check" "error_logging")
 declare -a save_array=(${options_array[*]/net_totals_reset/})
-declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" )
+declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" "tree" )
 declare -a pid_history detail_graph detail_history detail_mem_history
 declare time_left timestamp_start timestamp_end timestamp_input_start timestamp_input_end time_string mem_out proc_misc prev_screen pause_screen filter input_to_filter
 declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2 proc_out curled git_version has_iostat
-declare esc_character tab backspace sleepy late_update skip_process_draw winches quitting theme_int notifier
+declare esc_character tab backspace sleepy late_update skip_process_draw winches quitting theme_int notifier saved_stty
 declare -a disks_free disks_total disks_name disks_free_percent disks_io saved_key themes
 declare -a menus=("options" "help" "quit") color
 
 printf -v esc_character "\u1b"
 printf -v tab "\u09"
-printf -v backspace "\u7F"
-printf -v enter_key "\uA"
+printf -v backspace "\u7F" #? Backspace set to DELETE
+printf -v backspace_real "\u08" #? Real backspace
+#printf -v enter_key "\uA"
+printf -v enter_key "\uD"
 
 read tty_height tty_width < <(stty size)
 
@@ -210,16 +218,36 @@ if [[ -n $EPOCHREALTIME ]]; then
 		ms_out=$((${EPOCHREALTIME/[.,]/}/1000))
 	}
 
-#* If not, use date command
+#* If not, use date command, through fifo if possible
 else
-	get_ms() { #? Set given variable to current epoch millisecond with date command
-		local count
-		local -n ms_out=$1
-		ms_out=""
-		while [[ -z $ms_out ]] && ((++count<=10)); do
+	tmpdir=""
+	if [[ -n $XDG_RUNTIME_DIR && -w "$XDG_RUNTIME_DIR" ]]; then
+		tmpdir="$XDG_RUNTIME_DIR"
+	elif [[ -w /dev/shm ]]; then
+		tmpdir="/dev/shm"
+	elif [[ -w /tmp ]]; then
+		tmpdir="/tmp"
+	fi
+
+	if [[ -n $tmpdir ]] && command -v stdbuf >/dev/null 2>&1; then
+		mkfifo "${tmpdir}/bashtop_datefifo"
+		exec 5> >(exec stdbuf -o0 date -f - +%s%3N > "${tmpdir}/bashtop_datefifo" 2>&1)
+		exec 6< "${tmpdir}/bashtop_datefifo"
+		rm  "${tmpdir}/bashtop_datefifo"
+
+		get_ms() { #? Set given variable to current epoch millisecond with date command through background fifo
+			local -n ms_out=$1
+			echo now >&5 &&
+			read -u 6 ms_out
+		}
+
+	else
+		get_ms() { #? Set given variable to current epoch millisecond with forked date command
+			local -n ms_out=$1
+			ms_out=""
 			read ms_out < <(date +%s%3N)
-		done
-	}
+		}
+	fi
 fi
 
 
@@ -231,6 +259,7 @@ has_command () {  #? check  the avaibility  of the  command
 init_() { #? Collect needed information and set options before startig main loop
 	local i
 	#* Set terminal options, save and clear screen
+	saved_stty="$(stty -g)"
 	tput smcup
 	stty -echo
 	tput civis
@@ -282,8 +311,10 @@ init_() { #? Collect needed information and set options before startig main loop
 	collect_net init
 
 	#* Check if newer version of bashtop is available from https://github.com/aristocratos/bashtop
-	if [[ -n $curled ]]; then
-		if ! get_value -v git_version -ss "$(curl -m 2 --raw -r 0-3500 ${remote_src} 2>/dev/null)" -k "version=" -r "[^0-9.]"; then unset git_version; fi
+
+	if [[ -n $curled && $update_check == "true" ]]; then
+		if ! get_value -v git_version -ss "$(curl -m 2 --raw -r 0-3500 https://raw.githubusercontent.com/aristocratos/bashtop/master/bashtop 2>/dev/null)" -k "version=" -r "[^0-9.]"; then unset git_version; fi
+
 	fi
 
 	#* Draw banner to banner array and notify about new updates
@@ -463,6 +494,7 @@ quit_() { #? Clean exit
 	tput rmcup
 	stty echo
 	tput cnorm
+	stty "${saved_stty}"
 
 	#* Save any changed values to config file
 	if [[ $config_file != "/dev/null" ]]; then
@@ -566,6 +598,7 @@ sleep_() { #? Restore terminal options, stop and send to background if caught SI
 	tput rmcup
 	stty echo
 	tput cnorm
+	stty "${saved_stty}"
 
 	kill -s SIGSTOP $$
 }
@@ -597,7 +630,7 @@ traperr() { #? Function for reporting error line numbers
 	fi
 	if ((len>100)); then unset 'trace_array[@]'; fi
 	trace_array+=("$err")
-	echo "$(printf "%(%X)T") ERROR: On line $err $trap_muted" >> "${config_dir}/error.log"
+	printf "%(%X)T ERROR: On line %s %s\n" -1 "$err" "$trap_muted" >> "${config_dir}/error.log"
 
 }
 
@@ -662,6 +695,8 @@ save_config() { #? Saves variables to config file if not same, usage: save_confi
 			if [[ ${tmp_value//\"/} != "${!var}" ]]; then
 				original="${var}=${tmp_value}"
 				new="${var}=\"${!var}\""
+				original="${original//'/'/'\/'}"
+				new="${new//'/'/'\/'}"
 				sed -i "s/${original}/${new}/" "${config_file}"
 			fi
 		else
@@ -728,15 +763,15 @@ sort_array_int() {	#? Copy and sort an array of integers from largest to smalles
 	local array=("${in_arr[@]}")
 
 	#* Start sorting
-    for ((start_n=0;start_n<=${#array[@]}-1;++start_n)); do
-        for ((search_n=start_n+1;search_n<=${#array[@]}-1;++search_n)); do
-            if ((array[start_n]<array[search_n])); then
-                tmp_array=${array[start_n]}
-                array[start_n]=${array[search_n]}
-                array[search_n]=$tmp_array
-            fi
-        done
-    done
+	for ((start_n=0;start_n<=${#array[@]}-1;++start_n)); do
+		for ((search_n=start_n+1;search_n<=${#array[@]}-1;++search_n)); do
+			if ((array[start_n]<array[search_n])); then
+				tmp_array=${array[start_n]}
+				array[start_n]=${array[search_n]}
+				array[search_n]=$tmp_array
+			fi
+		done
+	done
 
 	#* Write the sorted array to output array
 	out_arr=("${array[@]}")
@@ -755,24 +790,24 @@ spaces() { #? Prints back spaces, usage: spaces "number of spaces"
 }
 
 is_int() { #? Check if value(s) is integer
-    local param
-    for param; do
-        if [[ ! $param =~ ^[\-]?[0-9]+$ ]]; then return 1; fi
-    done
+	local param
+	for param; do
+		if [[ ! $param =~ ^[\-]?[0-9]+$ ]]; then return 1; fi
+	done
 }
 
 is_float() { #? Check if value(s) is floating point
-    local param
-    for param; do
-        if [[ ! $param =~ ^[\-]?[0-9]*[,.][0-9]+$ ]]; then return 1; fi
-    done
+	local param
+	for param; do
+		if [[ ! $param =~ ^[\-]?[0-9]*[,.][0-9]+$ ]]; then return 1; fi
+	done
 }
 
 is_hex() { #? Check if value(s) is hexadecimal
-    local param
-    for param; do
-        if [[ ! ${param//#/} =~ ^[0-9a-fA-F]*$ ]]; then return 1; fi
-    done
+	local param
+	for param; do
+		if [[ ! ${param//#/} =~ ^[0-9a-fA-F]*$ ]]; then return 1; fi
+	done
 }
 
 floating_humanizer() { 	#? Convert integer to floating point and scale up in steps of 1024 to highest positive unit
@@ -821,8 +856,13 @@ get_cpu_info() {
 	local lscpu_var param_var
 	lscpu_var="$(lscpu)"
 	if [[ -z ${cpu[threads]} || -z ${cpu[cores]} ]]; then
-		get_value -v 'cpu[threads]' -sv "lscpu_var" -k "CPU(s):" -i
+		if ! get_value -v 'cpu[threads]' -sv "lscpu_var" -k "CPU(s):" -i || [[ ${cpu[threads]} == "0" ]]; then
+			cpu[threads]="$(nproc 2>/dev/null ||true)"
+			if [[ -z ${cpu[threads]} ]]; then cpu[threads]="1"; fi
+			cpu[cores]=${cpu[threads]}
+		else
 		get_value -v 'cpu[cores]' -sv "lscpu_var" -k "Core(s)" -i
+		fi
 	fi
 	if [[ -z $custom_cpu_name ]]; then
 		if ! get_value -v 'cpu[model]' -sv "lscpu_var" -k "Model name:" -a -b -k "CPU" -mk -1; then
@@ -945,9 +985,9 @@ get_themes() {
 }
 
 cur_pos() { #? Get cursor postion, argument "line" prints current line, argument "col" prints current column, no argument prints both in format "line column"
-    local line col
-    IFS=';' read -sdR -p $'\E[6n' line col
-    if [[ -z $1 || $1 == "line" ]]; then echo -n "${line#*[}${1:-" "}"; fi
+	local line col
+	IFS=';' read -sdR -p $'\E[6n' line col
+	if [[ -z $1 || $1 == "line" ]]; then echo -n "${line#*[}${1:-" "}"; fi
 	if [[ -z $1 || $1 == "col" ]]; then echo -n "$col"; fi
 }
 
@@ -1217,6 +1257,8 @@ create_graph() { 	#? Create a graph from an array of percentage values, usage; 	
 		#* Create graph by walking through all values for each line, speed up by counting similar values and print once, when difference is met
 		while ((x<value_width)); do
 
+			if [[ -z ${input_array[x]} ]]; then input_array[x]=0; fi
+
 			#* Print empty space if current value is less than percentage for current line
 			while ((x<value_width & input_array[offset+x]*virt_height/100<next_value)); do
 				((++count))
@@ -1234,7 +1276,7 @@ create_graph() { 	#? Create a graph from an array of percentage values, usage; 	
 			done
 
 			#* Print full block if current value is greater than percentage for current line
-			while ((x<value_width & input_array[x]*virt_height/100==cur_value)) || ((x<value_width & input_array[x]*virt_height/100>cur_value)); do
+			while ((x<value_width & input_array[x]*virt_height/100>=cur_value)); do
 				((++count))
 				((++x))
 			done
@@ -1344,7 +1386,7 @@ create_mini_graph() { 	#? Create a one line high graph from an array of percenta
 			#* Round current input_array value divided by 10 to closest whole number
 			org_value=${input_array[offset+x]}
 			if ((org_value<0)); then org_value=0; fi
-			if ((org_value>=100)); then cur_value=10
+			if ((org_value>=100)); then cur_value=10; org_value=100
 			elif [[ ${#org_value} -gt 1 && ${org_value:(-1)} -ge 5 ]]; then cur_value=$((${org_value::1}+1))
 			elif [[ ${#org_value} -gt 1 && ${org_value:(-1)} -lt 5 ]]; then cur_value=$((${org_value::1}))
 			elif [[ ${org_value:(-1)} -ge 5 ]]; then cur_value=1
@@ -1547,12 +1589,12 @@ collect_cpu_temps() { #? Collect cpu temperatures
 	local -a ccd_array core_array
 
 	#* Fetch output from "sensors" command to a variable
-	sens_var="$(sensors)"
+	read -rd '' sens_var < <(sensors) ||true
 
 	#* Get CPU package temp for intel cpus
 	if get_value -v 'cpu[temp_0]' -sv "sens_var" -k "Package*:" -mk 1 || get_value -v 'cpu[temp_0]' -sv "sens_var" -k "Core 0:" -mk 1; then
 		#* If successful get temperature unit, convert temp to integer and get high and crit
-		cpu[temp_unit]=${cpu[temp_0]:(-2)}; cpu[temp_0]=${cpu[temp_0]%.*}; if [[ ${cpu[temp_0]::1} == "+" ]]; then cpu[temp_0]=${cpu[temp_0]#+}; fi
+		cpu[temp_unit]="${cpu[temp_0]:(-2)}"; cpu[temp_0]="${cpu[temp_0]%.*}"; if [[ ${cpu[temp_0]::1} == "+" ]]; then cpu[temp_0]="${cpu[temp_0]#+}"; fi
 		if [[ -z ${cpu[temp_high]} ]]; then
 			if ! get_value -v 'cpu[temp_high]' -sv "sens_var" -k "Package*high =" -m 2 -r "[^0-9.]" -b -i; then cpu[temp_high]="85"; cpu[temp_crit]=$((cpu[temp_high]+10))
 			else get_value -v 'cpu[temp_crit]' -sv "sens_var" -k "Package*crit =" -m 2 -r "[^0-9.]" -b -i; fi
@@ -1560,7 +1602,7 @@ collect_cpu_temps() { #? Collect cpu temperatures
 
 		#* Get core temps
 		i=0
-		while get_value -v "core_value" -sv "sens_var" -k "Core ${i}:" -mk 1 -r "[^0-9.]" -b -i; do core_array+=("$core_value"); ((++i)) ; done
+		while get_value -v "core_value" -sv "sens_var" -k "Core ${i}:" -mk 1 -r "[^0-9.]" -b -i && ((i<=threads)); do core_array+=("$core_value"); ((++i)) ; done
 
 		if [[ -z ${core_array[0]} ]]; then core_array=("${cpu[temp_0]}"); fi
 
@@ -1581,7 +1623,7 @@ collect_cpu_temps() { #? Collect cpu temperatures
 	#* Get CPU package temp for amd ryzen cpus
 	elif get_value -v 'cpu[temp_0]' -sv "sens_var" -k "Tdie:" -mk 1; then
 		#* If successful get temperature unit, convert temp to integer and get high
-		cpu[temp_unit]=${cpu[temp_0]:(-2)}; cpu[temp_0]=${cpu[temp_0]%.*}; if [[ ${cpu[temp_0]::1} == "+" ]]; then cpu[temp_0]=${cpu[temp_0]#+}; fi
+		cpu[temp_unit]="${cpu[temp_0]:(-2)}"; cpu[temp_0]="${cpu[temp_0]%.*}"; if [[ ${cpu[temp_0]::1} == "+" ]]; then cpu[temp_0]="${cpu[temp_0]#+}"; fi
 		if [[ -z ${cpu[temp_high]} ]]; then
 			if ! get_value -v 'cpu[temp_high]' -sv "sens_var" -k "Tdie*high =" -m 2 -r "[^0-9.]" -b -i; then cpu[temp_high]="85"; fi
 			cpu[temp_crit]=$((cpu[temp_high]+10))
@@ -1589,7 +1631,7 @@ collect_cpu_temps() { #? Collect cpu temperatures
 
 		#* Get ccd module temps
 		i=1
-		while get_value -v "ccd_value" -sv "sens_var" -k "Tccd${i}:" -mk 1 -r "[^0-9.]" -b -i; do ccd_array+=("$ccd_value"); ((i++)) ; done
+		while get_value -v "ccd_value" -sv "sens_var" -k "Tccd${i}:" -mk 1 -r "[^0-9.]" -b -i && ((i<=threads)); do ccd_array+=("$ccd_value"); ((i++)) ; done
 
 		if [[ -z ${ccd_array[0]} ]]; then ccd_array=("${cpu[temp_0]}"); fi
 
@@ -1601,6 +1643,20 @@ collect_cpu_temps() { #? Collect cpu temperatures
 			done
 			z=$((z+i))
 		done
+
+	#* Get CPU package temp for Rapberry Pi cpus
+	elif command -v vcgencmd >/dev/null 2>&1; then
+		read -r cpu[temp_0] < <(vcgencmd measure_temp 2>/dev/null ||true) ||true
+		if [[ -z ${cpu[temp_0]} ]]; then cpu[temp_0]="temp=0.0°C"; fi
+		cpu[temp_0]="${cpu[temp_0]#temp=}"
+		cpu[temp_unit]="°${cpu[temp_0]:(-1)}"; cpu[temp_0]=${cpu[temp_0]%.*}; if [[ ${cpu[temp_0]::1} == "+" ]]; then cpu[temp_0]=${cpu[temp_0]#+}; fi
+		cpu[temp_high]="75"; cpu[temp_crit]=$((cpu[temp_high]+10))
+
+		#* Copy cpu temp to cores
+		for((i=1;i<=threads;i++)); do
+			cpu[temp_${i}]="${cpu[temp_0]}"
+		done
+
 
 	#* If unsuccessful turn off temperature checking
 	else
@@ -1629,19 +1685,20 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 	local -a mem_array swap_array available=("mem")
 
 	#* Get memory and swap information from "/proc/meminfo" and calculate percentages
-	mem_info="$(</proc/meminfo)"
+	read -rd '' mem_info </proc/meminfo ||true
 
 	get_value -v 'mem[total]' -sv "mem_info" -k "MemTotal:" -i
-	get_value -v 'mem[available]' -sv "mem_info" -k "MemAvailable:" -i
-	mem[available_percent]=$((mem[available]*100/mem[total]))
+	get_value -v 'mem[free]' -sv "mem_info" -k "MemFree:" -i
+	if ! get_value -v 'mem[available]' -sv "mem_info" -k "MemAvailable:" -i; then
+		get_value -v 'mem[available]' -sv "mem_info" -k "Inactive:" -i
+		mem[available]=$((mem[available]+mem[free]))
+	fi
+	get_value -v 'mem[cached]' -sv "mem_info" -k "Cached:" -i
 
+	mem[available_percent]=$((mem[available]*100/mem[total]))
 	mem[used]=$((mem[total]-mem[available]))
 	mem[used_percent]=$((mem[used]*100/mem[total]))
-
-	get_value -v 'mem[free]' -sv "mem_info" -k "MemFree:" -i
 	mem[free_percent]=$((mem[free]*100/mem[total]))
-
-	get_value -v 'mem[cached]' -sv "mem_info" -k "Cached:" -i
 	mem[cached_percent]=$((mem[cached]*100/mem[total]))
 
 	if [[ -n $swap_on ]] && get_value -v swap[total] -sv "mem_info" -k "SwapTotal:" -i && ((swap[total]>0)); then
@@ -1730,7 +1787,8 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 	local argument="$1"
 	if [[ -n $skip_process_draw && $argument != "now" ]]; then return; fi
 	local width=${box[processes_width]} height=${box[processes_height]} format_args format_cmd readline sort symbol="▼" cpu_title options pid_string tmp selected
-	local -a grep_array
+	local tree tree_compare1 tree_compare2 tree_compare3 no_core_divide
+	local -a grep_array saved_proc_array
 
 	if [[ $argument == "now" ]]; then skip_process_draw=1; fi
 
@@ -1743,12 +1801,15 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 		"user") selected="User:"; sort="euser";;
 		"memory") selected="Mem%"; sort="pmem";;
 		"cpu lazy"|"cpu responsive") sort="pcpu"; selected="Cpu%";;
+		"tree") selected="Tree:"; tree="Tree:"; sort="pid";
 	esac
 
+	if [[ $proc_per_core == true ]]; then no_core_divide="1"; fi
 
 	#* Collect output from ps command to array
-	if ((width>60)); then format_args=",args:$(( width-(47+proc[pid_len]) ))=Arguments:"; format_cmd=15
+	if ((width>60)) && [[ $proc_sorting != "tree" ]] ; then format_args=",args:$(( width-(47+proc[pid_len]) ))=Arguments:"; format_cmd=15
 	else format_cmd=$(( width-(31+proc[pid_len]) )); fi
+	saved_proc_array=("${proc_array[@]}")
 	unset 'proc_array[@]' 'pid_array[@]'
 
 	if ((proc[detailed]==0)) && [[ -n ${proc[detailed_name]} ]]; then
@@ -1764,7 +1825,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 	 	options="-t"
 	fi
 
-	readarray ${options} proc_array < <(ps ax -o pid:${proc[pid_len]}=Pid:,comm:${format_cmd}=Program:${format_args},nlwp:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --sort ${proc[reverse]:--}${sort})
+	readarray ${options} proc_array < <(ps ax${tree:+f} -o pid:${proc[pid_len]}=Pid:,comm:${format_cmd}=${tree:-Program:}${format_args},nlwp:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --sort ${proc[reverse]:--}${sort})
 
 	proc_array[0]="${proc_array[0]/      Tr:/ Threads:}"
 	proc_array[0]="${proc_array[0]/ ${selected}/${symbol}${selected}}"
@@ -1789,18 +1850,33 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 	for readline in "${proc_array[@]:1}"; do
 		 ((++count))
 
-		if ((count==height-3)); then
+		if ((count==height-3 & breaking==0)); then
 			if [[ -n $filter || $proc_sorting != "cpu lazy" || ${proc[selected]} -gt 0 || ${proc[page]} -gt 1 || ${proc_reversed} == true ]]; then :
 			else breaking=1; fi
 		fi
 
-		if get_key -save && [[ ${#saved_key[@]} -gt 0 ]]; then return; fi
+		#if get_key -save && [[ ${#saved_key[@]} -gt 0 ]]; then proc_array=("${saved_proc_array[@]}"); return; fi
 
-		work_array=(${readline})
+		if ((breaking==2)); then
+			work_array=(${proc_array[-1]})
+		else
+			work_array=(${readline})
+		fi
 
 		pid="${work_array[0]}"
 		pcpu_usage="${work_array[-1]}"
 
+		#* If showing tree structure replace slashes and pipes with actual lines and terminate them at the correct places
+		if [[ $proc_sorting == "tree" ]]; then
+			tree_compare1="${proc_array[$((count+1))]%'\_'*}"
+			tree_compare2="${proc_array[count]%'\_'*}"
+			tree_compare3="${proc_array[$((count+1))]%'|'*}"
+			proc_array[count]="${proc_array[count]//'|'/│}"
+			proc_array[count]="${proc_array[count]//'\_'/└─}"
+			if ((count<${#proc_array[@]}-1)) && [[ ${#tree_compare1} -eq ${#tree_compare2} || ${#tree_compare2} -eq ${#tree_compare3} ]]; then
+				proc_array[count]="${proc_array[count]//'└'/├}"
+			fi
+		fi
 
 		if [[ ! ${pid_history[*]} =~ ${pid} ]]; then
 			pid_history+=("${pid}")
@@ -1825,10 +1901,10 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 				time_elapsed=$((proc[new_timestamp]-proc[old_timestamp]))
 
 				#* Calculate current cpu usage for process, * 1000 (for conversion from ms to seconds) * 1000 (for conversion to floating point)
-				cpu_percent[count]=$(( ( ( ${proc[new_${pid}_ticks]}-${proc[old_${pid}_ticks]} ) * 1000 * 1000 ) / ( cpu[hz]*time_elapsed*cpu[threads] ) ))
+				cpu_percent[count]=$(( ( ( ${proc[new_${pid}_ticks]}-${proc[old_${pid}_ticks]} ) * 1000 * 1000 ) / ( cpu[hz]*time_elapsed*${no_core_divide:-${cpu[threads]}} ) ))
 
 				if ((cpu_percent[count]<0)); then cpu_percent[count]=0
-				elif ((cpu_percent[count]>1000)); then cpu_percent[count]=1000; fi
+				elif [[ -z $no_core_divide ]] && ((cpu_percent[count]>1000)); then cpu_percent[count]=1000; fi
 
 				if ((${#cpu_percent[count]}<=3)); then
 					printf -v cpu_percent_string "%01d%s" "${cpu_percent[count]::-1}" ".${cpu_percent[count]:(-1)}"
@@ -1849,21 +1925,22 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 				#* Get info for detailed box if enabled
 				if [[ ${pid} == "${proc[detailed_pid]}" ]]; then
 					if [[ -z ${proc[detailed_name]} ]]; then
-						local get_mem
+						local get_mem mem_string cmdline=""
 						local -a det_array
 						read -r proc[detailed_name] </proc/${pid}/comm ||true
-						proc[detailed_cmd]="$(tr '\000' ' ' </proc/${pid}/cmdline)"
+						mapfile -d $'\0' -n 0 cmdline </proc/${pid}/cmdline ||true
+						proc[detailed_cmd]="${cmdline[*]}"
 						proc[detailed_name]="${proc[detailed_name]::15}"
-						det_array=($(ps -o ppid:4,euser:15 --no-headers -p $pid || true))
+						read -ra det_array < <(ps -o ppid:4,euser:15 --no-headers -p $pid || true)
 						proc[detailed_parent_pid]="${det_array[0]}"
 						proc[detailed_user]="${det_array[*]:1}"
-						proc[detailed_parent_name]="$(ps -o comm --no-headers -p ${det_array[0]} || true)"
+						read -r proc[detailed_parent_name] < <(ps -o comm --no-headers -p ${det_array[0]} || true)
 						get_mem=1
 					fi
 					proc[detailed_cpu]="${cpu_percent_string// /}"
 					proc[detailed_cpu_int]="${cpu_int}"
 					proc[detailed_threads]="${work_array[-4]}"
-					proc[detailed_runtime]="$(ps -o etime:4 --no-headers -p $pid || true)"
+					read -r proc[detailed_runtime] < <(ps -o etime:4 --no-headers -p $pid || true)
 
 					if [[ ${proc[detailed_mem]} != "${work_array[-2]}" || -n $get_mem ]] || ((++proc[detailed_mem_count]>5)); then
 						proc[detailed_mem_count]=0
@@ -1877,7 +1954,8 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 						elif ((proc[detailed_mem_int]>100)); then proc[detailed_mem_int]=$((proc[detailed_mem_int]/2))
 						elif ((proc[detailed_mem_int]<50)); then proc[detailed_mem_int]=$((proc[detailed_mem_int]*2)); fi
 						unset 'proc[detailed_mem_string]'
-						floating_humanizer -v proc[detailed_mem_string] -B -s 1 "$(ps -o rss:1 --no-headers -p ${pid} || true)"
+						read -r mem_string < <(ps -o rss:1 --no-headers -p ${pid} || true)
+						floating_humanizer -v proc[detailed_mem_string] -B -s 1 $mem_string
 						if [[ -z ${proc[detailed_mem_string]} ]]; then proc[detailed_mem_string]="? Byte"; fi
 					fi
 
@@ -1933,10 +2011,14 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 
 		if ((breaking==1)); then
 			if [[ ${proc[detailed]} == "1" && -z ${proc[detailed_cpu]} ]] && ps ${proc[detailed_pid]} >/dev/null 2>&1; then
-				readarray ${options} -O ${#proc_array[@]} proc_array < <(ps -o pid:${proc[pid_len]}=Pid:,comm:${format_cmd}=Program:${format_args},nlwp:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --no-headers -p ${proc[detailed_pid]} || true)
+				readarray ${options} -O ${#proc_array[@]} proc_array < <(ps -o pid:${proc[pid_len]}=Pid:,comm:${format_cmd}=${tree:-Program:}${format_args},nlwp:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --no-headers -p ${proc[detailed_pid]} || true)
+				((++breaking))
 			else
 				break
 			fi
+		elif ((breaking==2)); then
+			unset 'proc_array[-1]'
+			break
 		fi
 
 	done
@@ -2831,9 +2913,12 @@ menu_() { #? Shows the main menu overlay
 
 		get_ms timestamp_end
 		time_left=$((timestamp_start+update_ms-timestamp_end))
-		if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
-		elif ((time_left>1)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
-		else wait_string="0.001"; time_left=0; fi
+		# if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
+		# elif ((time_left>1)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
+		# else wait_string="0.001"; time_left=0; fi
+		if ((time_left>1000)); then wait_string=10; time_left=$((time_left-1000))
+		elif ((time_left>100)); then wait_string=$((time_left/100)); time_left=0
+		else wait_string="0"; time_left=0; fi
 
 		get_key -v keypress -w ${wait_string}
 		if [[ $(stty size) != "$tty_height $tty_width" ]]; then resized; fi
@@ -2857,7 +2942,7 @@ menu_() { #? Shows the main menu overlay
 			q|Q) quit_ ;;
 		esac
 
-		if ((time_left==0)); then get_ms timestamp_start; collect_and_draw; fi
+		if ((time_left==0)) && [[ -z $keypress ]]; then get_ms timestamp_start; collect_and_draw; fi
 		if ((resized>=5)); then resized=0; fi
 
 	done
@@ -2930,7 +3015,8 @@ help_() { #? Shows the help overlay
 			create_box -v help_out -w 72 -h $((height+3)) -l $((line++)) -c $((col++)) -fill -lc ${theme[div_line]} -title "help"
 
 			if [[ -n $pages ]]; then
-				print -v help_out -m $((line-1)) $((col+72-17)) -rs -fg ${theme[div_line]} -t "┤" -fg ${theme[hi_fg]} -b -t "‹" -fg ${theme[title]} -t " page ${page}/${pages} "  -fg ${theme[hi_fg]} -t "›" -rs -fg ${theme[div_line]} -t "├"
+				print -v help_out -m $((line+height+1)) $((col+72-16)) -rs -fg ${theme[div_line]} -t "┤" -fg ${theme[title]} -b -t "pg" -fg ${theme[hi_fg]} -t "↑"\
+				-fg ${theme[title]} -t " ${page}/${pages} " -fg ${theme[title]} -t "pg" -fg ${theme[hi_fg]} -t "↓" -rs -fg ${theme[div_line]} -t "├"
 			fi
 			((++col))
 
@@ -2948,16 +3034,20 @@ help_() { #? Shows the help overlay
 		get_ms timestamp_end
 		time_left=$((timestamp_start+update_ms-timestamp_end))
 
-		if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
-		elif ((time_left>0)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
-		else wait_string="0.001"; time_left=0; fi
+		# if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
+		# elif ((time_left>0)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
+		# else wait_string="0.001"; time_left=0; fi
+
+		if ((time_left>1000)); then wait_string=10; time_left=$((time_left-1000))
+		elif ((time_left>100)); then wait_string=$((time_left/100)); time_left=0
+		else wait_string="0"; time_left=0; fi
 
 		get_key -v help_key -w "${wait_string}"
 
 		if [[ -n $pages ]]; then
 			case $help_key in
-				right) if ((page<pages)); then ((page++)); else page=1; fi; redraw=1; unset help_key ;;
-				left) if ((page>1)); then ((page--)); else page=${pages}; fi; redraw=1; unset help_key ;;
+				down|page_down) if ((page<pages)); then ((page++)); else page=1; fi; redraw=1; unset help_key ;;
+				up|page_up) if ((page>1)); then ((page--)); else page=${pages}; fi; redraw=1; unset help_key ;;
 			esac
 		fi
 
@@ -3006,14 +3096,17 @@ options_() { #? Shows the options overlay
 						"Max value: 86400000 ms = 24 hours.")
 	desc_proc_sorting=(	"Processes sorting."
 						"Valid values are \"pid\", \"program\", \"arguments\","
-						"\"threads\", \"user\", \"memory\", \"cpu lazy\" and"
-						"\"cpu responsive\"."
+						"\"threads\", \"user\", \"memory\", \"cpu lazy\""
+						"\"cpu responsive\" and \"tree\"."
 						" "
 						"\"cpu lazy\" uses ps commands internal sorting"
 						"and updates top process over a period of time."
 						" "
 						"\"cpu responsive\" updates sorting directly at a"
-						"cost of cpu time.")
+						"cost of cpu time."
+						" "
+						"\"tree\" shows a tree structure of running"
+						"processes.")
 	desc_check_temp=(	"Check cpu temperature."
 						" "
 						"Only works if sensors command is available"
@@ -3060,6 +3153,20 @@ options_() { #? Shows the options overlay
 							" "
 							"Shows totals since system start or"
 							"network adapter reset when Off.")
+	desc_proc_per_core=("Process usage per core."
+						" "
+						"If process cpu usage should be of the core"
+						"it's running on or usage of the total"
+						"available cpu power."
+						""
+						"If true and process is multithreaded"
+						"cpu usage can reach over 100%.")
+	desc_update_check=( "Check for updates."
+						" "
+						"Enable check for new version from"
+						"github.com/aristocratos/bashtop at start."
+						" "
+						"True or False.")
 
 	if [[ -n $pause_screen ]]; then from_menu=1; fi
 
@@ -3086,10 +3193,10 @@ options_() { #? Shows the options overlay
 			draw_banner "$((tty_height/2-11))" options_misc
 			create_box -v options_misc -w 29 -h $((height*2+2)) -l $line -c $((col-1)) -fill -lc ${theme[div_line]} -title "options"
 			if [[ -n $pages ]]; then
-				print -v options_misc -m $((line)) $((col+29-17)) -rs -fg ${theme[div_line]} -t "┤" -fg ${theme[hi_fg]} -b -t "p" -fg ${theme[title]} -t " page ${page}/${pages} "  -fg ${theme[hi_fg]} -t "n" -rs -fg ${theme[div_line]} -t "├"
+				print -v options_misc -m $((line+height*2+1)) $((col+29-16)) -rs -fg ${theme[div_line]} -t "┤" -fg ${theme[title]} -b -t "pg" -fg ${theme[hi_fg]} -t "↑"\
+				-fg ${theme[title]} -t " ${page}/${pages} " -fg ${theme[title]} -t "pg" -fg ${theme[hi_fg]} -t "↓" -rs -fg ${theme[div_line]} -t "├"
 			fi
 		fi
-
 
 		if [[ -n $keypress || -z $options_out ]]; then
 			unset options_out desc_height lr inp valid
@@ -3161,9 +3268,13 @@ options_() { #? Shows the options overlay
 		get_ms timestamp_end
 		if [[ -z $theme_check ]]; then time_left=$((timestamp_start+update_ms-timestamp_end))
 		else unset theme_check; time_left=0; fi
-		if ((time_left>500)); then wait_string=0.5
-		elif ((time_left>0)); then printf -v wait_string ".%03d" "${time_left}"
-		else wait_string="0.001"; time_left=0; fi
+		# if ((time_left>500)); then wait_string=0.5
+		# elif ((time_left>0)); then printf -v wait_string ".%03d" "${time_left}"
+		# else wait_string="0.001"; time_left=0; fi
+
+		if ((time_left>500)); then wait_string=5; time_left=$((time_left-500))
+		elif ((time_left>100)); then wait_string=$((time_left/100)); time_left=0
+		else wait_string="0"; time_left=0; fi
 
 		get_key -v keypress -w ${wait_string}
 
@@ -3180,8 +3291,8 @@ options_() { #? Shows the options overlay
 				up|shift_tab) if ((selected_int>0)); then ((selected_int--)); else selected_int=$((${#options_array[@]}-1)); fi ;;
 				left|right) if [[ -n $lr && -z $inputting ]]; then valid=1; fi ;;
 				enter) if [[ -n $inp ]]; then valid=1; fi ;;
-				n) if ((page<pages)); then ((page++)); else page=1; selected_int=0; fi; redraw_misc=1; selected_int=$(( (page-1)*height )) ;;
-				p) if ((page>1)); then ((page--)); else page=${pages}; fi; redraw_misc=1; selected_int=$(( (page-1)*height )) ;;
+				page_down) if ((page<pages)); then ((page++)); else page=1; selected_int=0; fi; redraw_misc=1; selected_int=$(( (page-1)*height )) ;;
+				page_up) if ((page>1)); then ((page--)); else page=${pages}; fi; redraw_misc=1; selected_int=$(( (page-1)*height )) ;;
 			esac
 			if (( selected_int<(page-1)*height | selected_int>=page*height )); then page=$(( (selected_int/height)+1 )); redraw_misc=1; fi
 		fi
@@ -3233,7 +3344,7 @@ options_() { #? Shows the options overlay
 						if ((net[reset]==1)); then net_totals_reset="Off"; net[reset]=0
 						else net_totals_reset="On"; net[reset]=1; fi
 					;;
-				"check_temp"*|"error_logging"*|"background_update"*|"proc_reversed"*|"proc_gradient"*)
+				"check_temp"*|"error_logging"*|"background_update"*|"proc_reversed"*|"proc_gradient"*|"proc_per_core"*|"update_check"*)
 						local -n selected_var=${selected}
 						if [[ ${selected_var} == "true" ]]; then
 							selected_var="false"
@@ -3366,9 +3477,13 @@ killer_() { #? Kill process with selected signal
 
 		get_ms timestamp_end
 		time_left=$((timestamp_start+update_ms-timestamp_end))
-		if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
-		elif ((time_left>1)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
-		else wait_string="0.001"; time_left=0; fi
+		# if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
+		# elif ((time_left>1)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
+		# else wait_string="0.001"; time_left=0; fi
+
+		if ((time_left>1000)); then wait_string=10; time_left=$((time_left-1000))
+		elif ((time_left>100)); then wait_string=$((time_left/100)); time_left=0
+		else wait_string="0"; time_left=0; fi
 
 		get_key -v keypress -w ${wait_string}
 		if [[ $(stty size) != "$tty_height $tty_width" ]]; then resized; fi
@@ -3433,7 +3548,8 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 	if [[ -z $save && -n ${saved_key[0]} ]]; then key="${saved_key[0]}"; unset 'saved_key[0]'; saved_key=("${saved_key[@]}")
 	else
 		unset key
-		IFS= read -rsd '' -t ${wait_time:-0.001} -n 1 key >/dev/null 2>&1 ||true
+		#IFS= read -rsd '' -t ${wait_time:-0.001} -n 1 key 2>/dev/null ||true
+		key=$(stty -cooked min 0 time ${wait_time:-0}; dd bs=1 count=1 2>/dev/null)
 
 		if [[ -z ${key:+s} ]]; then
 			key_out=""
@@ -3443,27 +3559,28 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 
 		#* Read 3 more characters if a leading escape character is detected
 		if [[ $key == "${enter_key}" ]]; then key="enter"
-		elif [[ $key == "${backspace}" ]]; then key="backspace"
+		elif [[ $key == "${backspace}" || $key == "${backspace_real}" ]]; then key="backspace"
 		elif [[ $key == "${tab}" ]]; then key="tab"
-		elif [[ $key == "$esc_character" ]]; then esc=1; read -rsn3 -t 0.001 key >/dev/null 2>&1 || true; fi
+		elif [[ $key == "$esc_character" ]]; then
+			esc=1; key=$(stty -cooked min 0 time 0; dd bs=1 count=3 2>/dev/null); fi # read -rsn3 -t 0.001 key 2>/dev/null || true
 		if [[ -z $key && $esc -eq 1 ]]; then key="escape"
 		elif [[ $esc -eq 1 ]]; then
 			case "${key}" in
-				'[A') key="up" ;;
-				'[B') key="down" ;;
-				'[D') key="left" ;;
-				'[C') key="right" ;;
+				'[A'*) key="up" ;;
+				'[B'*) key="down" ;;
+				'[D'*) key="left" ;;
+				'[C'*) key="right" ;;
 				'[2~') key="insert" ;;
 				'[3~') key="delete" ;;
-				'[H') key="home" ;;
-				'[F') key="end" ;;
+				'[H'*) key="home" ;;
+				'[F'*) key="end" ;;
 				'[5~') key="page_up" ;;
 				'[6~') key="page_down" ;;
-				'[Z') key="shift_tab" ;;
-				'OP') key="f1";;
-				'OQ') key="f2";;
-				'OR') key="f3";;
-				'OS') key="f4";;
+				'[Z'*) key="shift_tab" ;;
+				'OP'*) key="f1";;
+				'OQ'*) key="f2";;
+				'OR'*) key="f3";;
+				'OS'*) key="f4";;
 				'[15') key="f5";;
 				'[17') key="f6";;
 				'[18') key="f7";;
@@ -3478,7 +3595,8 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 
 	fi
 
-	read -rst 0.001 -n 1000 2>/dev/null ||true
+	#read -rst 0.001 -n 1000 2>/dev/null ||true
+	stty -cooked min 0 time 0; dd bs=512 count=1 >/dev/null 2>&1
 
 	if [[ -n $save && -n $key ]]; then saved_key+=("${key}"); return 0; fi
 
@@ -3654,7 +3772,7 @@ collect_and_draw() { #? Run all collect and draw functions
 		elif [[ -z $pause_screen ]]; then
 			input_runs=0
 			while [[ -n ${saved_key[0]} ]] && ((time_left>0)) && ((++input_runs<=5)); do
-				process_input 0.001
+				process_input
 				unset late_update
 			done
 		fi
@@ -3711,17 +3829,22 @@ main_loop() { #? main loop...
 
 			#* If NOT waiting for input and time left is greater than 500ms, wait 500ms and loop
 			if [[ -z $input_to_filter ]] && ((time_left>=500)); then
-				wait_string="0.5"
+				# wait_string="0.5"
+				wait_string="5"
 				time_left=$((time_left-500))
 
 			#* If waiting for input and time left is greater than "50 ms", wait 50ms and loop
-			elif [[ -n $input_to_filter ]] && ((time_left>=50)); then
-				wait_string="0.05"
-				time_left=$((time_left-50))
+			# elif [[ -n $input_to_filter ]] && ((time_left>=50)); then
+			# 	wait_string="0.05"
+			# 	time_left=$((time_left-50))
+			elif [[ -n $input_to_filter ]] && ((time_left>=100)); then
+				wait_string="1"
+				time_left=$((time_left-100))
 
 			#* Else format wait string with padded zeroes if needed and break loop
 			else
-				printf -v wait_string ".%03d" "${time_left}"
+				#printf -v wait_string ".%03d" "${time_left}"
+				if ((time_left>=100)); then wait_string=$((time_left/100)); else wait_string=0; fi
 				time_left=0
 			fi
 
@@ -3770,7 +3893,7 @@ else
 fi
 
 #* Set up traps for ctrl-c, soft kill, window resize, ctrl-z and resume from ctrl-z
-trap 'quitting=1; time_left=0' SIGINT SIGQUIT SIGTERM
+trap 'quitting=1; time_left=0' SIGINT #SIGQUIT SIGTERM
 trap 'resized=1; time_left=0' SIGWINCH
 trap 'sleepy=1; time_left=0' SIGTSTP
 trap 'resume_' SIGCONT

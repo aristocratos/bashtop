@@ -1,5 +1,40 @@
 # Changelog
 
+## v0.8.27
+
+* Fixed: Use value for "Inactive"+"MemFree" if "MemAvailable" is missing in /proc/meminfo
+* Added: Option to toggle update check at start
+
+## v0.8.26
+
+* Fixed: Escaped delimiter for sed to fix config not saving "/" character
+* Fixed: Detailed process view missing info and slowdown in certain cases
+* Optimization: Fork cleanup
+
+## v0.8.25
+
+* Fixed: Backspace not registering when not set to send ascii delete
+* Fixed: Broken cpu temperature graph when is value over cpu high temp
+* Added: Possibility to run date through background fifo for bash <5
+
+## v0.8.24
+
+* Fixed: Input error freezes, by changing from using "read" command to using "dd" for reading keyboard input.
+
+## v0.8.23
+
+* Added: Support for Raspberry Pi cpu temperature reporting
+* Fixed: Decreased chance of read command stalling on lower spec systems
+* Added: Failover to nproc if lscpu are reporting 0 cpu cores
+* Changed: Moved page display for options and help to bottom and changed to Page Up/Down for changing page
+
+## v0.8.22
+
+* Added: Sorting option "tree", shows processes in a tree structure
+* Added: Option to toggle process cpu usage per core instead of total available cpu power
+* Fixed: Possible fix for stalling read command
+* Added: Multiple while loop fail safes
+
 ## v0.8.21
 
 * Fixed: iostat flag compatibility for older iostat versions
@@ -43,7 +78,7 @@
 ## v0.8.15
 
 * Added: deb build script by Jukoo
-* Fixed: load avarage and uptime not showing
+* Fixed: load average and uptime not showing
 * Fixed: freeze on reverse process order when showing detailed information
 * Fixed: single quotes on associative arrays
 
