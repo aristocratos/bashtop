@@ -1571,16 +1571,17 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 	read -rd '' mem_info </proc/meminfo ||true
 
 	get_value -v 'mem[total]' -sv "mem_info" -k "MemTotal:" -i
-	get_value -v 'mem[available]' -sv "mem_info" -k "MemAvailable:" -i
-	mem[available_percent]=$((mem[available]*100/mem[total]))
+	get_value -v 'mem[free]' -sv "mem_info" -k "MemFree:" -i
+	if ! get_value -v 'mem[available]' -sv "mem_info" -k "MemAvailable:" -i; then
+		get_value -v 'mem[available]' -sv "mem_info" -k "Inactive:" -i
+		mem[available]=$((mem[available]+mem[free]))
+	fi
+	get_value -v 'mem[cached]' -sv "mem_info" -k "Cached:" -i
 
+	mem[available_percent]=$((mem[available]*100/mem[total]))
 	mem[used]=$((mem[total]-mem[available]))
 	mem[used_percent]=$((mem[used]*100/mem[total]))
-
-	get_value -v 'mem[free]' -sv "mem_info" -k "MemFree:" -i
 	mem[free_percent]=$((mem[free]*100/mem[total]))
-
-	get_value -v 'mem[cached]' -sv "mem_info" -k "Cached:" -i
 	mem[cached_percent]=$((mem[cached]*100/mem[total]))
 
 	if [[ -n $swap_on ]] && get_value -v swap[total] -sv "mem_info" -k "SwapTotal:" -i && ((swap[total]>0)); then
