@@ -1711,7 +1711,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 	 	options="-t"
 	fi
 
-	readarray ${options} proc_array < <(ps ax${tree:+f} -o pid:${proc[pid_len]}=Pid:,comm:${format_cmd}=${tree:-Program:}${format_args},nlwp:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --sort ${proc[reverse]:--}${sort})
+	readarray ${options} proc_array < <(ps ax${tree:+f} -o pid:${proc[pid_len]}=Pid:,comm:${format_cmd}=${tree:-Program:}${format_args},nlwp:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --sort ${proc[reverse]:--}${sort} | sed 's.\\.\\\\.g')
 
 	proc_array[0]="${proc_array[0]/      Tr:/ Threads:}"
 	proc_array[0]="${proc_array[0]/ ${selected}/${symbol}${selected}}"
