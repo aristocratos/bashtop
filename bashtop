@@ -2381,12 +2381,9 @@ collect_net() { #? Collect information from "/proc/net/dev"
 			if ((${net[speed_${direction}]}>${net[${direction}_graph_max]})); then
 					((++net[${direction}_new_max]))
 					if ((net[${direction}_new_low]>0)); then ((net[${direction}_new_low]--)); fi
-			elif ((${net[${direction}_graph_max]}>10<<10 & ${net[speed_${direction}]}<${net[${direction}_graph_max]}/8)); then
+			elif ((${net[${direction}_graph_max]}>10<<10 & ${net[speed_${direction}]}<${net[${direction}_graph_max]}/10)); then
 				((++net[${direction}_new_low]))
 				if ((net[${direction}_new_max]>0)); then ((net[${direction}_new_max]--)); fi
-			# else
-			# 	net[${direction}_new_low]=0
-			# 	net[${direction}_new_max]=0
 			fi
 
 			#* Copy download and upload speed to history arrays and trim earlier entries
@@ -2399,7 +2396,7 @@ collect_net() { #? Collect information from "/proc/net/dev"
 
 			#* Check for new max value and set flag to adjust resolution of graph if needed
 			if ((${net[${direction}_new_max]}>=5)); then
-				net[${direction}_graph_max]=$((${net[${direction}_max]}+(${net[${direction}_max]}/2) ))
+				net[${direction}_graph_max]=$((${net[${direction}_max]}+(${net[${direction}_max]}/3) ))
 				net[${direction}_redraw]=1
 				net[${direction}_new_max]=0
 
