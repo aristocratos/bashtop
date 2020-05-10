@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.8.28
+
+* Fixed: Ctrl-C and Ctrl-Z not registering after change to "dd"
+* Added: Option to switch to high resolution graphs
+* Added: Current peak value for download/upload graphs
+
 ## v0.8.27
 
 * Fixed: Use value for "Inactive"+"MemFree" if "MemAvailable" is missing in /proc/meminfo
