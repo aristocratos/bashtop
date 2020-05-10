@@ -64,7 +64,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.8.27"
+declare version="0.8.28"
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -113,6 +113,9 @@ disks_filter=""
 #* Enable check for new version from github.com/aristocratos/bashtop at start
 update_check="true"
 
+#* Enable graphs with double the horizontal resolution, increases cpu usage
+hires_graphs="false"
+
 aaz_config() { : ; } #! Do not remove this line!
 #? End default variables-------------------------------------------------------------------------------->
 
@@ -149,7 +152,7 @@ declare -a cpu_usage cpu_graph_a cpu_graph_b color_meter color_temp_graph color_
 declare -a mem_history swap_history net_history_download net_history_upload mem_graph swap_graph proc_array download_graph upload_graph trace_array
 declare resized=1 size_error clock tty_width tty_height hex="16#" cpu_p_box swap_on=1 draw_out esc_character boxes_out last_screen clock_out update_string
 declare -a options_array=("color_theme" "update_ms" "proc_sorting" "check_temp" "draw_clock" "background_update" "custom_cpu_name" "proc_per_core"
-		"proc_reversed" "proc_gradient" "disks_filter" "net_totals_reset" "update_check" "error_logging")
+		"proc_reversed" "proc_gradient" "disks_filter" "hires_graphs" "net_totals_reset" "update_check" "error_logging")
 declare -a save_array=(${options_array[*]/net_totals_reset/})
 declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" "tree" )
 declare -a pid_history detail_graph detail_history detail_mem_history
@@ -163,6 +166,8 @@ printf -v backspace "\u7F" #? Backspace set to DELETE
 printf -v backspace_real "\u08" #? Real backspace
 #printf -v enter_key "\uA"
 printf -v enter_key "\uD"
+printf -v ctrl_c "\u03"
+printf -v ctrl_z "\u1A"
 
 read tty_height tty_width < <(stty size)
 
@@ -170,6 +175,21 @@ read tty_height tty_width < <(stty size)
 declare -a graph_symbol
 graph_symbol=(" " "⡀" "⣀" "⣄" "⣤" "⣦" "⣴" "⣶" "⣷" "⣾" "⣿")
 graph_symbol+=( " " "⣿" "⢿" "⡿" "⠿" "⠻" "⠟"  "⠛" "⠙" "⠉" "⠈")
+declare -A graph_symbol_up='(
+	[0_0]=⠀ [0_1]=⢀ [0_2]=⢠ [0_3]=⢰ [0_4]=⢸
+	[1_0]=⡀ [1_1]=⣀ [1_2]=⣠ [1_3]=⣰ [1_4]=⣸
+	[2_0]=⡄ [2_1]=⣄ [2_2]=⣤ [2_3]=⣴ [2_4]=⣼
+	[3_0]=⡆ [3_1]=⣆ [3_2]=⣦ [3_3]=⣶ [3_4]=⣾
+	[4_0]=⡇ [4_1]=⣇ [4_2]=⣧ [4_3]=⣷ [4_4]=⣿
+)'
+declare -A graph_symbol_down='(
+	[0_0]=⠀ [0_1]=⠈ [0_2]=⠘ [0_3]=⠸ [0_4]=⢸
+	[1_0]=⠁ [1_1]=⠉ [1_2]=⠙ [1_3]=⠹ [1_4]=⢹
+	[2_0]=⠃ [2_1]=⠋ [2_2]=⠛ [2_3]=⠻ [2_4]=⢻
+	[3_0]=⠇ [3_1]=⠏ [3_2]=⠟ [3_3]=⠿ [3_4]=⢿
+	[4_0]=⡇ [4_1]=⡏ [4_2]=⡟ [4_3]=⡿ [4_4]=⣿
+)'
+declare -A graph
 box[boxes]="cpu mem net processes"
 
 cpu[threads]=0
@@ -242,6 +262,7 @@ init_() { #? Collect needed information and set options before startig main loop
 	tput smcup
 	stty -echo
 	tput civis
+	keys_stty="$(stty -g)"
 
 	#* Check if "sensors" command is available, if not, disable temperature collection
 	if [[ $check_temp != false ]] && command -v sensors >/dev/null 2>&1; then check_temp="true"; else check_temp="false"; fi
@@ -257,6 +278,9 @@ init_() { #? Collect needed information and set options before startig main loop
 
 	#* Get number of cores and cpu threads
 	get_cpu_info
+
+	#* Set graph resolution
+	graph[hires]="${hires_graphs}"
 
 	#* Get processor BCLK
 	local param_var
@@ -468,7 +492,6 @@ color_init_() { #? Check for theme file and set colors
 quit_() { #? Clean exit
 	#* Restore terminal options and screen
 	tput rmcup
-	stty echo
 	tput cnorm
 	stty "${saved_stty}"
 
@@ -482,7 +505,6 @@ quit_() { #? Clean exit
 
 sleep_() { #? Restore terminal options, stop and send to background if caught SIGTSTP (ctrl+z)
 	tput rmcup
-	stty echo
 	tput cnorm
 	stty "${saved_stty}"
 
@@ -1002,6 +1024,8 @@ create_graph() { 	#? Create a graph from an array of percentage values, usage; 	
 					#? Add last value from an array to existing graph; 				create_graph [-i, -invert] [-max "max value"] -add-last "graph_array" "value-array"
 					#? Options: < -d, -dimensions <line> <col> <height> <width> > [-i, -invert] [-n, -no-guide] [-c, -color "array-name"] [-o, -output-array "variable-name"]
 	if [[ -z $1 ]]; then return; fi
+	if [[ ${graph[hires]} == true ]]; then create_graph_hires "$@"; return; fi
+
 	local val col s_col line s_line height s_height width s_width colors color i var ext_var out side_num side_nums=1 add add_array invert no_guide max
 	local -a graph_array input_array
 
@@ -1189,6 +1213,9 @@ create_mini_graph() { 	#? Create a one line high graph from an array of percenta
 						#? Add last value from an array to existing graph; 		create_mini_graph [-i, -invert] [-nc, -no-color] [-c, -color "array-name"] -add-last "graph_variable" "value-array"
 						#? Options: [-w, -width <width>] [-i, -invert] [-nc, -no-color] [-c, -color "array-name"] [-o, -output-variable "variable-name"]
 	if [[ -z $1 ]]; then return; fi
+
+	if [[ ${graph[hires]} == true ]]; then create_mini_graph_hires "$@"; return; fi
+
 	local val col s_col line s_line height s_height width s_width colors color i var ext_var out side_num side_nums=1 add invert no_guide graph_var no_color color_value
 
 	#* Argument parsing
@@ -1295,6 +1322,371 @@ create_mini_graph() { 	#? Create a one line high graph from an array of percenta
 	#* Echo out graph if no argument for a output array was given
 	if [[ -z $ext_var && -z $add ]]; then echo -en "${graph_var}"
 	else output_var="${graph_var}"; fi
+}
+
+create_graph_hires() { 	#? Create a graph from an array of percentage values, usage; 	create_graph <options> <value-array>
+					#? Create a graph from an array of non percentage values:       create_graph <options> <-max "max value"> <value-array>
+					#? Add a value to existing graph; 								create_graph [-i, -invert] [-max "max value"] -add-value "graph_array" <value>
+					#? Add last value from an array to existing graph; 				create_graph [-i, -invert] [-max "max value"] -add-last "graph_array" "value-array"
+					#? Options: < -d, -dimensions <line> <col> <height> <width> > [-i, -invert] [-n, -no-guide] [-c, -color "array-name"] [-o, -output-array "variable-name"]
+	if [[ -z $1 ]]; then return; fi
+	local val col s_col line s_line height s_height width s_width colors color var ext_var out side_num side_nums=1 add add_array invert no_guide max graph_name offset=0 last_val
+	local -a input_array
+	local -i i
+
+	#* Argument parsing
+	until (($#==0)); do
+		case $1 in
+			-d|-dimensions) if is_int "${@:2:4}"; then line=$2; col=$3; height=$4; width=$5; shift 4; fi;;						#? Graph dimensions
+			-c|-color) local -n colors=$2; shift;;																				#? Name of an array containing colors from index 0-100
+			-o|-output-array) local -n output_array=$2; graph_name=$2; ext_var=1; shift;;										#? Output meter to an array
+			-add-value) if is_int "$3"; then local -n output_array=$2; graph_name=$2; add=$3; break; else return; fi;;			#? Add a value to existing graph
+			-add-last) local -n output_array=$2; graph_name=$2; local -n add_array=$3; add=${add_array[-1]}; break;;			#? Add last value from array to existing graph
+			-i|-invert) invert=1;;																								#? Invert graph, drawing from top to bottom
+			-n|-no-guide) no_guide=1;;																							#? Don't print side and bottom guide lines
+			-max) if is_int "$2"; then max=$2; shift; fi;;																		#? Needed max value for non percentage arrays
+			*) local -n tmp_in_array="$1"; input_array=("${tmp_in_array[@]}");;
+		esac
+		shift
+	done
+
+	local -n last_val="graph[${graph_name}_last_val]"
+	local -n last_type="graph[${graph_name}_last_type]"
+
+
+	if [[ -z $add ]]; then
+		last_type="even"
+		last_val=0
+		local -n graph_array="${graph_name}_odd"
+		local -n graph_even="${graph_name}_even"
+		graph_even=("")
+		graph_array=("")
+	elif [[ ${last_type} == "even" ]]; then
+		local -n graph_array="${graph_name}_odd"
+		last_type="odd"
+	elif [[ ${last_type} == "odd" ]]; then
+		local -n graph_array="${graph_name}_even"
+		last_type="even"
+	fi
+
+	if [[ -z $no_guide ]]; then ((--height))
+	elif [[ -n $invert ]]; then ((line--))
+	fi
+
+	if ((width<3)); then width=3; fi
+	if ((height<1)); then height=1; fi
+
+
+	#* If argument "add" was passed check for existing graph and make room for new value(s)
+	local add_start add_end
+	if [[ -n $add ]]; then
+		local cut_left search
+		if [[ -n ${input_array[*]} || -z ${graph_array[0]} ]]; then return; fi
+
+		height=$((${#graph_array[@]}-1))
+		input_array=("${add}")
+
+		#* Remove last value in current graph
+
+		for ((i=0;i<height;i++)); do
+			cut_left="${graph_array[i]%m*}"
+			search=$((${#cut_left}+1))
+			graph_array[i]="${graph_array[i]::$search}${graph_array[i]:$((search+1))}"
+		done
+
+	fi
+
+	#* Initialize graph if no "add" argument was given
+	if [[ -z $add ]]; then
+		#* Scale down graph one line if height is even
+		local inv_offset h_inv normal_vals=1
+		local -a side_num=(100 0) g_char=(" ⡇" " ⠓" "⠒") g_index
+
+		if [[ -n $invert ]]; then
+			for((i=height;i>=0;i--)); do
+				g_index+=($i)
+			done
+
+		else
+			for((i=0;i<=height;i++)); do
+				g_index+=($i)
+			done
+		fi
+
+		if [[ -n $no_guide ]]; then unset normal_vals
+		elif [[ -n $invert ]]; then g_char=(" ⡇" " ⡤" "⠤")
+		fi
+
+		#* Set up graph array print side numbers and lines
+		print -v graph_array[0] -rs -m $((line+g_index[0])) ${col} ${normal_vals:+-jr 3 -fg ee -b -t "${side_num[0]}" -rs -fg ${theme[main_fg]} -t "${g_char[0]}"} -fg ${colors[100]}
+		for((i=1;i<height;i++)); do
+			print -v graph_array[i] -m $((line+g_index[i])) ${col} ${normal_vals:+-r 3 -fg ${theme[main_fg]} -t "${g_char[0]}"} -fg ${colors[$((100-i*100/height))]}
+		done
+
+		if [[ -z $no_guide ]]; then width=$((width-5)); fi
+
+		graph_array[$height]=""
+		if [[ -z $no_guide ]]; then
+			print -v graph_array[$height] -m $((line+g_index[(-1)])) ${col} -jr 3 -fg ee -b -t "${side_num[1]}" -rs -fg ${theme[main_fg]} -t "${g_char[1]}" -rp ${width} -t "${g_char[2]}"
+		fi
+
+		graph_even=("${graph_array[@]}")
+
+		#* If no color array was given, create a simple greyscale array
+		if [[ -z $colors ]]; then
+			for ((i=0,ic=50;i<=100;i++,ic=ic+2)); do
+				colors[i]="${ic} ${ic} ${ic}"
+			done
+		fi
+	fi
+
+	#* Create the graph
+	local value_width next_line prev_value cur_value virt_height=$((height*4)) converted
+	local -i x y c_val p_val l_val
+	if [[ -n $add ]]; then
+		value_width=1
+	elif ((${#input_array[@]}<=width*2)); then
+		value_width=$((${#input_array[@]}*2))
+	else
+		value_width=$((width*2))
+		input_array=("${input_array[@]:(-${value_width})}")
+	fi
+
+	if [[ -z $add ]] && ! ((${#input_array[@]}%2)); then last_val=${input_array[0]}; input_array=("${input_array[@]:1}"); converted=1; fi
+
+	#* Print spaces to right-justify graph if number of values is less than graph width
+	if [[ -z $add ]] && ((${#input_array[@]}/2<width)); then
+		for((i=0;i<height;i++)); do
+			print -v graph_array[i] -rp $((width-1-${#input_array[@]}/2)) -t " "
+		done
+		graph_even=("${graph_array[@]}")
+	fi
+
+	if [[ -n $invert ]]; then
+		y=$((height-1))
+		done_val="-1"
+	else
+		y=0
+		done_val=$height
+	fi
+
+	#* Convert input array to percentage values of max if a max value was given
+	if [[ -n $max ]]; then
+		for((i=0;i<${#input_array[@]};i++)); do
+			if ((input_array[i]>=max)); then
+				input_array[i]=100
+			else
+				input_array[i]=$((input_array[i]*100/max))
+			fi
+		done
+		if [[ -n $converted ]]; then
+			last_val=$((${last_val}*100/max))
+			if ((${last_val}>100)); then last_val=100; fi
+		fi
+	fi
+
+	if [[ -n $invert ]]; then local -n symbols=graph_symbol_down
+	else local -n symbols=graph_symbol_up
+	fi
+
+	until ((y==done_val)); do
+
+		next_line=$(( virt_height-((y+1)*4) ))
+		unset p_val
+
+		#* Create graph by walking through all values for each line
+		for ((x=0;x<${#input_array[@]};x++)); do
+			c_val=${input_array[x]}
+			p_val=${p_val:-${last_val}}
+			cur_value="$((c_val*virt_height/100-next_line))"
+			prev_value=$((p_val*virt_height/100-next_line))
+
+			if ((cur_value<0)); then cur_value=0
+			elif ((cur_value>4)); then cur_value=4; fi
+			if ((prev_value<0)); then prev_value=0
+			elif ((prev_value>4)); then prev_value=4; fi
+
+			if [[ -z $add ]] && ((x==0)); then
+				print -v graph_even[y] -t "${symbols[${prev_value}_${cur_value}]}"
+				print -v graph_array[y] -t "${symbols[0_${prev_value}]}"
+			elif [[ -z $add ]] && ! ((x%2)); then
+				print -v graph_even[y] -t "${symbols[${prev_value}_${cur_value}]}"
+			else
+				print -v graph_array[y] -t "${symbols[${prev_value}_${cur_value}]}"
+			fi
+
+			if [[ -z $add ]]; then p_val=${input_array[x]}; else unset p_val; fi
+
+		done
+
+		if [[ -n $invert ]]; then
+			((y--)) || true
+		else
+			((++y))
+		fi
+
+	done
+
+	if [[ -z $add && ${last_type} == "even" ]]; then
+		declare -n graph_array="${graph_name}_even"
+	fi
+
+	last_val=$c_val
+
+	output_array=("${graph_array[@]}")
+}
+
+
+create_mini_graph_hires() { 	#? Create a one line high graph from an array of percentage values, usage; 	create_mini_graph <options> <value-array>
+						#? Add a value to existing graph; 						create_mini_graph [-i, -invert] [-nc, -no-color] [-c, -color "array-name"] -add-value "graph_variable" <value>
+						#? Add last value from an array to existing graph; 		create_mini_graph [-i, -invert] [-nc, -no-color] [-c, -color "array-name"] -add-last "graph_variable" "value-array"
+						#? Options: [-w, -width <width>] [-i, -invert] [-nc, -no-color] [-c, -color "array-name"] [-o, -output-variable "variable-name"]
+	if [[ -z $1 ]]; then return; fi
+	local val col s_col line s_line height s_height width s_width colors color var ext_var out side_num side_nums=1 add invert no_guide graph_var no_color color_value graph_name
+	local -a input_array
+	local -i i
+
+	#* Argument parsing
+	until (($#==0)); do
+		case $1 in
+			-w|-width) if is_int "$2"; then width=$2; shift; fi;;									 						#? Graph width
+			-c|-color) local -n colors=$2; shift;;																			#? Name of an array containing colors from index 0-100
+			-nc|-no-color) no_color=1;;																						#? Set no color
+			-o|-output-variable) local -n output_var=$2; graph_name=$2; ext_var=1; shift;;									#? Output graph to a variable
+			-add-value) if is_int "$3"; then local -n output_var=$2; graph_name=$2; add=$3; break; else return; fi;;		#? Add a value to existing graph
+			-add-last) local -n output_var=$2; local -n add_array=$3; graph_name=$2; add="${add_array[-1]:-0}"; break;; 		#? Add last value from array to existing graph
+			-i|-invert) invert=1;;																							#? Invert graph, drawing from top to bottom
+			*) local -n tmp_in_arr=$1; input_array=("${tmp_in_arr[@]}");;
+		esac
+		shift
+	done
+
+	local -n last_val="${graph_name}_last_val"
+	local -n last_type="${graph_name}_last_type"
+
+	if [[ -z $add ]]; then
+		last_type="even"
+		last_val=0
+		local -n graph_var="${graph_name}_odd"
+		local -n graph_other="${graph_name}_even"
+		graph_var=""; graph_other=""
+	elif [[ ${last_type} == "even" ]]; then
+		local -n graph_var="${graph_name}_odd"
+		last_type="odd"
+	elif [[ ${last_type} == "odd" ]]; then
+		local -n graph_var="${graph_name}_even"
+		last_type="even"
+	fi
+
+	if ((width<1)); then width=1; fi
+
+	#* If argument "add" was passed check for existing graph and make room for new value(s)
+	local add_start add_end
+	if [[ -n $add ]]; then
+		local cut_left search
+		input_array[0]=${add}
+
+		#* Remove last value in current graph
+		if [[ -n ${graph_var} && -z $no_color ]]; then
+			if [[ ${graph_var::5} == '\e[1C' ]]; then
+				graph_var="${graph_var#'\e[1C'}"
+			else
+				cut_left="${graph_var%m*}"
+				search=$((${#cut_left}+1))
+				graph_var="${graph_var::$search}${graph_var:$((search+1))}"
+			fi
+		elif [[ -n ${graph_var} && -n $no_color ]]; then
+			if [[ ${graph_var::5} == "\e[1C" ]]; then
+				#cut_left="${graph_var%%C*}"
+				#search=$((${#cut_left}+1))
+				#graph_var="${graph_var:$((search))}"
+				graph_var="${graph_var#'\e[1C'}"
+			else
+				graph_var="${graph_var:1}"
+			fi
+		fi
+	fi
+
+
+	#* If no color array was given, create a simple greyscale array
+	if [[ -z $colors && -z $no_color ]]; then
+		for ((i=0,ic=50;i<=100;i++,ic=ic+2)); do
+			colors[i]="${ic} ${ic} ${ic}"
+		done
+	fi
+
+
+	#* Create the graph
+	local value_width x=0 y a cur_value prev_value p_val c_val acolor jump odd offset=0
+	if [[ -n $add ]]; then
+		value_width=1
+	elif ((${#input_array[@]}<=width*2)); then
+		value_width=$((${#input_array[@]}*2))
+	else
+		value_width=$((width*2))
+		input_array=("${input_array[@]:(-${value_width})}")
+	fi
+
+	if [[ -z $add ]] && ! ((${#input_array[@]}%2)); then last_val=${input_array[0]}; input_array=("${input_array[@]:1}"); fi
+
+	#* Print spaces to right-justify graph if number of values is less than graph width
+	if [[ -z $add ]] && ((${#input_array[@]}/2<width)); then print -v graph_var -rp $((width-1-${#input_array[@]}/2)) -t "\e[1C"; graph_other="${graph_var}"; fi
+
+	if [[ -n $invert ]]; then local -n symbols=graph_symbol_down
+	else local -n symbols=graph_symbol_up
+	fi
+
+	unset p_val
+
+	#* Create graph
+	for((i=0;i<${#input_array[@]};i++)); do
+
+		c_val=${input_array[i]}
+		p_val=${p_val:-${last_val}}
+
+		if ((c_val>=85)); then cur_value=4
+		elif ((c_val>=60)); then cur_value=3
+		elif ((c_val>=30)); then cur_value=2
+		elif ((c_val>=10)); then cur_value=1
+		elif ((c_val<10)); then cur_value=0; fi
+
+		if ((p_val>=85)); then prev_value=4
+		elif ((p_val>=60)); then prev_value=3
+		elif ((p_val>=30)); then prev_value=2
+		elif ((p_val>=10)); then prev_value=1
+		elif ((p_val<10)); then prev_value=0; fi
+
+		if [[ -z $no_color ]]; then
+			if ((c_val>p_val)); then acolor=$((c_val-p_val))
+			else acolor=$((p_val-c_val)); fi
+			if ((acolor>100)); then acolor=100; elif ((acolor<0)); then acolor=0; fi
+			color="-fg ${colors[${acolor:-0}]} "
+		else
+			unset color
+		fi
+
+		if ((cur_value==0 & prev_value==0)); then jump="\e[1C"; else unset jump; fi
+
+		if [[ -z $add ]] && ((i==0)); then
+			print -v graph_other ${color}-t "${jump:-${symbols[${prev_value}_${cur_value}]}}"
+			print -v graph_var ${color}-t "${jump:-${symbols[0_${prev_value}]}}"
+		elif [[ -z $add ]] && ((i%2)); then
+			print -v graph_other ${color}-t "${jump:-${symbols[${prev_value}_${cur_value}]}}"
+		else
+			print -v graph_var ${color}-t "${jump:-${symbols[${prev_value}_${cur_value}]}}"
+		fi
+
+		if [[ -z $add ]]; then p_val=$c_val; else unset p_val; fi
+	done
+
+	#if [[ -z $add ]]; then
+	#	declare -n graph_var="${graph_name}_even"
+	# 	#echo "yup" >&2
+	#fi
+
+	last_val=$c_val
+
+	output_var="${graph_var}"
 }
 
 print() {	#? Print text, set true-color foreground/background color, add effects, center text, move cursor, save cursor position and restore cursor postion
@@ -1436,8 +1828,8 @@ collect_cpu() { #? Collects cpu stats from /proc/stat and compares with previous
 
 	for((i=1;i<=threads;i++)); do
 		local -n cpu_core_history="cpu_core_history_$i"
-		if ((${#cpu_core_history[@]}>20)); then
-			cpu_core_history=( "${cpu_core_history[@]:10}" "${cpu_usage[$i]}")
+		if ((${#cpu_core_history[@]}>40)); then
+			cpu_core_history=( "${cpu_core_history[@]:20}" "${cpu_usage[$i]}")
 		else
 			cpu_core_history+=("${cpu_usage[$i]}")
 		fi
@@ -1552,10 +1944,10 @@ collect_cpu_temps() { #? Collect cpu temperatures
 	if [[ $check_temp == true ]]; then
 		for((i=0;i<=threads;i++)); do
 			local -n cpu_temp_history="cpu_temp_history_$i"
-			if ((${#cpu_temp_history[@]}>15)); then
-				cpu_temp_history=( "${cpu_temp_history[@]:10}" "$(( (${cpu[temp_${i}]}-15)*100/(cpu[temp_high]-15) ))")
+			if ((${#cpu_temp_history[@]}>20)); then
+				cpu_temp_history=( "${cpu_temp_history[@]:10}" "$(( (${cpu[temp_${i}]}-20)*100/(cpu[temp_high]-20) ))")
 			else
-				cpu_temp_history+=("$(( (${cpu[temp_${i}]}-15)*100/(cpu[temp_high]-15) ))")
+				cpu_temp_history+=("$(( (${cpu[temp_${i}]}-20)*100/(cpu[temp_high]-20) ))")
 			fi
 		done
 	fi
@@ -1870,18 +2262,18 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 				if [[ ${cpu_int} -gt 0 ]]; then pid_count=5; fi
 
 				if [[ -z ${!pid_graph} && ${cpu_int} -gt 0 ]]; then
-						tmp_value_array=("$((cpu_int+4))")
+					tmp_value_array=("$((cpu_int+4))")
 					create_mini_graph -o "pid_${pid}_graph" -nc -w 5 "tmp_value_array"
 				elif [[ ${pid_count} -gt 0 ]]; then
 					if [[ ${cpu_int} -gt 9 ]]; then
-						create_mini_graph -nc -add-value "pid_${pid}_graph" "$((cpu_int+20))"
+						create_mini_graph -nc -add-value "pid_${pid}_graph" "$((cpu_int+15))"
 					else
-						create_mini_graph -nc -add-value "pid_${pid}_graph" "$((cpu_int+4))"
+						create_mini_graph -nc -add-value "pid_${pid}_graph" "$((cpu_int+9))"
 					fi
 
 					pid_count=$((${pid_count}-1))
 				elif [[ ${pid_count} == "0" ]]; then
-					unset "pid_${pid}_graph"
+					unset "pid_${pid}_graph" "pid_${pid}_graph_even" "pid_${pid}_graph_odd" "pid_${pid}_graph_last_type" "pid_${pid}_graph_last_val"
 					unset "pid_${pid}_count"
 				fi
 			else
@@ -1930,7 +2322,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 		proc[general_counter]=0
 		for ((i=0;i<${#pid_history[@]};i++)); do
 			if [[ -n ${pid_history[$i]} && ! -e /proc/${pid_history[$i]} ]]; then
-				unset "pid_${pid_history[$i]}_graph"
+				unset "pid_${pid_history[$i]}_graph" "pid_${pid_history[$i]}_graph_even" "pid_${pid_history[$i]}_graph_odd" "pid_${pid_history[$i]}_graph_last_type" "pid_${pid_history[$i]}_graph_last_val"
 				unset "pid_${pid_history[$i]}_count"
 				unset "proc[new_${pid_history[$i]}_ticks]"
 				unset "proc[old_${pid_history[$i]}_ticks]"
@@ -2022,6 +2414,8 @@ collect_net() { #? Collect information from "/proc/net/dev"
 				net[${direction}_new_low]=0
 			fi
 		fi
+
+		floating_humanizer -Byte -short -v net[${direction}_max_string] ${net[${direction}_graph_max]}
 
 		net[old_${direction}]=${net[new_${direction}]}
 	done
@@ -2189,13 +2583,15 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 		create_graph -o cpu_graph_a -d ${line} ${col} ${graph_a_size} $((width-p_width-2)) -c color_cpu_graph -n cpu_history
 		create_graph -o cpu_graph_b -d $((line+graph_a_size)) ${col} ${graph_b_size} $((width-p_width-2)) -c color_cpu_graph -i -n cpu_history
 
-		for((i=1;i<=threads;i++)); do
-			create_mini_graph -o "cpu_core_graph_$i" -w 10 -c color_cpu_graph "cpu_core_history_$i"
-		done
+		if [[ -z ${cpu_core_1_graph} ]]; then
+			for((i=1;i<=threads;i++)); do
+				create_mini_graph -o "cpu_core_${i}_graph" -w 10 -nc "cpu_core_history_${i}"
+			done
+		fi
 
-		if [[ $check_temp == true ]]; then
+		if [[ $check_temp == true && -z ${cpu_temp_0_graph} ]]; then
 			for((i=0;i<=threads;i++)); do
-				if [[ -n ${cpu[temp_${i}]} ]]; then create_mini_graph -o "cpu_temp_graph_$i" -w 5 -c color_temp_graph "cpu_temp_history_$i"; fi
+				if [[ -n ${cpu[temp_${i}]} ]]; then create_mini_graph -o "cpu_temp_${i}_graph" -w 5 -nc "cpu_temp_history_${i}"; fi
 			done
 		fi
 		((resized++))
@@ -2206,14 +2602,12 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 		create_graph -add-last cpu_graph_a cpu_history
 		create_graph -i -add-last cpu_graph_b cpu_history
 		for((i=1;i<=threads;i++)); do
-			declare -n core_hist="cpu_core_history_${i}[-1]"
-			create_mini_graph -w 10 -c color_cpu_graph -add-value "cpu_core_graph_$i" ${core_hist}
+			create_mini_graph -w 10 -nc -add-last "cpu_core_${i}_graph" "cpu_core_history_${i}"
 		done
 		if [[ $check_temp == true ]]; then
 			for((i=0;i<=threads;i++)); do
 				if [[ -n ${cpu[temp_${i}]} ]]; then
-					declare -n temp_hist="cpu_temp_history_${i}[-1]"
-					create_mini_graph -w 5 -c color_temp_graph -add-value "cpu_temp_graph_$i" ${temp_hist}
+					create_mini_graph -w 5 -nc -add-last "cpu_temp_${i}_graph" "cpu_temp_history_${i}"
 				fi
 			done
 		fi
@@ -2233,7 +2627,7 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 			#* Get color of temperature text depending on current temp vs factory high temp
 			declare -n temp_hist="cpu_temp_history_${i}[-1]"
 			temp_color="${color_temp_graph[${temp_hist}]}"
-			temp_name="cpu_temp_graph_$i"
+			temp_name="cpu_temp_${i}_graph"
 			temp_width=13
 		fi
 
@@ -2246,7 +2640,7 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 		if ((i==0)); then
 			create_meter -v meter -w $meter_width -f -c color_cpu_graph ${cpu_usage[i]}
 		else
-			core_name="cpu_core_graph_$i"
+			core_name="cpu_core_${i}_graph"
 			meter="${!core_name}"
 		fi
 
@@ -2255,10 +2649,10 @@ draw_cpu() { #? Draw cpu and core graphs and print percentages
 		elif ((p_width>24+temp_width & i>=p_height-2)); then pt_line=$((p_line+i-y*2)); pt_col=$((p_col+24+temp_width))
 		else y=$i; fi
 
-		print -v cpu_out_var -m $((pt_line+y)) $pt_col -rs -fg $p_normal_color -jl 7 -t "$name" -fg ${theme[inactive_fg]} "⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀" -l 10 -t "$meter"\
-		-fg $cpu_p_color -jr 4 -t "${cpu_usage[i]}" -fg $p_normal_color -t "%"
+		print -v cpu_out_var -m $((pt_line+y)) $pt_col -rs -fg $p_normal_color -jl 7 -t "$name" -fg ${theme[inactive_fg]} "⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀" -l 10 -fg $cpu_p_color -t "$meter"\
+		-jr 4 -fg $cpu_p_color -t "${cpu_usage[i]}" -fg $p_normal_color -t "%"
 		if [[ $check_temp == true && -n ${cpu[temp_${i}]} ]]; then
-			print -v cpu_out_var -fg ${theme[inactive_fg]} "  ⡀⡀⡀⡀⡀" -l 7 -t "  ${!temp_name}" -fg $temp_color -jr 4 -t ${cpu[temp_${i}]} -fg $p_normal_color -t ${cpu[temp_unit]}
+			print -v cpu_out_var -fg ${theme[inactive_fg]} "  ⡀⡀⡀⡀⡀" -l 7 -fg $temp_color -jl 7 -t "  ${!temp_name}" -jr 4 -t ${cpu[temp_${i}]} -fg $p_normal_color -t ${cpu[temp_unit]}
 		fi
 
 		if (( i>(p_height-2)*( p_width/(24+temp_width) )-( p_width/(24+temp_width) )-1 )); then break; fi
@@ -2698,6 +3092,9 @@ draw_net() { #? Draw net information and graphs to screen
 	if ((height>7)); then print -v net_out -fg ${main_fg} -m $((ypos++)) $n_col -jl 10 -t "▲ Bit:" -jr 12 -t "${net[speed_upload_bitps]}"; fi
 	if ((height>5)); then print -v net_out -fg ${main_fg} -m $((ypos++)) $n_col -jl 10 -t "▲ Total:" -jr 12 -t "${net[total_upload]}"; fi
 
+	print -v net_out -fg ${theme[inactive_fg]} -m $line $col -t "${net[download_max_string]}"
+	print -v net_out -fg ${theme[inactive_fg]} -m $((line+height-1)) $col -t "${net[upload_max_string]}"
+
 
 	#* Print graphs and text to output variable
 	draw_out+="${download_graph[*]}${upload_graph[*]}${net_out}"
@@ -2801,9 +3198,7 @@ menu_() { #? Shows the main menu overlay
 
 		get_ms timestamp_end
 		time_left=$((timestamp_start+update_ms-timestamp_end))
-		# if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
-		# elif ((time_left>1)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
-		# else wait_string="0.001"; time_left=0; fi
+
 		if ((time_left>1000)); then wait_string=10; time_left=$((time_left-1000))
 		elif ((time_left>100)); then wait_string=$((time_left/100)); time_left=0
 		else wait_string="0"; time_left=0; fi
@@ -2920,10 +3315,6 @@ help_() { #? Shows the help overlay
 
 		get_ms timestamp_end
 		time_left=$((timestamp_start+update_ms-timestamp_end))
-
-		# if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
-		# elif ((time_left>0)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
-		# else wait_string="0.001"; time_left=0; fi
 
 		if ((time_left>1000)); then wait_string=10; time_left=$((time_left-1000))
 		elif ((time_left>100)); then wait_string=$((time_left/100)); time_left=0
@@ -3054,6 +3445,13 @@ options_() { #? Shows the options overlay
 						"github.com/aristocratos/bashtop at start."
 						" "
 						"True or False.")
+	desc_hires_graphs=("Enable high resolution graphs."
+						" "
+						"Doubles the horizontal resolution of all"
+						"graphs. At a cpu usage cost."
+						"Needs restart to take effect."
+						" "
+						"True or False.")
 
 	if [[ -n $pause_screen ]]; then from_menu=1; fi
 
@@ -3155,9 +3553,6 @@ options_() { #? Shows the options overlay
 		get_ms timestamp_end
 		if [[ -z $theme_check ]]; then time_left=$((timestamp_start+update_ms-timestamp_end))
 		else unset theme_check; time_left=0; fi
-		# if ((time_left>500)); then wait_string=0.5
-		# elif ((time_left>0)); then printf -v wait_string ".%03d" "${time_left}"
-		# else wait_string="0.001"; time_left=0; fi
 
 		if ((time_left>500)); then wait_string=5; time_left=$((time_left-500))
 		elif ((time_left>100)); then wait_string=$((time_left/100)); time_left=0
@@ -3231,7 +3626,7 @@ options_() { #? Shows the options overlay
 						if ((net[reset]==1)); then net_totals_reset="Off"; net[reset]=0
 						else net_totals_reset="On"; net[reset]=1; fi
 					;;
-				"check_temp"*|"error_logging"*|"background_update"*|"proc_reversed"*|"proc_gradient"*|"proc_per_core"*|"update_check"*)
+				"check_temp"*|"error_logging"*|"background_update"*|"proc_reversed"*|"proc_gradient"*|"proc_per_core"*|"update_check"*|"hires_graphs"*)
 						local -n selected_var=${selected}
 						if [[ ${selected_var} == "true" ]]; then
 							selected_var="false"
@@ -3364,9 +3759,6 @@ killer_() { #? Kill process with selected signal
 
 		get_ms timestamp_end
 		time_left=$((timestamp_start+update_ms-timestamp_end))
-		# if ((time_left>1000)); then wait_string=1; time_left=$((time_left-1000))
-		# elif ((time_left>1)); then printf -v wait_string ".%03d" "${time_left}"; time_left=0
-		# else wait_string="0.001"; time_left=0; fi
 
 		if ((time_left>1000)); then wait_string=10; time_left=$((time_left-1000))
 		elif ((time_left>100)); then wait_string=$((time_left/100)); time_left=0
@@ -3389,8 +3781,6 @@ killer_() { #? Kill process with selected signal
 			;;
 			q|Q) quit_ ;;
 		esac
-
-
 
 		if ((confirmed<0)); then
 			unpause_
@@ -3435,21 +3825,23 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 	if [[ -z $save && -n ${saved_key[0]} ]]; then key="${saved_key[0]}"; unset 'saved_key[0]'; saved_key=("${saved_key[@]}")
 	else
 		unset key
-		#IFS= read -rsd '' -t ${wait_time:-0.001} -n 1 key 2>/dev/null ||true
-		key=$(stty -cooked min 0 time ${wait_time:-0}; dd bs=1 count=1 2>/dev/null)
 
+		key=$(stty -cooked min 0 time ${wait_time:-0}; dd bs=1 count=1 2>/dev/null)
 		if [[ -z ${key:+s} ]]; then
 			key_out=""
+			stty isig
 			if [[ -z $save ]]; then return 0
 			else return 1; fi
 		fi
 
 		#* Read 3 more characters if a leading escape character is detected
 		if [[ $key == "${enter_key}" ]]; then key="enter"
+		elif [[ $key == "${ctrl_c}" ]]; then quitting=1; time_left=0
+		elif [[ $key == "${ctrl_z}" ]]; then sleepy=1; time_left=0
 		elif [[ $key == "${backspace}" || $key == "${backspace_real}" ]]; then key="backspace"
 		elif [[ $key == "${tab}" ]]; then key="tab"
 		elif [[ $key == "$esc_character" ]]; then
-			esc=1; key=$(stty -cooked min 0 time 0; dd bs=1 count=3 2>/dev/null); fi # read -rsn3 -t 0.001 key 2>/dev/null || true
+			esc=1; key=$(stty -cooked isig min 0 time 0; dd bs=1 count=3 2>/dev/null); fi
 		if [[ -z $key && $esc -eq 1 ]]; then key="escape"
 		elif [[ $esc -eq 1 ]]; then
 			case "${key}" in
@@ -3482,9 +3874,8 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 
 	fi
 
-	#read -rst 0.001 -n 1000 2>/dev/null ||true
-	stty -cooked min 0 time 0; dd bs=512 count=1 >/dev/null 2>&1
-
+	stty -cooked isig min 0 time 0; dd bs=512 count=1 >/dev/null 2>&1
+	stty isig
 	if [[ -n $save && -n $key ]]; then saved_key+=("${key}"); return 0; fi
 
 	if [[ -n $ext_out ]]; then key_out="${key}"
@@ -3716,21 +4107,16 @@ main_loop() { #? main loop...
 
 			#* If NOT waiting for input and time left is greater than 500ms, wait 500ms and loop
 			if [[ -z $input_to_filter ]] && ((time_left>=500)); then
-				# wait_string="0.5"
 				wait_string="5"
 				time_left=$((time_left-500))
 
 			#* If waiting for input and time left is greater than "50 ms", wait 50ms and loop
-			# elif [[ -n $input_to_filter ]] && ((time_left>=50)); then
-			# 	wait_string="0.05"
-			# 	time_left=$((time_left-50))
 			elif [[ -n $input_to_filter ]] && ((time_left>=100)); then
 				wait_string="1"
 				time_left=$((time_left-100))
 
 			#* Else format wait string with padded zeroes if needed and break loop
 			else
-				#printf -v wait_string ".%03d" "${time_left}"
 				if ((time_left>=100)); then wait_string=$((time_left/100)); else wait_string=0; fi
 				time_left=0
 			fi
@@ -3780,7 +4166,7 @@ else
 fi
 
 #* Set up traps for ctrl-c, soft kill, window resize, ctrl-z and resume from ctrl-z
-trap 'quitting=1; time_left=0' SIGINT #SIGQUIT SIGTERM
+trap 'quitting=1; time_left=0' SIGINT SIGQUIT SIGTERM
 trap 'resized=1; time_left=0' SIGWINCH
 trap 'sleepy=1; time_left=0' SIGTSTP
 trap 'resume_' SIGCONT

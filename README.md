@@ -109,7 +109,7 @@ Dropbear seems to not be able to set correct locale. So if accessing bashtop ove
 
 ## Dependencies
 
-**[bash](https://www.gnu.org/software/bash/)** (v4.4 or later) Script functionality will most probably break with earlier versions.  
+**[bash](https://www.gnu.org/software/bash/)** (v4.4 or later) Script functionality will most probably break with earlier versions.
 Bash version 5 is highly recommended to make use of $EPOCHREALTIME variable instead of a lot of external date command calls.
 
 **[GNU Core Utilities](https://www.gnu.org/software/coreutils/)**
@@ -130,13 +130,13 @@ Bash version 5 is highly recommended to make use of $EPOCHREALTIME variable inst
 
 ## Screenshots
 
-Main UI showing details for a selected process.  
+Main UI showing details for a selected process.
 ![Screenshot 1](Imgs/main.png)
 
-Main menu.  
+Main menu.
 ![Screenshot 2](Imgs/menu.png)
 
-Options menu.  
+Options menu.
 ![Screenshot 3](Imgs/options.png)
 
 ## Installation
@@ -233,7 +233,7 @@ Config files stored in "$HOME/.config/bashtop" folder
 #### bashtop.cfg: (auto generated if not found)
 
 ```bash
-#? Config file for bashtop v. 0.8.22
+#? Config file for bashtop v. 0.8.28
 
 #* Color theme, looks for a .theme file in "$HOME/.config/bashtop/themes", "Default" for builtin default theme
 color_theme="Default"
@@ -271,6 +271,12 @@ proc_per_core="false"
 
 #* Optional filter for shown disks, should be names of mountpoints, "root" replaces "/", separate multiple values with space
 disks_filter=""
+
+#* Enable check for new version from github.com/aristocratos/bashtop at start
+update_check="true"
+
+#* Enable graphs with double the horizontal resolution, increases cpu usage
+hires_graphs="false"
 ```
 
 #### Command line options: (not yet implemented)
