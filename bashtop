@@ -1944,12 +1944,14 @@ collect_cpu_temps() { #? Collect cpu temperatures
 	fi
 
 	if [[ $check_temp == true ]]; then
+		local tmp_temp="$(( (${cpu[temp_${i}]}-20)*100/(cpu[temp_high]-20) ))"
+		if ((tmp_temp>100)); then tmp_temp=100; elif ((tmp_temp<0)); then tmp_temp=0; fi
 		for((i=0;i<=threads;i++)); do
 			local -n cpu_temp_history="cpu_temp_history_$i"
 			if ((${#cpu_temp_history[@]}>20)); then
-				cpu_temp_history=( "${cpu_temp_history[@]:10}" "$(( (${cpu[temp_${i}]}-20)*100/(cpu[temp_high]-20) ))")
+				cpu_temp_history=( "${cpu_temp_history[@]:10}" "${tmp_temp}")
 			else
-				cpu_temp_history+=("$(( (${cpu[temp_${i}]}-20)*100/(cpu[temp_high]-20) ))")
+				cpu_temp_history+=("${tmp_temp}")
 			fi
 		done
 	fi
