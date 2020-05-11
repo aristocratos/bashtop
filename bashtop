@@ -12,6 +12,8 @@
 # shellcheck disable=SC2004 #arithmetic brackets warning
 # shellcheck disable=SC2017 #arithmetic precision warning
 # shellcheck disable=SC2207 #split array warning
+# shellcheck disable=SC2154 #variable referenced but not assigned
+# shellcheck disable=SC1003 #info: single quote escape
 
 
 # Copyright 2020 Aristocratos
@@ -412,8 +414,8 @@ color_init_() { #? Check for theme file and set colors
 
 		hex2rgb=${hex2rgb//#/}
 
-	 	if [[ ${#hex2rgb} == 6 ]] && is_hex "$hex2rgb"; then hex2rgb="$((${hex}${hex2rgb:0:2})) $((${hex}${hex2rgb:2:2})) $((${hex}${hex2rgb:4:2}))"
-	 	elif [[ ${#hex2rgb} == 2 ]] && is_hex "$hex2rgb"; then hex2rgb="$((${hex}${hex2rgb:0:2})) $((${hex}${hex2rgb:0:2})) $((${hex}${hex2rgb:0:2}))"
+		if [[ ${#hex2rgb} == 6 ]] && is_hex "$hex2rgb"; then hex2rgb="$((${hex}${hex2rgb:0:2})) $((${hex}${hex2rgb:2:2})) $((${hex}${hex2rgb:4:2}))"
+		elif [[ ${#hex2rgb} == 2 ]] && is_hex "$hex2rgb"; then hex2rgb="$((${hex}${hex2rgb:0:2})) $((${hex}${hex2rgb:0:2})) $((${hex}${hex2rgb:0:2}))"
 		else
 			dec_test=(${hex2rgb})
 			if [[ ${#dec_test[@]} -eq 3 ]] && is_int "${dec_test[@]}"; then hex2rgb="${dec_test[*]}"
@@ -2100,7 +2102,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 	unset 'proc[detailed_cpu]'
 
 	if [[ -z $filter ]]; then
-	 	options="-t"
+		options="-t"
 	fi
 
 	readarray ${options} proc_array < <(ps ax${tree:+f} -o pid:${proc[pid_len]}=Pid:,comm:${format_cmd}=${tree:-Program:}${format_args},nlwp:3=Tr:,euser:6=User:,pmem=Mem%,pcpu:10=Cpu% --sort ${proc[reverse]:--}${sort})
@@ -2110,7 +2112,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 
 	if [[ -n $filter ]]; then
 		grep_array[0]="${proc_array[0]}"
-	 	readarray -O 1 -t grep_array < <(echo -e " ${proc_array[*]:1}" | grep -e "${filter}" ${proc[detailed_pid]:+-e ${proc[detailed_pid]}} | cut -c 2- || true)
+		readarray -O 1 -t grep_array < <(echo -e " ${proc_array[*]:1}" | grep -e "${filter}" ${proc[detailed_pid]:+-e ${proc[detailed_pid]}} | cut -c 2- || true)
 		proc_array=("${grep_array[@]}")
 	fi
 
@@ -2126,7 +2128,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 	get_ms proc[new_timestamp]
 
 	for readline in "${proc_array[@]:1}"; do
-		 ((++count))
+		((++count))
 
 		if ((count==height-3 & breaking==0)); then
 			if [[ -n $filter || $proc_sorting != "cpu lazy" || ${proc[selected]} -gt 0 || ${proc[page]} -gt 1 || ${proc_reversed} == true ]]; then :
@@ -2732,7 +2734,7 @@ draw_mem() { #? Draw mem, swap and disk statistics
 				if [[ -z $meter_mod_w ]]; then print -v mem_out  -jr 4 -t "${type_name[${value}_percent]}%"; fi
 			fi
 		done
-	 done
+	done
 
 
 	#* Create text and meters for disks and adapt sizes based on available height
@@ -2943,6 +2945,8 @@ draw_processes() { #? Draw processes and values to screen
 	for out_line in "${proc_array[@]:$proc_start}"; do
 		pid="${out_line::$((proc[pid_len]+1))}"; pid="${pid// /}"
 		pid_graph="pid_${pid}_graph"
+
+		out_line="${out_line//'\'/'\\'}"
 
 		if ((current_num==proc[selected])); then print -v proc_out -bg ${theme[selected_bg]} -fg ${theme[selected_fg]} -b; proc[selected_pid]="$pid"
 		else print -v proc_out -rs -fg $((fg_r-fg_step_r)) $((fg_b-fg_step_b)) $((fg_b-fg_step_b)); fi
