@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.8.29
+
+* Fixed: Cpu temperature colors not working when above high temp value
+* Fixed: Unescaped "\" in process list and indent fixes
+* Changed: Changes to net graph rescaling parameters
+
 ## v0.8.28
 
 * Fixed: Ctrl-C and Ctrl-Z not registering after change to "dd"
