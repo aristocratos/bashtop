@@ -16,7 +16,7 @@
 # shellcheck disable=SC1003 #info: single quote escape
 
 
-# Copyright 2020 Aristocratos
+# Copyright 2020 Aristocratos (jakob@qvantnet.com)
 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -67,6 +67,9 @@ banner=(
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
 declare version="0.8.29"
+
+#* Get latest version of BashTOP from https://github.com/aristocratos/bashtop
+
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
@@ -311,9 +314,8 @@ init_() { #? Collect needed information and set options before startig main loop
 	mem[counter]=10
 	collect_mem init
 
-	#* Get default network device from "ip route" command and call init for net collection
-	get_value -v 'net[device]' -ss "$(ip route get 1.1.1.1)" -k "dev" -mk 1
-	collect_net init
+	#* Get default network device from "ip route" command and call init for net collection if device is found
+	get_net_device
 
 	#* Check if newer version of bashtop is available from https://github.com/aristocratos/bashtop
 	if [[ -n $curled && $update_check == "true" ]]; then
@@ -892,6 +894,11 @@ get_themes() {
 		if [[ ${file} != "*.theme" ]]; then themes+=("${file%.theme}"); fi
 		if [[ ${themes[-1]} == "${color_theme}" ]]; then theme_int=${#themes[@]}-1; fi
 	done
+}
+
+get_net_device() { #? Check for internet connection and name of network device
+	if ! get_value -v 'net[device]' -ss "$(ip route get 1.1.1.1 2>/dev/null)" -k "dev" -mk 1; then net[no_device]=1
+	else unset 'net[no_device]'; collect_net init; fi
 }
 
 cur_pos() { #? Get cursor postion, argument "line" prints current line, argument "col" prints current column, no argument prints both in format "line column"
@@ -2342,6 +2349,8 @@ collect_net() { #? Collect information from "/proc/net/dev"
 	local operations operation direction index unit_selector speed speed_B total
 	local -a net_dev history_sorted history_last
 
+	if [[ -n ${net[no_device]} ]]; then return; fi
+
 	if [[ $1 == "init" ]]; then
 		for direction in "download" "upload"; do
 		net[${direction}_max]=0
@@ -2353,7 +2362,7 @@ collect_net() { #? Collect information from "/proc/net/dev"
 	fi
 
 	#* Get the line with relevant net device from /proc/net/dev into array net_dev, index 1 is download, index 9 is upload
-	get_value -map net_dev -sf "/proc/net/dev" -k "${net[device]}" -a
+	if ! get_value -map net_dev -sf "/proc/net/dev" -k "${net[device]}" -a; then net[no_device]=1; return; fi
 
 	#* Timestamp the values to accurately calculate values in seconds
 	get_ms net[new_timestamp]
@@ -3051,6 +3060,8 @@ draw_processes() { #? Draw processes and values to screen
 
 draw_net() { #? Draw net information and graphs to screen
 	local net_out
+	if [[ -n ${net[no_device]} ]]; then return; fi
+
 	#* Get variables from previous calculations
 	local col=$((box[net_col]+1)) line=$((box[net_line]+1)) width=$((box[net_width]-2)) height=$((box[net_height]-2))
 	local n_width=${box[n_width]} n_height=${box[n_height]} n_col=${box[n_col]} n_line=${box[n_line]} main_fg="${theme[main_fg]}"
@@ -3256,6 +3267,9 @@ help_() { #? Shows the help overlay
 		"(T, t)"
 		"(K, k)"
 		"(I, i)"
+		" "
+		" "
+		" "
 	)
 	descriptions=(
 		"Shows main menu."
@@ -3274,6 +3288,9 @@ help_() { #? Shows the help overlay
 		"Terminate selected process with SIGTERM - 15."
 		"Kill selected process with SIGKILL - 9."
 		"Interrupt selected process with SIGINT - 2."
+		" "
+		"For bug reporting and project updates, visit:"
+		"\e[1mhttps://github.com/aristocratos/bashtop"
 	)
 
 	if [[ -n $pause_screen ]]; then from_menu=1; fi
@@ -4096,6 +4113,14 @@ main_loop() { #? main loop...
 	#* Echo everyting out to screen in one command to get a smooth transition between updates
 	echo -en "${draw_out}${proc_out}${clock_out}"
 	unset draw_out
+
+	#* Periodically check for new network device if non was found at start or was removed
+	if ((net[device_check]>10)); then
+		net[device_check]=0
+		get_net_device
+	elif [[ -n ${net[no_device]} ]]; then
+		((++net[device_check]))
+	fi
 
 	#* Compare timestamps to get exact time needed to wait until next loop
 	get_ms timestamp_end
