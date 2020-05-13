@@ -1,5 +1,9 @@
 # Changelog
 
+## v.0.8.30
+
+* Fixed: Crash on missing net device
+
 ## v0.8.29
 
 * Fixed: Cpu temperature colors not working when above high temp value
