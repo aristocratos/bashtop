@@ -392,6 +392,7 @@ color_init_() { #? Check for theme file and set colors
 	local -A rgb
 	local -a dec_test
 	local -a convert_color=("main_bg" "temp_start" "temp_mid" "temp_end" "cpu_start" "cpu_mid" "cpu_end" "upload_start" "upload_mid" "upload_end" "download_start" "download_mid" "download_end" "used_start" "used_mid" "used_end" "available_start" "available_mid" "available_end" "cached_start" "cached_mid" "cached_end" "free_start" "free_mid" "free_end" "proc_misc" "main_fg_dec")
+	local -a set_color=("main_fg" "title" "hi_fg" "div_line" "inactive_fg" "selected_fg" "selected_bg" "cpu_box" "mem_box" "net_box" "proc_box")
 
 	for theme_unset in ${!theme[@]}; do
 		unset 'theme[${theme_unset}]'
@@ -430,18 +431,15 @@ color_init_() { #? Check for theme file and set colors
 	#* Set background color if set, otherwise use terminal default
 	if [[ -n ${theme[main_bg]} ]]; then theme[main_bg_dec]="${theme[main_bg]}"; theme[main_bg]=";48;2;${theme[main_bg]// /;}"; fi
 
-	#* Set colors from theme file if found, otherwise use default values
-	theme[main_fg]="${theme[main_fg]:-$main_fg}"
-	theme[title]="${theme[title]:-$title}"
-	theme[hi_fg]="${theme[hi_fg]:-$hi_fg}"
-	theme[div_line]="${theme[div_line]:-$div_line}"
-	theme[inactive_fg]="${theme[inactive_fg]:-$inactive_fg}"
-	theme[selected_fg]="${theme[selected_fg]:-$selected_fg}"
-	theme[selected_bg]="${theme[selected_bg]:-$selected_bg}"
-	box[cpu_color]="${theme[cpu_box]:-$cpu_box}"
-	box[mem_color]="${theme[mem_box]:-$mem_box}"
-	box[net_color]="${theme[net_box]:-$net_box}"
-	box[processes_color]="${theme[proc_box]:-$proc_box}"
+	#* Set colors from theme file if found and valid hexadecimal or integers, otherwise use default values
+	for color_name in ${set_color[@]}; do
+		if ! is_hex ${theme[$color_name]} && ! is_int ${theme[$color_name]}; then theme[${color_name}]="${!color_name}"; fi
+	done
+
+	box[cpu_color]="${theme[cpu_box]}"
+	box[mem_color]="${theme[mem_box]}"
+	box[net_color]="${theme[net_box]}"
+	box[processes_color]="${theme[proc_box]}"
 
 	#* Create color arrays from one, two or three color gradient, 100 values in each
 	for array_name in "temp" "cpu" "upload" "download" "used" "available" "cached" "free"; do
@@ -452,9 +450,9 @@ color_init_() { #? Check for theme file and set colors
 		rgb[red]=${rgb_start[0]}; rgb[green]=${rgb_start[1]}; rgb[blue]=${rgb_start[2]}
 
 		if [[ -z ${rgb_mid[*]} ]] && ((rgb_end[0]+rgb_end[1]+rgb_end[2]>rgb_start[0]+rgb_start[1]+rgb_start[2])); then
-			rgb_mid=( $((rgb_end[0]/2)) $((rgb_end[1]/2)) $((rgb_end[2]/2)) )
+			rgb_mid=( $(( rgb_start[0]+( (rgb_end[0]-rgb_start[0])/2) )) $((rgb_start[1]+( (rgb_end[1]-rgb_start[1])/2) )) $((rgb_start[2]+( (rgb_end[2]-rgb_start[2])/2) )) )
 		elif [[ -z ${rgb_mid[*]} ]]; then
-			rgb_mid=( $((rgb_start[0]/2)) $((rgb_start[1]/2)) $((rgb_start[2]/2)) )
+			rgb_mid=( $(( rgb_end[0]+( (rgb_start[0]-rgb_end[0])/2) )) $(( rgb_end[1]+( (rgb_start[1]-rgb_end[1])/2) )) $(( rgb_end[2]+( (rgb_start[2]-rgb_end[2])/2) )) )
 		fi
 
 		for((i=0;i<=100;i++,y=0)); do
