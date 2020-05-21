@@ -66,7 +66,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.8.31"
+declare version="0.8.32"
 
 #* Get latest version of BashTOP from https://github.com/aristocratos/bashtop
 
@@ -432,8 +432,8 @@ color_init_() { #? Check for theme file and set colors
 	if [[ -n ${theme[main_bg]} ]]; then theme[main_bg_dec]="${theme[main_bg]}"; theme[main_bg]=";48;2;${theme[main_bg]// /;}"; fi
 
 	#* Set colors from theme file if found and valid hexadecimal or integers, otherwise use default values
-	for color_name in ${set_color[@]}; do
-		if ! is_hex ${theme[$color_name]} && ! is_int ${theme[$color_name]}; then theme[${color_name}]="${!color_name}"; fi
+	for color_name in "${set_color[@]}"; do
+		if [[ -z ${theme[$color_name]} ]] || ! is_hex "${theme[$color_name]}" && ! is_int "${theme[$color_name]}"; then theme[${color_name}]="${!color_name}"; fi
 	done
 
 	box[cpu_color]="${theme[cpu_box]}"

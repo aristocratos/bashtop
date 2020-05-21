@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.8.32
+
+* Fixed: Error in theme error checking corrupting default theme
+
 ## v0.8.31
 
 * Fixed: Theme 2-color gradient generation
