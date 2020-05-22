@@ -49,6 +49,8 @@ Resource monitor that shows usage and stats for processor, memory, disks, networ
 * UI menu for changing all config file options.
 * Auto scaling graph for network usage.
 * Shows message in menu if new version is available
+* Shows current read and write speeds for disks
+* Multiple data collection methods which can be switched if running on Linux
 
 ## Themes
 
@@ -98,6 +100,8 @@ Will not display correctly on the standard terminal on OSX!
 Recommended alternative [iTerm2](https://www.iterm2.com/)
 
 Will also need to be run as superuser on OSX to display stats for processes not owned by user.
+
+The disk io stats on OSX shows iostats for all disks at the top instead of per disk because of limitations with psutil on OSX.
 
 For correct display, a terminal with support for:
 
@@ -279,7 +283,7 @@ Config files stored in "$HOME/.config/bashtop" folder
 #### bashtop.cfg: (auto generated if not found)
 
 ```bash
-#? Config file for bashtop v. 0.8.28
+#? Config file for bashtop v. 0.9.0
 
 #* Color theme, looks for a .theme file in "$HOME/.config/bashtop/themes", "Default" for builtin default theme
 color_theme="Default"
@@ -294,7 +298,7 @@ proc_sorting="cpu lazy"
 #* Reverse sorting order, "true" or "false"
 proc_reversed="false"
 
-#* Check cpu temperature, only works if "sensors" command is available and have values for "Package" and "Core"
+#* Check cpu temperature, only works if "sensors", "vcgencmd" or "osx-cpu-temp" commands is available
 check_temp="true"
 
 #* Draw a clock at top of screen, formatting according to strftime, empty string to disable
