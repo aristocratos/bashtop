@@ -1,8 +1,10 @@
 # ![bashtop](Imgs/logo-t.png)
 
 ![os](https://img.shields.io/badge/Os-Linux-yellow?logo=linux)
-![usage](https://img.shields.io/badge/Usage-Linux%20resource%20monitor-red)
+![os](https://img.shields.io/badge/Os-OSX-green?logo=apple)
+![usage](https://img.shields.io/badge/Usage-System%20resource%20monitor-red)
 ![Bash](https://img.shields.io/badge/Bash-v4.4%5E-green?logo=GNU%20bash)
+![Python](https://img.shields.io/badge/Python-v3.6%5E-purple?logo=python)
 ![bashtop_version](https://img.shields.io/github/v/tag/aristocratos/bashtop?label=version)
 [![Donate](https://img.shields.io/badge/-Donate-yellow?logo=paypal)](https://paypal.me/aristocratos)
 [![Sponsor](https://img.shields.io/badge/-Sponsor-red?logo=github)](https://github.com/sponsors/aristocratos)
@@ -16,8 +18,8 @@
 * [Themes](#themes)
 * [Upcoming](#upcoming) (Updated, Python port)
 * [Support and funding](#support-and-funding)
-* [Compatibility](#compatibility)
-* [Dependencies](#dependencies)
+* [Compatibility](#compatibility) (Updated, OSX Support)
+* [Dependencies](#dependencies) (Updated)
 * [Screenshots](#screenshots)
 * [Installation](#installation) (Updated)
 * [Configurability](#configurability)
@@ -58,20 +60,20 @@ Let me know if you want to contribute with new themes.
 
 ## Upcoming
 
-#### (Mac OSX and *BSD support)
+#### (Python port)
 
-Currently rewriting to use python3 [psutil](https://github.com/giampaolo/psutil) for data collection instead of linux specific tools.
-This will add python 3 and psutil as dependencies, but will make bashtop cross platform compatible.
+~~Currently rewriting to use python3 [psutil](https://github.com/giampaolo/psutil) for data collection instead of linux specific tools.
+This will add python 3 and psutil as dependencies, but will make bashtop cross platform compatible.~~
 
-~~This will be in a new branch called bashtop-psutil when I'm done with initial testing~~
+~~This will be integrated in to main version when done and add the possibility to switch between psutil and linux tools for users running linux.~~
 
-This will be integrated in to main version when done and add the possibility to switch between psutil and linux tools for users running linux.
+Bashtop is now Mac OS X compatible!
 
 #### Update
 
-Work on a complete python port will begin this summer. My aim is to keep it compatible with pypy3 for a lot of added efficiency.
+Work on a complete python port ~~will begin this summer~~ has begun. My aim is to keep it compatible with pypy3 for a lot of added efficiency.
 
-Bash(py)top?
+PyPyTop?
 
 ## Support and funding
 
@@ -90,7 +92,12 @@ Any support is greatly appreciated!
 
 ## Compatibility
 
-Should work on most modern linux distributions.
+Should work on most modern linux distributions and on Mac OS X.
+
+Will not display correctly on the standard terminal on OSX!
+Recommended alternative [iTerm2](https://www.iterm2.com/)
+
+Will also need to be run as superuser on OSX to display stats for processes not owned by user.
 
 For correct display, a terminal with support for:
 
@@ -109,24 +116,38 @@ Dropbear seems to not be able to set correct locale. So if accessing bashtop ove
 
 ## Dependencies
 
+## Linux and OSX
+
 **[bash](https://www.gnu.org/software/bash/)** (v4.4 or later) Script functionality will most probably break with earlier versions.
 Bash version 5 is highly recommended to make use of $EPOCHREALTIME variable instead of a lot of external date command calls.
 
-**[GNU Core Utilities](https://www.gnu.org/software/coreutils/)**
+**[GNU coreutils](https://www.gnu.org/software/coreutils/)**
 
-**[GNU Grep](https://www.gnu.org/software/grep/)**
+**[GNU sed](https://www.gnu.org/software/sed/)**
+
+## Linux using /proc for data collection
+
+**[GNU grep](https://www.gnu.org/software/grep/)**
 
 **[ps from procps-ng](https://gitlab.com/procps-ng/procps)** (v3.1.15 or later)
 
-**[sed](https://www.gnu.org/software/sed/)**
+**[GNU awk](https://www.gnu.org/software/gawk/)**
 
-**[awk](https://www.gnu.org/software/gawk/)**
+## OSX or Linux using psutil for data collecton
 
-(Optional) **[lm-sensors](https://github.com/lm-sensors/lm-sensors)** Needed to show CPU temperatures
+**[Python3](https://www.python.org/downloads/)** (v3.6 or later)
 
-(Optional) **[curl](https://curl.haxx.se/download.html)** (v7.16.2 or later) Needed if you want messages about updates and the ability to download themes.
+**[psutil python module](https://github.com/giampaolo/psutil)**
 
-(Optional) **[iostat (part of sysstat)](https://github.com/sysstat/sysstat)** Needed if you want disk read/write stats
+## Optionals for additional stats
+
+(Optional OSX) **[osx-cpu-temp](https://github.com/lavoiesl/osx-cpu-temp)** Needed to show CPU temperatures.
+
+(Optional Linux) **[lm-sensors](https://github.com/lm-sensors/lm-sensors)** Needed to show CPU temperatures.
+
+(Optional Linux) **[iostat (part of sysstat)](https://github.com/sysstat/sysstat)** Needed if you want disk read/write stats and are not using psutil data collection.
+
+(Optional OSX/Linux) **[curl](https://curl.haxx.se/download.html)** (v7.16.2 or later) Needed if you want messages about updates and the ability to download themes.
 
 ## Screenshots
 
@@ -141,20 +162,45 @@ Options menu.
 
 ## Installation
 
-#### Manual installation
+#### Dependencies installation OSX
 
-Copy or link "bashtop" into PATH, or install with Makefile:
-
->From cloned directory
+>Install homebrew if not already installed
 
 ``` bash
- sudo make install
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+```
+
+>Install dependencies
+
+``` bash
+brew install bash coreutils gnu-sed python3 git
+pip3 install psutil
+```
+
+>Install optional dependency osx-cpu-temp
+
+``` bash
+git clone https://github.com/lavoiesl/osx-cpu-temp.git
+cd osx-cpu-temp
+make
+sudo make install
+```
+
+#### Manual installation Linux and OSX
+
+
+>Clone and install
+
+``` bash
+git clone https://github.com/aristocratos/bashtop.git
+cd bashtop
+sudo make install
 ```
 
 >to uninstall it
 
 ``` bash
- sudo make uninstall
+sudo make uninstall
 ```
 
 #### Arch based
@@ -277,6 +323,9 @@ update_check="true"
 
 #* Enable graphs with double the horizontal resolution, increases cpu usage
 hires_graphs="false"
+
+#* Enable the use of psutil python3 module for data collection, default on OSX
+use_psutil="true"
 ```
 
 #### Command line options: (not yet implemented)
@@ -291,7 +340,7 @@ USAGE: bashtop
 Might finish off items out of order since I usually work on multiple at a time.
 
 - [x] Add options to change colors for text, graphs and meters.
-- [ ] Fix cross platform compatibility for Mac OSX and *BSD: Currently in testing.
+- [x] Fix cross platform compatibility for Mac OSX and *BSD: Working on OSX, not fully tested on *BSD.
 - [x] Add support for showing AMD cpu temperatures.
 - [x] Add option to show tree view of processes.
 - [x] Add option to reset network download/upload totals.
