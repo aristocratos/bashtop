@@ -50,7 +50,6 @@ bash_version_major=${BASH_VERSINFO[0]}
 bash_version_minor=${BASH_VERSINFO[1]}
 if [[ "$bash_version_major" -lt 4 ]] || [[ "$bash_version_major" == 4 && "$bash_version_minor" -lt 4 ]]; then
 	echo "ERROR: Bash 4.4 or later is required (you are using Bash $bash_version_major.$bash_version_minor)."
-	echo "       Consider upgrading your distribution to get a more recent Bash version."
 	exit 1
 fi
 
@@ -75,7 +74,7 @@ banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
 if [[ $system == "MacOS" ]]; then tool_prefix="g"; fi
 
-for tool in "dd" "df" "stty" "sed" "uptime"; do
+for tool in "dd" "df" "stty" "sed"; do
 	declare -n set_tool="${tool}"
 	set_tool="${tool_prefix}${tool}"
 done
@@ -130,7 +129,7 @@ update_check="true"
 #* Enable graphs with double the horizontal resolution, increases cpu usage
 hires_graphs="false"
 
-#* Enable the use of psutil python module for data collection, default when not on linux
+#* Enable the use of psutil python3 module for data collection, default on OSX
 use_psutil="true"
 
 aaz_config() { : ; } #! Do not remove this line!
@@ -168,14 +167,14 @@ declare -A cpu mem swap proc net box theme disks
 declare -a cpu_usage cpu_graph_a cpu_graph_b color_meter color_temp_graph color_cpu color_cpu_graph cpu_history color_mem_graph color_swap_graph
 declare -a mem_history swap_history net_history_download net_history_upload mem_graph swap_graph proc_array download_graph upload_graph trace_array
 declare resized=1 size_error clock tty_width tty_height hex="16#" cpu_p_box swap_on=1 draw_out esc_character boxes_out last_screen clock_out update_string
-declare -a options_array=("color_theme" "update_ms" "proc_sorting" "check_temp" "draw_clock" "background_update" "custom_cpu_name" "proc_per_core"
+declare -a options_array=("color_theme" "update_ms" "use_psutil" "proc_sorting" "check_temp" "draw_clock" "background_update" "custom_cpu_name" "proc_per_core"
 		"proc_reversed" "proc_gradient" "disks_filter" "hires_graphs" "net_totals_reset" "update_check" "error_logging")
 declare -a save_array=(${options_array[*]/net_totals_reset/})
 declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" "tree" )
 declare -a detail_graph detail_history detail_mem_history disks_io
 declare -A pid_history
 declare time_left timestamp_start timestamp_end timestamp_input_start timestamp_input_end time_string mem_out proc_misc prev_screen pause_screen filter input_to_filter
-declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2 proc_out curled git_version has_iostat
+declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2 proc_out curled git_version has_iostat sensor_comm
 declare esc_character tab backspace sleepy late_update skip_process_draw winches quitting theme_int notifier saved_stty nic_int net_misc skip_net_draw
 declare -a disks_free disks_total disks_name disks_free_percent saved_key themes nic_list old_procs
 printf -v esc_character "\u1b"
@@ -276,12 +275,20 @@ init_() { #? Collect needed information and set options before startig main loop
 	#* Set terminal options, save and clear screen
 	saved_stty="$(${stty} -g)"
 	tput smcup
+	echo -en "\033]0;BashTOP\a"
 	tput clear
 	${stty} -echo
 	tput civis
 
-	#* Check if "sensors" command is available, if not, disable temperature collection
-	if [[ $check_temp != false ]] && command -v sensors >/dev/null 2>&1; then check_temp="true"; else check_temp="false"; fi
+
+	#* Check if "sensors", "osx-cpu-temp" or "vcgencmd" commands is available, if not, disable temperature collection
+	if [[ $check_temp == true ]]; then
+		local checker
+		for checker in "vcgencmd" "sensors" "osx-cpu-temp"; do
+			if command -v "${checker}" >/dev/null 2>&1; then sensor_comm="${checker}"; fi
+		done
+		if [[ -z $sensor_comm ]]; then check_temp="false"; fi
+	fi
 
 	#* Check if "curl" command is available, if not, disable update check and theme downloads
 	if command -v curl >/dev/null 2>&1; then curled=1; else unset curled; fi
@@ -512,6 +519,7 @@ quit_() { #? Clean exit
 	tput rmcup
 	tput cnorm
 	${stty} "${saved_stty}"
+	echo -en "\033]0;\a"
 
 	#* Save any changed values to config file
 	if [[ $config_file != "/dev/null" ]]; then
@@ -526,6 +534,7 @@ sleep_() { #? Restore terminal options, stop and send to background if caught SI
 	tput rmcup
 	tput cnorm
 	${stty} "${saved_stty}"
+	echo -en "\033]0;\a"
 
 	kill -s SIGSTOP $$
 }
@@ -533,6 +542,7 @@ sleep_() { #? Restore terminal options, stop and send to background if caught SI
 resume_() { #? Set terminal options and resume if caught SIGCONT ('fg' from terminal)
 	sleepy=0
 	tput smcup
+	echo -en "\033]0;BashTOP\a"
 	tput clear
 	${stty} -echo
 	tput civis
@@ -1966,7 +1976,7 @@ EOF
 	#* Get load average and uptime from uptime command
 	if [[ $use_psutil == false ]]; then
 		local uptime_var
-		read -r uptime_var < <(${uptime} 2>/dev/null || true)
+		read -r uptime_var < <(uptime 2>/dev/null || true)
 		cpu[load_avg]="${uptime_var#*average: }"
 		cpu[load_avg]="${cpu[load_avg]//,/}"
 		cpu[uptime]="${uptime_var#*up }"
@@ -1978,11 +1988,15 @@ EOF
 }
 
 collect_cpu_temps() { #? Collect cpu temperatures
-	local unit c div threads=${cpu[threads]} sens_var i it ccd_value breaking core_value
+	local unit c div threads=${cpu[threads]} sens_var i it ccd_value breaking core_value misc_var
 	local -a ccd_array core_array
 
 	#* Fetch output from "sensors" command to a variable
-	read -rd '' sens_var < <(sensors) ||true
+	if [[ $sensor_comm == "sensors" ]]; then
+		read -rd '' sens_var < <(sensors 2>/dev/null || true) || true
+	elif [[ $sensor_comm != "sensors" ]]; then
+		read -r misc_var < <(${sensor_comm} measure_temp 2>/dev/null ||true)
+	fi
 
 	#* Get CPU package temp for intel cpus
 	if get_value -v 'cpu[temp_0]' -sv "sens_var" -k "Package*:" -mk 1 || get_value -v 'cpu[temp_0]' -sv "sens_var" -k "Core 0:" -mk 1; then
@@ -2037,11 +2051,9 @@ collect_cpu_temps() { #? Collect cpu temperatures
 			z=$((z+i))
 		done
 
-	#* Get CPU package temp for Rapberry Pi cpus
-	elif command -v vcgencmd >/dev/null 2>&1; then
-		read -r cpu[temp_0] < <(vcgencmd measure_temp 2>/dev/null ||true) ||true
-		if [[ -z ${cpu[temp_0]} ]]; then cpu[temp_0]="temp=0.0°C"; fi
-		cpu[temp_0]="${cpu[temp_0]#temp=}"
+	#* Get CPU package temp for Rapberry Pi cpus and for OSX
+	elif [[ $sensor_comm != "sensors" && -n ${misc_var} ]]; then
+		cpu[temp_0]="${misc_var#temp=}"
 		cpu[temp_unit]="°${cpu[temp_0]:(-1)}"; cpu[temp_0]=${cpu[temp_0]%.*}; if [[ ${cpu[temp_0]::1} == "+" ]]; then cpu[temp_0]=${cpu[temp_0]#+}; fi
 		cpu[temp_high]="75"; cpu[temp_crit]=$((cpu[temp_high]+10))
 
@@ -2050,16 +2062,17 @@ collect_cpu_temps() { #? Collect cpu temperatures
 			cpu[temp_${i}]="${cpu[temp_0]}"
 		done
 
-
 	#* If unsuccessful turn off temperature checking
 	else
 		check_temp="false"
+		resized=1
 	fi
 
 	if [[ $check_temp == true ]]; then
-		local tmp_temp="$(( (${cpu[temp_${i}]}-20)*100/(cpu[temp_high]-20) ))"
-		if ((tmp_temp>100)); then tmp_temp=100; elif ((tmp_temp<0)); then tmp_temp=0; fi
+		local tmp_temp
 		for((i=0;i<=threads;i++)); do
+			tmp_temp="$(( (${cpu[temp_${i}]}-20)*100/(cpu[temp_high]-20) ))"
+			if ((tmp_temp>100)); then tmp_temp=100; elif ((tmp_temp<0)); then tmp_temp=0; fi
 			local -n cpu_temp_history="cpu_temp_history_$i"
 			if ((${#cpu_temp_history[@]}>20)); then
 				cpu_temp_history=( "${cpu_temp_history[@]:10}" "${tmp_temp}")
@@ -3099,9 +3112,10 @@ draw_mem() { #? Draw mem, swap and disk statistics
 	if ((mem[counter]>0 & resized==0)); then return; fi
 
 	local i swap_used_meter swap_free_meter mem_available_meter mem_free_meter mem_used_meter mem_cached_meter normal_color="${theme[main_fg]}" value_text
-	local meter_mod_w meter_mod_pos value type m_title meter_options
-	local -a types=("mem") values=("used" "available" "free")
-	if [[ $system != "MacOS" ]]; then values+=("cached"); fi
+	local meter_mod_w meter_mod_pos value type m_title meter_options values
+	local -a types=("mem")
+	if [[ $system == "MacOS" ]]; then values="used available free"
+	else values="used available cached free"; fi
 	unset mem_out
 
 	if [[ -n $swap_on ]]; then types+=("swap"); fi
@@ -3124,9 +3138,8 @@ draw_mem() { #? Draw mem, swap and disk statistics
 		#* Print name of type and total amount in humanized base 2 bytes
 		print -v mem_out -m $y_pos $m_col -rs -fg ${theme[title]} -b -jl 9 -t "${m_title^}:" -m $((y_pos++)) $((mem_line-10)) -jr 9 -trans -t " ${type_name[total_string]::$((m_width-11))}"
 
-		for value in "${values[@]}"; do
-			if [[ $type == "swap" && $value == "available" ]]; then value="free"
-			elif [[ $type == "swap" && $value == "cached" ]]; then break 2; fi
+		for value in ${values}; do
+			if [[ $type == "swap" && $value =~ available|cached ]]; then continue; fi
 
 			value_text="${value::$((m_width-12))}"
 			if ((height<14)); then value_text="${value_text::5}"; fi
@@ -3266,7 +3279,7 @@ draw_processes() { #? Draw processes and values to screen
 					print -v proc_det2 -m $((d_line+i)) ${d_col} -fg ${box[processes_color]} -t "│" -r $((detail_graph_width+1)) -fg ${theme[div_line]} -t "│" -r $((right_width+1)) -fg ${box[processes_color]} -t "│"
 				done
 
-				print -v proc_det2 -m ${d_line} ${d_col} -t "┌" -m ${d_line} $((d_col+d_width)) -t "┐"
+				print -v proc_det2 -m ${d_line} ${d_col} -t "┌" -m ${d_line} $((d_col+d_width-1)) -t "┐"
 				print -v proc_det2 -m ${d_line} $((d_col+2+detail_graph_width)) -t "┬" -m $((d_line+d_height)) $((d_col+detail_graph_width+2)) -t "┴"
 				print -v proc_det2 -m $((d_line+d_height)) ${d_col} -t "├" -r 1 -t "┤" -fg ${theme[title]} -b -t "${this_box}" -rs -fg ${box[processes_color]} -t "├" -r $((d_width-5-${#this_box})) -t "┤"
 				print -v proc_det2 -m ${d_line} $((d_col+2)) -t "┤" -fg ${theme[title]} -b -t "${proc[detailed_name],,}" -rs -fg ${box[processes_color]} -t "├"
@@ -3810,6 +3823,12 @@ options_() { #? Shows the options overlay
 						"loops processing time."
 						" "
 						"Max value: 86400000 ms = 24 hours.")
+	desc_use_psutil=(	"Enable the use of psutil python3 module for"
+						"data collection, default on Mac OSX"
+						" "
+						"True or false."
+						" "
+						"Can only be switched off when on Linux.")
 	desc_proc_sorting=(	"Processes sorting."
 						"Valid values are \"pid\", \"program\", \"arguments\","
 						"\"threads\", \"user\", \"memory\", \"cpu lazy\""
@@ -4064,7 +4083,7 @@ options_() { #? Shows the options overlay
 						if ((net[reset]==1)); then net_totals_reset="Off"; net[reset]=0
 						else net_totals_reset="On"; net[reset]=1; fi
 					;;
-				"check_temp"*|"error_logging"*|"background_update"*|"proc_reversed"*|"proc_gradient"*|"proc_per_core"*|"update_check"*|"hires_graphs"*)
+				"check_temp"*|"error_logging"*|"background_update"*|"proc_reversed"*|"proc_gradient"*|"proc_per_core"*|"update_check"*|"hires_graphs"*|"use_psutil"*)
 						local -n selected_var=${selected}
 						if [[ ${selected_var} == "true" ]]; then
 							selected_var="false"
@@ -4073,8 +4092,15 @@ options_() { #? Shows the options overlay
 							selected_var="true"
 							if [[ $selected == "proc_reversed" ]]; then proc[order_change]=1; proc[reverse]="+"; fi
 						fi
-						if [[ $selected == "check_temp" ]] && command -v sensors >/dev/null 2>&1; then resized=1
-						else check_temp="false"; fi
+						if [[ $selected == "check_temp" ]]; then
+							local checker
+							for checker in "vcgencmd" "sensors" "osx-cpu-temp"; do
+								if command -v "${checker}" >/dev/null 2>&1; then sensor_comm="${checker}"; fi
+							done
+							if [[ -z $sensor_comm ]]; then check_temp="false"; fi
+						fi
+						if [[ $selected == "use_psutil" && $system != "Linux" ]]; then use_psutil="true"; fi
+
 					;;
 				"proc_sorting right")
 						if ((proc[sorting_int]<${#sorting[@]}-1)); then ((++proc[sorting_int]))
@@ -4661,8 +4687,6 @@ trap 'quitting=1; time_left=0' SIGINT SIGQUIT SIGTERM
 trap 'resized=1; time_left=0' SIGWINCH
 trap 'sleepy=1; time_left=0' SIGTSTP
 trap 'resume_' SIGCONT
-
-
 
 #* Set up error logging to file if enabled
 if [[ $error_logging == true ]]; then
