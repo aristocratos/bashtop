@@ -40,7 +40,7 @@ case "$(uname -s)" in
 	MINGW*)  system=MinGw;;
 	*)       system="Other"
 esac
-if [[ "$system" != "Linux" ]]; then
+if [[ "$system" != "Linux" && "$system" != "MacOS" ]]; then
 	echo "This version of bashtop does not support $system platform."
 	exit 1
 fi
@@ -72,6 +72,15 @@ declare version="0.8.32"
 
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
+
+if [[ $system == "MacOS" ]]; then tool_prefix="g"; fi
+
+for tool in "dd" "df" "stty" "sed" "uptime"; do
+	declare -n set_tool="${tool}"
+	set_tool="${tool_prefix}${tool}"
+done
+
+read tty_height tty_width < <(${stty} size)
 
 #? Start default variables------------------------------------------------------------------------------>
 #? These values are used to create "$HOME/.config/bashtop/bashtop.cfg"
@@ -121,6 +130,9 @@ update_check="true"
 #* Enable graphs with double the horizontal resolution, increases cpu usage
 hires_graphs="false"
 
+#* Enable the use of psutil python module for data collection, default when not on linux
+use_psutil="true"
+
 aaz_config() { : ; } #! Do not remove this line!
 #? End default variables-------------------------------------------------------------------------------->
 
@@ -160,11 +172,12 @@ declare -a options_array=("color_theme" "update_ms" "proc_sorting" "check_temp" 
 		"proc_reversed" "proc_gradient" "disks_filter" "hires_graphs" "net_totals_reset" "update_check" "error_logging")
 declare -a save_array=(${options_array[*]/net_totals_reset/})
 declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" "tree" )
-declare -a pid_history detail_graph detail_history detail_mem_history
+declare -a detail_graph detail_history detail_mem_history disks_io
+declare -A pid_history
 declare time_left timestamp_start timestamp_end timestamp_input_start timestamp_input_end time_string mem_out proc_misc prev_screen pause_screen filter input_to_filter
 declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2 proc_out curled git_version has_iostat
-declare esc_character tab backspace sleepy late_update skip_process_draw winches quitting theme_int notifier saved_stty
-declare -a disks_free disks_total disks_name disks_free_percent disks_io saved_key themes
+declare esc_character tab backspace sleepy late_update skip_process_draw winches quitting theme_int notifier saved_stty nic_int net_misc skip_net_draw
+declare -a disks_free disks_total disks_name disks_free_percent saved_key themes nic_list old_procs
 printf -v esc_character "\u1b"
 printf -v tab "\u09"
 printf -v backspace "\u7F" #? Backspace set to DELETE
@@ -173,8 +186,6 @@ printf -v backspace_real "\u08" #? Real backspace
 printf -v enter_key "\uD"
 printf -v ctrl_c "\u03"
 printf -v ctrl_z "\u1A"
-
-read tty_height tty_width < <(stty size)
 
 #* Symbols for graphs
 declare -a graph_symbol
@@ -263,11 +274,11 @@ fi
 init_() { #? Collect needed information and set options before startig main loop
 	local i
 	#* Set terminal options, save and clear screen
-	saved_stty="$(stty -g)"
+	saved_stty="$(${stty} -g)"
 	tput smcup
-	stty -echo
+	tput clear
+	${stty} -echo
 	tput civis
-	keys_stty="$(stty -g)"
 
 	#* Check if "sensors" command is available, if not, disable temperature collection
 	if [[ $check_temp != false ]] && command -v sensors >/dev/null 2>&1; then check_temp="true"; else check_temp="false"; fi
@@ -279,7 +290,7 @@ init_() { #? Collect needed information and set options before startig main loop
 	if [[ -n $curled ]] && command -v notify-send >/dev/null 2>&1; then notifier=1; else unset notifier; fi
 
 	#* Check if "iostat" command is available, if not, disable disk io stat collection
-	if command -v iostat >/dev/null 2>&1; then has_iostat=1; else unset has_iostat; fi
+	if [[ $use_psutil == false ]] && command -v iostat >/dev/null 2>&1; then has_iostat=1; else unset has_iostat; fi
 
 	#* Get number of cores and cpu threads
 	get_cpu_info
@@ -289,7 +300,7 @@ init_() { #? Collect needed information and set options before startig main loop
 
 	#* Get processor BCLK
 	local param_var
-	if [[ -e /usr/include/asm-generic/param.h ]]; then
+	if [[ $use_psutil == false ]] && [[ -e /usr/include/asm-generic/param.h ]]; then
 		param_var="$(</usr/include/asm-generic/param.h)"
 		get_value -v 'cpu[hz]' -sv "param_var" -k "define HZ" -i
 	else
@@ -297,9 +308,13 @@ init_() { #? Collect needed information and set options before startig main loop
 	fi
 
 	#* Get max pid value and length
-	proc[pid_max]="$(</proc/sys/kernel/pid_max)"
-	proc[pid_len]=${#proc[pid_max]}
-	if [[ ${proc[pid_len]} -lt 5 ]]; then proc[pid_len]=5; fi
+	if [[ $use_psutil == false ]];  then
+		proc[pid_max]="$(</proc/sys/kernel/pid_max)"
+		proc[pid_len]=${#proc[pid_max]}
+		if [[ ${proc[pid_len]} -lt 5 ]]; then proc[pid_len]=5; fi
+	else
+		proc[pid_len]="7"
+	fi
 
 	#* Wait for resize if terminal size is smaller then 80x24
 	if (($tty_width<80 | $tty_height<24)); then resized; fi
@@ -493,9 +508,10 @@ color_init_() { #? Check for theme file and set colors
 
 quit_() { #? Clean exit
 	#* Restore terminal options and screen
+	tput clear
 	tput rmcup
 	tput cnorm
-	stty "${saved_stty}"
+	${stty} "${saved_stty}"
 
 	#* Save any changed values to config file
 	if [[ $config_file != "/dev/null" ]]; then
@@ -506,9 +522,10 @@ quit_() { #? Clean exit
 }
 
 sleep_() { #? Restore terminal options, stop and send to background if caught SIGTSTP (ctrl+z)
+	tput clear
 	tput rmcup
 	tput cnorm
-	stty "${saved_stty}"
+	${stty} "${saved_stty}"
 
 	kill -s SIGSTOP $$
 }
@@ -516,7 +533,8 @@ sleep_() { #? Restore terminal options, stop and send to background if caught SI
 resume_() { #? Set terminal options and resume if caught SIGCONT ('fg' from terminal)
 	sleepy=0
 	tput smcup
-	stty -echo
+	tput clear
+	${stty} -echo
 	tput civis
 
 	if [[ -n $pause_screen ]]; then
@@ -548,7 +566,7 @@ resized() { #? Get new terminal size if terminal is resized
 	resized=1
 	unset winches
 	while ((++winches<5)); do
-		read tty_height tty_width < <(stty size)
+		read tty_height tty_width < <(${stty} size)
 		if (($tty_width<80 | $tty_height<24)); then
 			size_error_msg
 			winches=0
@@ -556,7 +574,7 @@ resized() { #? Get new terminal size if terminal is resized
 			create_box -w 30 -h 3 -c 1 -l 1 -lc "#EE2020" -title "resizing"
 			print -jc 28 -fg ${theme[title]} "New size: ${tty_width}x${tty_height}"
 			sleep 0.2
-			if [[ $(stty size) != "$tty_height $tty_width" ]]; then winches=0; fi
+			if [[ $(${stty} size) != "$tty_height $tty_width" ]]; then winches=0; fi
 		fi
 	done
 }
@@ -568,7 +586,7 @@ size_error_msg() { #? Shows error message if terminal size is below 80x25
 	create_box -full -lc "#EE2020" -title "resize window"
 	print -rs -m $((tty_height/2-1)) 2 -fg ${theme[title]} -c -l 11 "Current size: " -bg "#00" -fg dd2020 -d 1 -c "${tty_width}x${tty_height}" -rs
 	print -d 1 -fg ${theme[title]} -c -l 15 "Need to be atleast:" -bg "#00" -fg 30dd50 -d 1 -c "80x24" -rs
-	while [[ $(stty size) == "$tty_height $tty_width" ]]; do sleep 0.2; if [[ -n $quitting ]]; then quit_; fi ; done
+	while [[ $(${stty} size) == "$tty_height $tty_width" ]]; do sleep 0.2; if [[ -n $quitting ]]; then quit_; fi ; done
 
 }
 
@@ -607,7 +625,7 @@ save_config() { #? Saves variables to config file if not same, usage: save_confi
 				new="${var}=\"${!var}\""
 				original="${original//'/'/'\/'}"
 				new="${new//'/'/'\/'}"
-				sed -i "s/${original}/${new}/" "${config_file}"
+				${sed} -i "s/${original}/${new}/" "${config_file}"
 			fi
 		else
 			echo "${var}=\"${!var}\"" >> "$config_file"
@@ -763,20 +781,36 @@ floating_humanizer() { 	#? Convert integer to floating point and scale up in ste
 }
 
 get_cpu_info() {
-	local lscpu_var param_var
-	lscpu_var="$(lscpu)"
-	if [[ -z ${cpu[threads]} || -z ${cpu[cores]} ]]; then
-		if ! get_value -v 'cpu[threads]' -sv "lscpu_var" -k "CPU(s):" -i || [[ ${cpu[threads]} == "0" ]]; then
-			cpu[threads]="$(nproc 2>/dev/null ||true)"
-			if [[ -z ${cpu[threads]} ]]; then cpu[threads]="1"; fi
-			cpu[cores]=${cpu[threads]}
-		else
-		get_value -v 'cpu[cores]' -sv "lscpu_var" -k "Core(s)" -i
+	local lscpu_var
+	if [[ $use_psutil == true ]]; then
+		if [[ -z ${cpu[threads]} || -z ${cpu[cores]} ]]; then
+			read cpu[threads] cpu[cores] < <(python3 -c "import psutil; print(psutil.cpu_count(logical=True), psutil.cpu_count(logical=False))")
+		fi
+
+		if [[ $system == "MacOS" ]]; then
+			lscpu_var="Model name:  $(sysctl -n machdep.cpu.brand_string)"
+		elif command -v lscpu >/dev/null 2>&1; then
+			lscpu_var="$(lscpu)"
+		fi
+
+	else
+		if command -v lscpu >/dev/null 2>&1; then lscpu_var="$(lscpu)"; fi
+		if [[ -z ${cpu[threads]} || -z ${cpu[cores]} ]]; then
+			if ! get_value -v 'cpu[threads]' -sv "lscpu_var" -k "CPU(s):" -i || [[ ${cpu[threads]} == "0" ]]; then
+				cpu[threads]="$(nproc 2>/dev/null ||true)"
+				if [[ -z ${cpu[threads]} ]]; then cpu[threads]="1"; fi
+				cpu[cores]=${cpu[threads]}
+			else
+			get_value -v 'cpu[cores]' -sv "lscpu_var" -k "Core(s)" -i
+			fi
 		fi
 	fi
+
 	if [[ -z $custom_cpu_name ]]; then
 		if ! get_value -v 'cpu[model]' -sv "lscpu_var" -k "Model name:" -a -b -k "CPU" -mk -1; then
-			get_value -v 'cpu[model]' -sv "lscpu_var" -k "Model name:" -r "  "
+			if ! get_value -v 'cpu[model]' -sv "lscpu_var" -k "Model name:" -r "  "; then
+				cpu[model]="cpu"
+			fi
 		fi
 	else
 		cpu[model]="${custom_cpu_name}"
@@ -894,9 +928,48 @@ get_themes() {
 	done
 }
 
-get_net_device() { #? Check for internet connection and name of network device
-	if ! get_value -v 'net[device]' -ss "$(ip route get 1.1.1.1 2>/dev/null)" -k "dev" -mk 1; then net[no_device]=1
-	else unset 'net[no_device]'; collect_net init; fi
+get_net_device() { #? Check for internet connection, name of default network device and create list of all devices
+	if [[ $use_psutil == true ]]; then get_net_device_psutil; return; fi
+	local -a netdev
+	local ndline
+	if ! get_value -v 'net[device]' -ss "$(ip route get 1.1.1.1 2>/dev/null)" -k "dev" -mk 1; then
+		net[no_device]=1
+	else
+		unset 'net[no_device]' 'nic_list[@]' nic_int
+		readarray -t netdev </proc/net/dev
+		for ndline in "${netdev[@]:2}"; do
+			ndline="${ndline%:*}"; ndline="${ndline// /}"
+			nic_list+=("${ndline}")
+			if [[ ${ndline} == "${net[device]}" ]]; then
+				nic_int=$((${#nic_list[@]}-1))
+			fi
+		done
+		collect_net init
+	fi
+}
+
+get_net_device_psutil() {
+	unset 'nic_list[@]'
+	readarray -t nic_list < <(python3 - 2>/dev/null <<EOF
+import psutil
+
+io_all = psutil.net_io_counters(pernic=True)
+up_stat = psutil.net_if_stats()
+
+for nic in sorted(psutil.net_if_addrs(), key=lambda nic: (io_all[nic].bytes_recv + io_all[nic].bytes_sent), reverse=True):
+	if up_stat[nic].isup is False:
+		continue
+	print(nic)
+EOF
+	)
+	net[device]="${nic_list[0]}"
+	nic_int=0
+	if [[ -z ${net[device]} ]]; then
+		net[no_device]=1
+	else
+		unset 'net[no_device]'
+		collect_net init
+	fi
 }
 
 cur_pos() { #? Get cursor postion, argument "line" prints current line, argument "col" prints current column, no argument prints both in format "line column"
@@ -1811,11 +1884,44 @@ print() {	#? Print text, set true-color foreground/background color, add effects
 
 collect_cpu() { #? Collects cpu stats from /proc/stat and compares with previously collected sample to get cpu usage
 				#? Returns cpu usage in array "cpu_usage", index 0 is usage for all threads, following indices corresponds to thread usage in multicore/hyperthreading cpus
-	local stat_array freq thread i threads=${cpu[threads]}
+	local freq thread i threads=${cpu[threads]}
+	local -a stat_array stat_input
 
-	#* Get values from /proc/stat, compare to get cpu usage
+	#* Get values from /proc/stat or psutil, compare to get cpu usage
+	if [[ $use_psutil == true ]]; then
+		readarray -t stat_input < <(python3 - << EOF
+import os, psutil
+from datetime import timedelta
+from time import time
+
+cpu = psutil.cpu_times(percpu=False)
+threads = psutil.cpu_times(percpu=True)
+x = 0
+
+print('cpu', int(cpu.user*10), int(cpu.nice*10), int(cpu.system*10), int(cpu.idle*10))
+for thread in threads:
+	print(f'cpu{x}', int(thread.user*10), int(thread.nice*10), int(thread.system*10), int(thread.idle*10))
+	x += 1
+
+print(round(psutil.cpu_freq().current))
+
+print(str(timedelta(seconds=round(time()-psutil.boot_time(),0)))[:-3])
+
+for lavg in os.getloadavg():
+	print(round(lavg, 2), ' ', end='')
+print()
+EOF
+		)
+		cpu[freq]="${stat_input[-3]}"
+		cpu[uptime]="${stat_input[-2]}"
+		cpu[load_avg]="${stat_input[-1]}"
+	else
+		readarray -t stat_input </proc/stat
+	fi
+
 	thread=0
-	while ((thread<threads+1)) && read -ra stat_array; do
+	while ((thread<threads+1)); do
+		stat_array=(${stat_input[thread]})
 		cpu[new_${thread}]=$((stat_array[1]+stat_array[2]+stat_array[3]+stat_array[4]))
 		cpu[idle_new_${thread}]=${stat_array[4]}
 		if [[ -n ${cpu[old_${thread}]} && -n ${cpu[idle_new_${thread}]} && ${cpu[old_${thread}]} -ne ${cpu[new_${thread}]} ]]; then
@@ -1824,7 +1930,7 @@ collect_cpu() { #? Collects cpu stats from /proc/stat and compares with previous
 		cpu[old_${thread}]=${cpu[new_${thread}]}
 		cpu[idle_old_${thread}]=${cpu[idle_new_${thread}]}
 		((++thread))
-	done </proc/stat
+	done
 
 	#* Copy cpu usage for cpu package and cores to cpu history arrays and trim earlier entries
 	if ((${#cpu_history[@]}>tty_width*2)); then
@@ -1843,7 +1949,7 @@ collect_cpu() { #? Collects cpu stats from /proc/stat and compares with previous
 	done
 
 	#* Get current cpu frequency from "/proc/cpuinfo" and convert to appropriate unit
-	if [[ -z ${cpu[no_cpu_info]} ]] && ! get_value -v 'cpu[freq]' -sf "/proc/cpuinfo" -k "cpu MHz" -i; then
+	if [[ $use_psutil == false && -z ${cpu[no_cpu_info]} ]] && ! get_value -v 'cpu[freq]' -sf "/proc/cpuinfo" -k "cpu MHz" -i; then
 		cpu[no_cpu_info]=1
 	fi
 
@@ -1858,12 +1964,14 @@ collect_cpu() { #? Collects cpu stats from /proc/stat and compares with previous
 	else cpu[freq_string]=""; fi
 
 	#* Get load average and uptime from uptime command
-	local uptime_var
-	read -r uptime_var < <(uptime 2>/dev/null || true)
-	cpu[load_avg]="${uptime_var#*average: }"
-	cpu[load_avg]="${cpu[load_avg]//,/}"
-	cpu[uptime]="${uptime_var#*up }"
-	cpu[uptime]="${cpu[uptime]%%,  *}"
+	if [[ $use_psutil == false ]]; then
+		local uptime_var
+		read -r uptime_var < <(${uptime} 2>/dev/null || true)
+		cpu[load_avg]="${uptime_var#*average: }"
+		cpu[load_avg]="${cpu[load_avg]//,/}"
+		cpu[uptime]="${uptime_var#*up }"
+		cpu[uptime]="${cpu[uptime]%%,  *}"
+	fi
 
 	#* Collect cpu temps if enabled
 	if [[ $check_temp == true ]]; then collect_cpu_temps; fi
@@ -1971,16 +2079,37 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 	local i tmp value array mem_info height=$((box[mem_height]-2)) skip filter_value
 	local -a mem_array swap_array available=("mem")
 
-	#* Get memory and swap information from "/proc/meminfo" and calculate percentages
-	read -rd '' mem_info </proc/meminfo ||true
-
-	get_value -v 'mem[total]' -sv "mem_info" -k "MemTotal:" -i
-	get_value -v 'mem[free]' -sv "mem_info" -k "MemFree:" -i
-	if ! get_value -v 'mem[available]' -sv "mem_info" -k "MemAvailable:" -i; then
-		get_value -v 'mem[available]' -sv "mem_info" -k "Inactive:" -i
-		mem[available]=$((mem[available]+mem[free]))
+	#* Get memory and swap information from "/proc/meminfo" or psutil and calculate percentages
+	if [[ $use_psutil == true ]]; then
+		read mem[total] mem[free] mem[available] mem[cached] swap[total] swap[free] < <(python3 - <<EOF
+import psutil
+mem = psutil.virtual_memory()
+swap = psutil.swap_memory()
+try:
+	cmem = mem.cached>>10
+except:
+	cmem = 0
+print(mem.total>>10, mem.free>>10, mem.available>>10, cmem, swap.total>>10, swap.free>>10)
+EOF
+		)
+		if [[ -n $swap_on && -n ${swap[total]} ]] && ((swap[total]>0)); then
+			swap[free_percent]=$((swap[free]*100/swap[total]))
+			swap[used]=$((swap[total]-swap[free]))
+			swap[used_percent]=$((swap[used]*100/swap[total]))
+			available+=("swap")
+		else
+			unset swap_on
+		fi
+	else
+		read -rd '' mem_info </proc/meminfo ||true
+		get_value -v 'mem[total]' -sv "mem_info" -k "MemTotal:" -i
+		get_value -v 'mem[free]' -sv "mem_info" -k "MemFree:" -i
+		if ! get_value -v 'mem[available]' -sv "mem_info" -k "MemAvailable:" -i; then
+			get_value -v 'mem[available]' -sv "mem_info" -k "Inactive:" -i
+			mem[available]=$((mem[available]+mem[free]))
+		fi
+		get_value -v 'mem[cached]' -sv "mem_info" -k "Cached:" -i
 	fi
-	get_value -v 'mem[cached]' -sv "mem_info" -k "Cached:" -i
 
 	mem[available_percent]=$((mem[available]*100/mem[total]))
 	mem[used]=$((mem[total]-mem[available]))
@@ -1988,7 +2117,7 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 	mem[free_percent]=$((mem[free]*100/mem[total]))
 	mem[cached_percent]=$((mem[cached]*100/mem[total]))
 
-	if [[ -n $swap_on ]] && get_value -v swap[total] -sv "mem_info" -k "SwapTotal:" -i && ((swap[total]>0)); then
+	if [[ -n $swap_on && $use_psutil == false ]] && get_value -v swap[total] -sv "mem_info" -k "SwapTotal:" -i && ((swap[total]>0)); then
 		get_value -v 'swap[free]' -sv "mem_info" -k "SwapFree:" -i
 		swap[free_percent]=$((swap[free]*100/swap[total]))
 
@@ -1996,7 +2125,7 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 		swap[used_percent]=$((swap[used]*100/swap[total]))
 
 		available+=("swap")
-	else
+	elif [[ $use_psutil == false ]]; then
 		unset swap_on
 	fi
 
@@ -2013,9 +2142,10 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 	local df_array df_line line_array dev_path dev_name iostat_var disk_read disk_write disk_io_string
 	local -a device_array iostat_array
 	unset 'disks_free[@]' 'disks_used[@]' 'disks_used_percent[@]' 'disks_total[@]' 'disks_name[@]' 'disks_free_percent[@]' 'disks_io[@]'
-	readarray -t df_array < <(df -x squashfs -x tmpfs -x devtmpfs -x overlay)
+	readarray -t df_array < <(${df} -x squashfs -x tmpfs -x devtmpfs -x overlay 2>/dev/null || true)
 	for df_line in "${df_array[@]:1}"; do
 		line_array=(${df_line})
+		if ! is_int "${line_array[2]}"; then continue; fi
 
 		if [[ ${line_array[5]} == "/" ]]; then disks_name+=("root")
 		else disks_name+=("${line_array[5]##*/}"); fi
@@ -2035,15 +2165,22 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 			disks_free+=("$(floating_humanizer -s 1 -B ${line_array[3]})")
 			disks_free_percent+=("$((100-${line_array[4]%'%'}))")
 
-			#* Get read/write stats for disk if "iostat" is available
-			if [[ -n $has_iostat ]]; then
+			#* Get read/write stats for disk if iostat or psutil is available
+			if [[ -n $has_iostat || $use_psutil == true ]]; then
+				unset iostat_var disk_io_string
 				dev_name="${line_array[0]##*/}"
 				dev_path="${line_array[0]%${dev_name}}"
 				if [[ ${dev_name::2} == "md" ]]; then dev_name="${dev_name::3}"; fi
 				unset iostat_var disk_io_string 'iostat_array[@]'
-				read -r iostat_var < <(iostat -dkz "${dev_path}${dev_name}" | tail -n +4)
+				if [[ $use_psutil == true && $system == "MacOS" && ${disks_name[-1]} == "root" ]]; then
+					read -r iostat_var < <(python3 -c "import psutil; disk = psutil.disk_io_counters(perdisk=False); print(disk.read_bytes>>10, disk.write_bytes>>10)")
+				elif [[ $use_psutil == true && $system != "MacOS" ]]; then
+					read -r iostat_var < <(python3 -c "import os, psutil; disk = psutil.disk_io_counters(perdisk=True)[os.path.realpath('${dev_path}${dev_name}').split('/')[-1]]; print(disk.read_bytes>>10, disk.write_bytes>>10)")
+				elif [[ $use_psutil == false ]]; then
+					read -r iostat_var < <(iostat -dkz "${dev_path}${dev_name}" | tail -n +4)
+				fi
 				iostat_array=(${iostat_var})
-				if [[ -n ${iostat_array[-2]} ]]; then
+				if [[ -n ${iostat_var} ]]; then
 
 					disk_read=$((iostat_array[-2]-${disks[${dev_name}_read]:-${iostat_array[-2]}}))
 					disk_write=$((iostat_array[-1]-${disks[${dev_name}_write]:-${iostat_array[-1]}}))
@@ -2068,13 +2205,15 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 		if ((${#disks_name[@]}>=height/2)); then break; fi
 	done
 
+
 }
 
 collect_processes() { #? Collect process information and calculate accurate cpu usage
+	if [[ $use_psutil == true ]]; then collect_processes_psutil $1; return; fi
 	local argument="$1"
 	if [[ -n $skip_process_draw && $argument != "now" ]]; then return; fi
 	local width=${box[processes_width]} height=${box[processes_height]} format_args format_cmd readline sort symbol="▼" cpu_title options pid_string tmp selected
-	local tree tree_compare1 tree_compare2 tree_compare3 no_core_divide
+	local tree tree_compare1 tree_compare2 tree_compare3 no_core_divide pids
 	local -a grep_array saved_proc_array
 
 	if [[ $argument == "now" ]]; then skip_process_draw=1; fi
@@ -2165,9 +2304,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 			fi
 		fi
 
-		if [[ ! ${pid_history[*]} =~ ${pid} ]]; then
-			pid_history+=("${pid}")
-		fi
+		pid_history[${pid}]="1"
 
 		if [[ -n $filter || $proc_sorting == "cpu responsive" ]] && [[ ${proc_array[count]:${proc[pid_len]}:1} != " " ]]; then
 			unset pid_string
@@ -2329,16 +2466,281 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 	((++proc[general_counter]))
 	if ((proc[general_counter]>100)); then
 		proc[general_counter]=0
-		for ((i=0;i<${#pid_history[@]};i++)); do
-			if [[ -n ${pid_history[$i]} && ! -e /proc/${pid_history[$i]} ]]; then
-				unset "pid_${pid_history[$i]}_graph" "pid_${pid_history[$i]}_graph_even" "pid_${pid_history[$i]}_graph_odd" "pid_${pid_history[$i]}_graph_last_type" "pid_${pid_history[$i]}_graph_last_val"
-				unset "pid_${pid_history[$i]}_count"
-				unset "proc[new_${pid_history[$i]}_ticks]"
-				unset "proc[old_${pid_history[$i]}_ticks]"
-				unset "pid_history[${i}]"
+		for pids in ${!pid_history[@]}; do
+			if [[ ! -e /proc/${pids} ]]; then
+				unset "pid_${pids}_graph" "pid_${pids}_graph_even" "pid_${pids}_graph_odd" "pid_${pids}_graph_last_type" "pid_${pids}_graph_last_val"
+				unset "pid_${pids}_count"
+				unset "proc[new_${pids}_ticks]"
+				unset "proc[old_${pids}_ticks]"
+				unset "pid_history[${pids}]"
 			fi
 		done
-		pid_history=(${pid_history[@]})
+	fi
+
+}
+
+collect_processes_psutil() {
+	local argument=$1
+	if [[ -n $skip_process_draw && $argument != "now" ]]; then return; fi
+	if [[ $argument == "now" ]]; then skip_process_draw=1; fi
+	local prog_len arg_len symbol="▼" sorting selected imports time_elapsed no_core_divide width=${box[processes_width]} height=${box[processes_height]}
+	local cmdargs titleargs titletr hide_self pid pcpu_usage pids p_count cpu_int pids
+
+	#* Timestamp the values in milliseconds to accurately calculate cpu usage
+	get_ms proc[new_timestamp]
+
+	if [[ $proc_per_core == true ]]; then no_core_divide="1"; fi
+
+	time_elapsed=$((proc[new_timestamp]-proc[old_timestamp]))
+
+	case ${proc_sorting} in
+		"pid")
+			selected="Pid:"
+			sorting="p.info['pid'], reverse=True"
+		;;
+		"program")
+			selected="Program:"
+			sorting="p.info['name'], reverse=False"
+		;;
+		"arguments")
+			selected="Arguments:"
+			sorting="' '.join(str(p.info['cmdline'])) or p.info['name'], reverse=False"
+		;;
+		"threads")
+			selected="Threads:"
+			sorting="str(p.info['num_threads']), reverse=True"
+		;;
+		"user")
+			selected="User:"
+			sorting="p.info['username'], reverse=False"
+		;;
+		"memory")
+			selected="Mem%"
+			sorting="str(p.info['memory_percent']), reverse=True"
+		;;
+		"cpu lazy"|"tree")
+			selected="Cpu%"
+			sorting="(sum(p.info['cpu_times'][:2]) * 1000 / (time.time() - p.info['create_time'])), reverse=True"
+			imports=1
+		;;
+		"cpu responsive")
+			selected="Cpu%"
+			sorting="float( (sum(p.info['cpu_times'][:2]) - procs.get(p.info['pid'], 0)) * 100000 / (${time_elapsed} * ${no_core_divide:-${cpu[threads]}}) ), reverse=True"
+		;;
+	esac
+
+	if [[ -n ${proc[reverse]} ]]; then
+		symbol="▲"
+		if [[ ${sorting:(-4)} == "True" ]]; then sorting="${sorting::-4}False"
+		elif [[ ${sorting:(-5)} == "False" ]]; then sorting="${sorting::-5}True"
+		fi
+	fi
+
+	if ((proc[detailed]==0)) && [[ -n ${proc[detailed_name]} ]]; then
+		unset 'proc[detailed_name]' 'proc[detailed_killed]' 'proc[detailed_cpu_int]' 'proc[detailed_cmd]'
+		unset 'proc[detailed_mem]' 'proc[detailed_mem_int]' 'proc[detailed_user]' 'proc[detailed_threads]'
+		unset 'detail_graph[@]' 'detail_mem_graph' 'detail_history[@]' 'detail_mem_history[@]'
+		unset 'proc[detailed_runtime]' 'proc[detailed_mem_string]' 'proc[detailed_parent_pid]' 'proc[detailed_parent_name]'
+	fi
+
+	unset 'proc[detailed_cpu]'
+
+	if [[ -z ${old_procs[*]} ]]; then old_procs=("{ }"); fi
+
+	if ((width>60)); then
+		arg_len=$((width-55))
+		prog_len=15
+		cmdargs="f\"{' '.join(p.info['cmdline']) or '[' + p.info['name'] + ']':<${arg_len}.$((arg_len-1))}\","
+		titleargs="{'Arguments:':<$((arg_len-4))}"
+		titletr="{'Threads:'}"
+	else
+		prog_len=$((width-40))
+		titletr=" {'Tr:'}"
+	fi
+
+	unset 'proc_array[@]'
+	readarray -t proc_array < <(python3 - <<EOF #2>/dev/null
+import os, psutil
+${imports:+"import time"}
+
+selfpid = os.getpid()
+procs = ${old_procs[@]}
+err = [ 0.0, 0.0 ]
+search = '${filter}'
+
+print(f"{'Pid:':>7} {'Program:':<${prog_len}}${titleargs}${titletr} {'User:':<9}Mem%{'Cpu%':>11}")
+
+for p in sorted(psutil.process_iter(['pid', 'name', 'cmdline', 'num_threads', 'username', 'memory_percent', 'cpu_times', 'create_time'], err), key=lambda p: ${sorting}):
+	if p.info['pid'] == selfpid:
+		continue
+	if p.info['cpu_times'] == err:
+		p.info['memory_percent'] = 0.0
+		p.info['num_threads'] = 0
+		p.info['cmdline'] = ''
+	if search:
+		found = False
+		for value in [ p.info['name'], ' '.join(p.info['cmdline']), str(p.info['pid']), p.info['username'] ]:
+			if search in value:
+				found = True
+				break
+		if not found:
+			continue
+
+	cpu = float((sum(p.info['cpu_times'][:2]) - procs.get(p.info['pid'], sum(p.info['cpu_times'][:2]))) * 100000 / (${time_elapsed} * ${no_core_divide:-${cpu[threads]}}))
+	mem = p.info['memory_percent']
+	print(f"{p.info['pid']:>7} ",
+		f"{p.info['name']:<${prog_len}.$((prog_len-1))}",
+		${cmdargs}
+		f"{p.info['num_threads']:>4} " if p.info['num_threads'] < 1000 else '999> ',
+		f"{p.info['username']:<9.9}",
+		f"{mem:>4.1f}" if mem < 100 else f"{mem:>4.0f} ",
+		f"{cpu:>11.1f} " if cpu < 100 else f"{cpu:>11.0f} ",
+		f"{sum(p.info['cpu_times'][:2])}",
+		sep='')
+EOF
+)
+
+	proc_array[0]="${proc_array[0]/ ${selected}/${symbol}${selected}}"
+	proc[pages]=$(( (${#proc_array[@]}-1)/(height-3)+1 ))
+	if ((proc[page]>proc[pages])); then proc[page]=${proc[pages]}; fi
+
+	unset 'old_procs[@]'
+	old_procs=("{")
+
+	for((i=1;i<${#proc_array[@]};i++)); do
+		if [[ -z ${proc_array[i]} ]]; then continue; fi
+
+		out_arr=(${proc_array[i]})
+		old_procs+=(" ${out_arr[0]}: ${out_arr[-1]},")
+		proc_array[i]="${proc_array[i]% ${out_arr[-1]}}"
+
+		pid="${out_arr[0]}"
+		pcpu_usage="${out_arr[-2]}"
+
+		printf -v cpu_int "%.0f" "${pcpu_usage}"
+
+		pid_history[${pid}]="1"
+
+		#* Create small graphs for all visible processes using more than 1% cpu time
+		pid_graph="pid_${pid}_graph"
+		local -n pid_count="pid_${pid}_count"
+
+		if [[ ${cpu_int} -gt 0 ]]; then pid_count=5; fi
+
+		if [[ -z ${!pid_graph} && ${cpu_int} -gt 0 ]]; then
+			tmp_value_array=("$((cpu_int+4))")
+			create_mini_graph -o "pid_${pid}_graph" -nc -w 5 "tmp_value_array"
+		elif [[ ${pid_count} -gt 0 ]]; then
+			if [[ ${cpu_int} -gt 9 ]]; then
+				create_mini_graph -nc -add-value "pid_${pid}_graph" "$((cpu_int+15))"
+			else
+				create_mini_graph -nc -add-value "pid_${pid}_graph" "$((cpu_int+9))"
+			fi
+			pid_count=$((${pid_count}-1))
+		elif [[ ${pid_count} == "0" ]]; then
+			unset "pid_${pid}_graph" "pid_${pid}_graph_even" "pid_${pid}_graph_odd" "pid_${pid}_graph_last_type" "pid_${pid}_graph_last_val"
+			unset "pid_${pid}_count"
+		fi
+
+		#* Get info for detailed box if enabled
+		if [[ ${pid} == "${proc[detailed_pid]}" ]]; then
+			if [[ -z ${proc[detailed_name]} ]]; then
+				local get_mem mem_string cmdline=""
+				local -a det_array
+				readarray -t det_array < <(python3 - <<EOF
+import psutil
+
+p = psutil.Process(${pid})
+pa = psutil.Process(p.ppid())
+
+with p.oneshot():
+	print(p.name())
+	print(pa.name())
+	print(p.username())
+	print(' '.join(p.cmdline()) or '[' + p.name() + ']')
+EOF
+				)
+				proc[detailed_name]="${det_array[0]::15}"
+				proc[detailed_parent_name]="${det_array[1]}"
+				proc[detailed_user]="${det_array[2]}"
+				proc[detailed_cmd]="${det_array[3]}"
+
+			fi
+			proc[detailed_cpu]="${out_arr[-2]}"
+			proc[detailed_cpu_int]="${cpu_int}"
+			proc[detailed_threads]="${out_arr[-5]}"
+
+			readarray -t det_array < <(python3 - <<EOF
+import psutil
+from datetime import timedelta
+from time import time
+
+p = psutil.Process(${pid})
+pa = psutil.Process(p.ppid())
+
+with p.oneshot():
+	print(p.memory_info().rss)
+	print(timedelta(seconds=round(time()-p.create_time(),0)))
+EOF
+			)
+			unset 'proc[detailed_mem_string]'
+			floating_humanizer -v proc[detailed_mem_string] -B ${det_array[0]}
+			if [[ -z ${proc[detailed_mem_string]} ]]; then proc[detailed_mem_string]="? Byte"; fi
+			if ((${#det_array[1]}>8)); then proc[detailed_runtime]="${det_array[1]/ days, /-}"
+			else proc[detailed_runtime]="${det_array[1]}"; fi
+
+			proc[detailed_mem_count]=0
+			proc[detailed_mem]="${out_arr[-3]}"
+			proc[detailed_mem_int]="${proc[detailed_mem]/./}"
+			if [[ ${proc[detailed_mem_int]::1} == "0" ]]; then proc[detailed_mem_int]="${proc[detailed_mem_int]:1}0"; fi
+			#* Scale up low mem values to see any changes on mini graph
+			if ((proc[detailed_mem_int]>900)); then proc[detailed_mem_int]=$((proc[detailed_mem_int]/10))
+			elif ((proc[detailed_mem_int]>600)); then proc[detailed_mem_int]=$((proc[detailed_mem_int]/8))
+			elif ((proc[detailed_mem_int]>300)); then proc[detailed_mem_int]=$((proc[detailed_mem_int]/5))
+			elif ((proc[detailed_mem_int]>100)); then proc[detailed_mem_int]=$((proc[detailed_mem_int]/2))
+			elif ((proc[detailed_mem_int]<50)); then proc[detailed_mem_int]=$((proc[detailed_mem_int]*2)); fi
+
+			#* Copy process cpu usage to history array and trim earlier entries
+			if ((${#detail_history[@]}>box[details_width]*2)); then
+				detail_history=( "${detail_history[@]:${box[details_width]}}" "$((cpu_int+4))")
+			else
+				detail_history+=("$((cpu_int+4))")
+			fi
+
+			#* Copy process mem usage to history array and trim earlier entries
+			if ((${#detail_mem_history[@]}>box[details_width])); then
+				detail_mem_history=( "${detail_mem_history[@]:$((box[details_width]/2))}" "${proc[detailed_mem_int]}")
+			else
+				detail_mem_history+=("${proc[detailed_mem_int]}")
+			fi
+		fi
+
+		if ((i==height-2)); then
+			if [[ ${proc[selected]} -gt 0 || ${proc[page]} -gt 1 || -z ${proc[detailed_cpu]} ]]; then :
+			else break; fi
+		fi
+
+	done
+	old_procs[-1]="${old_procs[-1]%,} }"
+
+	proc[old_timestamp]=${proc[new_timestamp]}
+
+	if ((proc[detailed]==1)) && [[ -z ${proc[detailed_cpu]} && -z ${proc[detailed_killed]} ]]; then proc[detailed_killed]=1; proc[detailed_change]=1
+	elif [[ -n ${proc[detailed_cpu]} ]]; then unset 'proc[detailed_killed]'; fi
+
+
+
+	#* Clear up memory by removing variables and graphs of no longer running processes
+	((++proc[general_counter]))
+	if ((proc[general_counter]>100)); then
+		proc[general_counter]=0
+		for pids in ${!pid_history[@]}; do
+			if [[ ! -e /proc/${pids} ]]; then
+				unset "pid_${pids}_graph" "pid_${pids}_graph_even" "pid_${pids}_graph_odd" "pid_${pids}_graph_last_type" "pid_${pids}_graph_last_val"
+				unset "pid_${pids}_count"
+				unset "pid_history[${pids}]"
+			fi
+		done
 	fi
 
 }
@@ -2357,10 +2759,16 @@ collect_net() { #? Collect information from "/proc/net/dev"
 		net[${direction}_max_current]=0
 		net[${direction}_graph_max]=$((50<<10))
 		done
+		unset 'download_graph[@]' 'upload_graph[@]' 'net_history_download[@]' 'net_history_upload[@]'
 	fi
 
-	#* Get the line with relevant net device from /proc/net/dev into array net_dev, index 1 is download, index 9 is upload
-	if ! get_value -map net_dev -sf "/proc/net/dev" -k "${net[device]}" -a; then net[no_device]=1; return; fi
+	#* Get the line with relevant net device from /proc/net/dev or psutil into array net_dev, index 1 is download, index 9 is upload
+	if [[ $use_psutil == true ]]; then
+		read -a net_dev < <(python3 -c "import psutil; net = psutil.net_io_counters(pernic=True)['${net[device]}']; print(0,net.bytes_recv,0,0,0,0,0,0,0,net.bytes_sent)" 2>/dev/null)
+		if [[ -z ${net_dev[*]} ]]; then net[no_device]=1; return; fi
+	else
+		if ! get_value -map net_dev -sf "/proc/net/dev" -k "${net[device]}" -a; then net[no_device]=1; return; fi
+	fi
 
 	#* Timestamp the values to accurately calculate values in seconds
 	get_ms net[new_timestamp]
@@ -2372,6 +2780,7 @@ collect_net() { #? Collect information from "/proc/net/dev"
 
 		if [[ -n ${net[old_${direction}]} ]]; then
 			#* Get total, convert to floating point and format string to best fitting unit in Bytes
+			if ((net[nic_change]==1 & net[reset]==1)); then unset "net[total_offset_${direction}]"; net[reset]=0; fi
 			if ((net[reset]==1)) && [[ -z ${net[total_offset_${direction}]} || ${net[total_offset_${direction}]} -gt ${net[new_${direction}]} ]]; then net[total_offset_${direction}]=${net[new_${direction}]}
 			elif ((net[reset]==0)) && [[ -n ${net[total_offset_${direction}]} ]]; then unset "net[total_offset_${direction}]"; fi
 
@@ -2691,7 +3100,8 @@ draw_mem() { #? Draw mem, swap and disk statistics
 
 	local i swap_used_meter swap_free_meter mem_available_meter mem_free_meter mem_used_meter mem_cached_meter normal_color="${theme[main_fg]}" value_text
 	local meter_mod_w meter_mod_pos value type m_title meter_options
-	local -a types=("mem")
+	local -a types=("mem") values=("used" "available" "free")
+	if [[ $system != "MacOS" ]]; then values+=("cached"); fi
 	unset mem_out
 
 	if [[ -n $swap_on ]]; then types+=("swap"); fi
@@ -2714,7 +3124,7 @@ draw_mem() { #? Draw mem, swap and disk statistics
 		#* Print name of type and total amount in humanized base 2 bytes
 		print -v mem_out -m $y_pos $m_col -rs -fg ${theme[title]} -b -jl 9 -t "${m_title^}:" -m $((y_pos++)) $((mem_line-10)) -jr 9 -trans -t " ${type_name[total_string]::$((m_width-11))}"
 
-		for value in "used" "available" "cached" "free"; do
+		for value in "${values[@]}"; do
 			if [[ $type == "swap" && $value == "available" ]]; then value="free"
 			elif [[ $type == "swap" && $value == "cached" ]]; then break 2; fi
 
@@ -2760,7 +3170,7 @@ draw_mem() { #? Draw mem, swap and disk statistics
 		#* Print folder disk is mounted on, total size in humanized base 2 bytes and io stats if enabled
 		print -v mem_out -m $((y_pos++)) $m_col -rs -fg ${theme[title]} -b -t "${disks_name[disk_num]::10}"
 		name_len=${#disks_name[disk_num]}; if ((name_len>10)); then name_len=10; fi
-		if [[ -n $has_iostat && ${disks_io[disk_num]} != "0" ]] && ((m_width-11-name_len>6)); then
+		if [[ -n ${disks_io[disk_num]} && ${disks_io[disk_num]} != "0" ]] && ((m_width-11-name_len>6)); then
 			print -v mem_out -jc $((m_width-name_len-10)) -rs -fg ${theme[main_fg]} -t "${disks_io[disk_num]::$((m_width-10-name_len))}"
 			just_val=8
 		else
@@ -3057,8 +3467,10 @@ draw_processes() { #? Draw processes and values to screen
 }
 
 draw_net() { #? Draw net information and graphs to screen
-	local net_out
+	local net_out argument=$1
 	if [[ -n ${net[no_device]} ]]; then return; fi
+	if [[ -n $skip_net_draw && $argument != "now" ]]; then return; fi
+	if [[ $argument == "now" ]]; then skip_net_draw=1; fi
 
 	#* Get variables from previous calculations
 	local col=$((box[net_col]+1)) line=$((box[net_line]+1)) width=$((box[net_width]-2)) height=$((box[net_height]-2))
@@ -3071,25 +3483,30 @@ draw_net() { #? Draw net information and graphs to screen
 		if ((graph_a_size*2<height)); then ((graph_a_size++)); fi
 		net[graph_a_size]=$graph_a_size
 		net[graph_b_size]=$graph_b_size
-
-		create_graph -o download_graph -d $line $col $graph_a_size $((width-n_width-2)) -c color_download_graph -n -max "${net[download_graph_max]}" net_history_download
-		create_graph -o upload_graph -d $((line+graph_a_size)) $col $graph_b_size $((width-n_width-2)) -c color_upload_graph -i -n -max "${net[upload_graph_max]}" net_history_upload
-
 		net[download_redraw]=0
 		net[upload_redraw]=0
 		((resized++))
 	fi
 
 	#* Update graphs if graph resolution update is needed or just resized, otherwise just add new values
-	if ((net[download_redraw]==1 | resized>0)); then
+	if ((net[download_redraw]==1 | net[nic_change]==1 | resized>0)); then
 		create_graph -o download_graph -d $line $col ${net[graph_a_size]} $((width-n_width-2)) -c color_download_graph -n -max "${net[download_graph_max]}" net_history_download
 	else
 		create_graph -max "${net[download_graph_max]}" -add-last download_graph net_history_download
 	fi
-	if ((net[upload_redraw]==1 | resized>0)); then
+	if ((net[upload_redraw]==1 | net[nic_change]==1 | resized>0)); then
 		create_graph -o upload_graph -d $((line+net[graph_a_size])) $col ${net[graph_b_size]} $((width-n_width-2)) -c color_upload_graph -i -n -max "${net[upload_graph_max]}" net_history_upload
 	else
 		create_graph -max "${net[upload_graph_max]}" -i -add-last upload_graph net_history_upload
+	fi
+
+	if ((net[nic_change]==1 | resized>0)); then
+		local dev_len=${#net[device]}
+		if ((dev_len>15)); then dev_len=15; fi
+		unset net_misc 'net[nic_change]'
+		print -v net_out -m $((line-1)) $((width-23)) -rs -fg ${box[net_color]} -rp 23 -t "─"
+		print -v net_misc -m $((line-1)) $((width-7-dev_len)) -rs -fg ${box[net_color]} -t "┤" -fg ${theme[hi_fg]} -b -t "‹b " -fg ${theme[title]} -t "${net[device]::15}" -fg ${theme[hi_fg]} -t " n›" -rs -fg ${box[net_color]} -t "├"
+		net_out+="${net_misc}"
 	fi
 
 	#* Create text depening on box height
@@ -3110,6 +3527,7 @@ draw_net() { #? Draw net information and graphs to screen
 
 	#* Print graphs and text to output variable
 	draw_out+="${download_graph[*]}${upload_graph[*]}${net_out}"
+	if [[ $argument == "now" ]]; then echo -en "${download_graph[*]}${upload_graph[*]}${net_out}"; fi
 }
 
 draw_clock() { #? Draw a clock at top of screen
@@ -3136,7 +3554,7 @@ pause_() { #? Pause input and draw a darkened version of main ui
 	local pause_out ext_var
 	if [[ -n $1 && $1 != "off" ]]; then local -n pause_out=${1}; ext_var=1; fi
 	if [[ $1 != "off" ]]; then
-		prev_screen="${boxes_out}${proc_det}${last_screen}${mem_out}${detail_graph[*]}${proc_out}${proc_misc}${proc_misc2}${update_string}${clock_out}"
+		prev_screen="${boxes_out}${proc_det}${last_screen}${net_misc}${mem_out}${detail_graph[*]}${proc_out}${proc_misc}${proc_misc2}${update_string}${clock_out}"
 		if [[ -n $skip_process_draw ]]; then
 			prev_screen+="${proc_out}"
 			unset skip_process_draw proc_out
@@ -3144,7 +3562,7 @@ pause_() { #? Pause input and draw a darkened version of main ui
 
 		unset pause_screen
 		print -v pause_screen -rs -b -fg ${theme[inactive_fg]}
-		pause_screen+="${theme[main_bg]}m$(sed -E 's/\\e\[[0-9;\-]*m//g' <<< "${prev_screen}")\e[0m" #\e[1;38;5;236
+		pause_screen+="${theme[main_bg]}m$(${sed} -E 's/\\e\[[0-9;\-]*m//g' <<< "${prev_screen}")\e[0m" #\e[1;38;5;236
 
 		if [[ -z $ext_var ]]; then echo -en "${pause_screen}"
 		else pause_out="${pause_screen}"; fi
@@ -3216,7 +3634,7 @@ menu_() { #? Shows the main menu overlay
 		else wait_string="0"; time_left=0; fi
 
 		get_key -v keypress -w ${wait_string}
-		if [[ $(stty size) != "$tty_height $tty_width" ]]; then resized; fi
+		if [[ $(${stty} size) != "$tty_height $tty_width" ]]; then resized; fi
 		if ((resized>0)); then
 			calc_sizes; draw_bg quiet; time_left=0; unset menu_out
 			unset bannerd
@@ -3258,7 +3676,8 @@ help_() { #? Shows the help overlay
 		"(Enter)"
 		"(Pg Up) (Pg Down)"
 		"(Home) (End)"
-		"(Left, Right)"
+		"(Left) (Right)"
+		"(b, B) (n, N)"
 		"(R, r)"
 		"(F, f)"
 		"(C, c)"
@@ -3280,6 +3699,7 @@ help_() { #? Shows the help overlay
 		"Jump 1 page in process list."
 		"Jump to first or last page in process list."
 		"Select previous/next sorting column."
+		"Select previous/next network device."
 		"Reverse sorting order in processes box."
 		"Input a string to filter processes with."
 		"Clear any entered filter."
@@ -3347,7 +3767,7 @@ help_() { #? Shows the help overlay
 			esac
 		fi
 
-		if [[ $(stty size) != "$tty_height $tty_width" ]]; then resized; fi
+		if [[ $(${stty} size) != "$tty_height $tty_width" ]]; then resized; fi
 		if ((resized>0)); then
 			sleep 0.5
 			calc_sizes; draw_bg quiet; redraw=1
@@ -3653,7 +4073,8 @@ options_() { #? Shows the options overlay
 							selected_var="true"
 							if [[ $selected == "proc_reversed" ]]; then proc[order_change]=1; proc[reverse]="+"; fi
 						fi
-						if [[ $selected == "check_temp" ]]; then resized=1; fi
+						if [[ $selected == "check_temp" ]] && command -v sensors >/dev/null 2>&1; then resized=1
+						else check_temp="false"; fi
 					;;
 				"proc_sorting right")
 						if ((proc[sorting_int]<${#sorting[@]}-1)); then ((++proc[sorting_int]))
@@ -3701,7 +4122,7 @@ options_() { #? Shows the options overlay
 			draw_bg quiet
 		fi
 
-		if [[ $(stty size) != "$tty_height $tty_width" ]]; then resized; fi
+		if [[ $(${stty} size) != "$tty_height $tty_width" ]]; then resized; fi
 
 		if ((resized>0)); then
 			calc_sizes; draw_bg quiet
@@ -3783,7 +4204,7 @@ killer_() { #? Kill process with selected signal
 		else wait_string="0"; time_left=0; fi
 
 		get_key -v keypress -w ${wait_string}
-		if [[ $(stty size) != "$tty_height $tty_width" ]]; then resized; fi
+		if [[ $(${stty} size) != "$tty_height $tty_width" ]]; then resized; fi
 		if ((resized>0)); then
 			calc_sizes; draw_bg quiet; time_left=0; unset killer_out killer_box
 		fi
@@ -3844,10 +4265,10 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 	else
 		unset key
 
-		key=$(stty -cooked min 0 time ${wait_time:-0}; dd bs=1 count=1 2>/dev/null)
+		key=$(${stty} -cooked min 0 time ${wait_time:-0} 2>/dev/null; ${dd} bs=1 count=1 2>/dev/null)
 		if [[ -z ${key:+s} ]]; then
 			key_out=""
-			stty isig
+			${stty} isig
 			if [[ -z $save ]]; then return 0
 			else return 1; fi
 		fi
@@ -3859,7 +4280,7 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 		elif [[ $key == "${backspace}" || $key == "${backspace_real}" ]]; then key="backspace"
 		elif [[ $key == "${tab}" ]]; then key="tab"
 		elif [[ $key == "$esc_character" ]]; then
-			esc=1; key=$(stty -cooked isig min 0 time 0; dd bs=1 count=3 2>/dev/null); fi
+			esc=1; key=$(${stty} -cooked min 0 time 0 2>/dev/null; ${dd} bs=1 count=3 2>/dev/null); fi
 		if [[ -z $key && $esc -eq 1 ]]; then key="escape"
 		elif [[ $esc -eq 1 ]]; then
 			case "${key}" in
@@ -3892,8 +4313,8 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 
 	fi
 
-	stty -cooked isig min 0 time 0; dd bs=512 count=1 >/dev/null 2>&1
-	stty isig
+	${stty} -cooked min 0 time 0 >/dev/null 2>&1; ${dd} bs=512 count=1 >/dev/null 2>&1
+	${stty} isig
 	if [[ -n $save && -n $key ]]; then saved_key+=("${key}"); return 0; fi
 
 	if [[ -n $ext_out ]]; then key_out="${key}"
@@ -3929,6 +4350,28 @@ process_input() { #? Process keypresses for main ui
 				else proc[sorting_int]=0; fi
 				proc_sorting="${sorting[proc[sorting_int]]}"
 				filter_change=1
+			;;
+			n|N) #* Switch to next network device
+				if ((${#nic_list[@]}>1)); then
+					if ((nic_int<${#nic_list[@]}-1)); then ((++nic_int))
+					else nic_int=0; fi
+					net[device]="${nic_list[nic_int]}"
+					net[nic_change]=1
+					collect_net init
+					collect_net
+					draw_net now
+				fi
+			;;
+			b|B) #* Switch to previous network device
+				if ((${#nic_list[@]}>1)); then
+					if ((nic_int>0)); then ((nic_int--))
+					else nic_int=$((${#nic_list[@]}-1)); fi
+					net[device]="${nic_list[nic_int]}"
+					net[nic_change]=1
+					collect_net init
+					collect_net
+					draw_net now
+				fi
 			;;
 			up|shift_tab) #* Move process selector up one
 				if [[ ${proc[selected]} -gt 0 ]]; then
@@ -4094,7 +4537,7 @@ main_loop() { #? main loop...
 	#* Timestamp for accurate timer
 	get_ms timestamp_start
 
-	if [[ $(stty size) != "$tty_height $tty_width" ]]; then resized; fi
+	if [[ $(${stty} size) != "$tty_height $tty_width" ]]; then resized; fi
 
 	if ((resized>0)); then
 		calc_sizes
@@ -4161,7 +4604,7 @@ main_loop() { #? main loop...
 		draw_update_string
 	fi
 
-	if ((skip_process_draw==1)); then unset skip_process_draw; fi
+	unset skip_process_draw skip_net_draw
 }
 
 #? Pre main loop
@@ -4189,6 +4632,28 @@ else
 	config_file="/dev/null"
 	error_logging="false"
 	unset 'save_array[@]'
+fi
+
+#* Force the use of python psutil on MacOS
+if [[ $system == "MacOS" ]]; then use_psutil="true"; fi
+
+#* Check for python3 and psutil if "use_psutil" is true
+if [[ $use_psutil == true ]]; then
+	if ! command -v python3 >/dev/null 2>&1; then
+		echo "Error: Missing python3!"
+		if [[ $system == "Linux" ]]; then
+			use_psutil="false"
+		else
+			exit 1
+		fi
+	elif ! python3 -c "import psutil" >/dev/null 2>&1; then
+		echo "Error: Missing python3 psutil module!"
+		if [[ $system == "Linux" ]]; then
+			use_psutil="false"
+		else
+			exit 1
+		fi
+	fi
 fi
 
 #* Set up traps for ctrl-c, soft kill, window resize, ctrl-z and resume from ctrl-z
