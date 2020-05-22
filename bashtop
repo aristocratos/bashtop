@@ -65,15 +65,15 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.8.32"
+declare version="0.9.0"
 
 #* Get latest version of BashTOP from https://github.com/aristocratos/bashtop
 
 declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
+#* Set correct names for GNU tools depending on OS
 if [[ $system == "MacOS" ]]; then tool_prefix="g"; fi
-
 for tool in "dd" "df" "stty" "sed"; do
 	declare -n set_tool="${tool}"
 	set_tool="${tool_prefix}${tool}"
@@ -99,7 +99,7 @@ proc_sorting="cpu lazy"
 #* Reverse sorting order, "true" or "false"
 proc_reversed="false"
 
-#* Check cpu temperature, only works if "sensors" command is available and have values for "Package" and "Core"
+#* Check cpu temperature, only works if "sensors", "vcgencmd" or "osx-cpu-temp" commands is available
 check_temp="true"
 
 #* Draw a clock at top of screen, formatting according to strftime, empty string to disable
@@ -3126,6 +3126,7 @@ draw_mem() { #? Draw mem, swap and disk statistics
 
 	#* Create text and meters for memory and swap and adapt sizes based on available height
 	local y_pos=$m_line v_height=8 list value meter inv_meter
+	if [[ $system == "MacOS" ]]; then v_height=4; fi
 	for type in ${types[@]}; do
 		local -n type_name="$type"
 		if [[ $type == "mem" ]]; then
@@ -3165,6 +3166,7 @@ draw_mem() { #? Draw mem, swap and disk statistics
 
 				if [[ -z $meter_mod_w ]]; then print -v mem_out  -jr 4 -t "${type_name[${value}_percent]}%"; fi
 			fi
+		if [[ $system == "MacOS" ]] && ((height>8)); then ((y_pos++)); fi
 		done
 	done
 
@@ -3834,19 +3836,20 @@ options_() { #? Shows the options overlay
 						"\"threads\", \"user\", \"memory\", \"cpu lazy\""
 						"\"cpu responsive\" and \"tree\"."
 						" "
-						"\"cpu lazy\" uses ps commands internal sorting"
-						"and updates top process over a period of time."
+						"\"cpu lazy\" shows cpu usage over the lifetime"
+						"of a process."
 						" "
 						"\"cpu responsive\" updates sorting directly at a"
-						"cost of cpu time."
+						"cost of cpu time (unless using psutil)."
 						" "
 						"\"tree\" shows a tree structure of running"
-						"processes.")
+						"processes. (not available with psutil)")
 	desc_check_temp=(	"Check cpu temperature."
 						" "
-						"Only works if sensors command is available"
-						"and show values for Package and Core"
-						"temperatures.")
+						"True or false."
+						" "
+						"Only works if sensors, vcgencmd or osx-cpu-temp"
+						"commands is available.")
 	desc_draw_clock=(	"Draw a clock at top of screen."
 						" "
 						"Formatting according to strftime, empty"
@@ -4369,12 +4372,20 @@ process_input() { #? Process keypresses for main ui
 				if ((proc[sorting_int]>0)); then ((proc[sorting_int]--))
 				else proc[sorting_int]=$((${#sorting[@]}-1)); fi
 				proc_sorting="${sorting[proc[sorting_int]]}"
+				if [[ $proc_sorting == "tree" && $use_psutil == true ]]; then
+					((proc[sorting_int]--))
+					proc_sorting="${sorting[proc[sorting_int]]}"
+				fi
 				filter_change=1
 			;;
 			right) #* Move right in processes sorting column
 				if ((proc[sorting_int]<${#sorting[@]}-1)); then ((++proc[sorting_int]))
 				else proc[sorting_int]=0; fi
 				proc_sorting="${sorting[proc[sorting_int]]}"
+				if [[ $proc_sorting == "tree" && $use_psutil == true ]]; then
+					proc[sorting_int]=0
+					proc_sorting="${sorting[proc[sorting_int]]}"
+				fi
 				filter_change=1
 			;;
 			n|N) #* Switch to next network device

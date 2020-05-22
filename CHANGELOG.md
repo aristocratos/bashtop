@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.9.0
+
+* Added: Mac OS X support with python3 psutil data collection
+* Added: Ability to switch between all available network devices
+
 ## v0.8.32
 
 * Fixed: Error in theme error checking corrupting default theme
