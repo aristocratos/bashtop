@@ -35,12 +35,13 @@ declare -x LC_MESSAGES="C" LC_NUMERIC="C" LC_ALL=""
 #* Fail if running on unsupported OS
 case "$(uname -s)" in
 	Linux*)  system=Linux;;
+	*BSD)	 system=BSD;;
 	Darwin*) system=MacOS;;
 	CYGWIN*) system=Cygwin;;
 	MINGW*)  system=MinGw;;
 	*)       system="Other"
 esac
-if [[ "$system" != "Linux" && "$system" != "MacOS" ]]; then
+if [[ ! $system =~ Linux|MacOS|BSD ]]; then
 	echo "This version of bashtop does not support $system platform."
 	exit 1
 fi
@@ -73,11 +74,19 @@ declare banner_width=${#banner[0]}
 banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
 #* Set correct names for GNU tools depending on OS
-if [[ $system == "MacOS" ]]; then tool_prefix="g"; fi
-for tool in "dd" "df" "stty" "sed"; do
+if [[ $system != "Linux" ]]; then tool_prefix="g"; fi
+for tool in "dd" "df" "stty" "tail" "realpath" "sed"; do
 	declare -n set_tool="${tool}"
 	set_tool="${tool_prefix}${tool}"
 done
+
+if ! command -v ${dd} >/dev/null 2>&1; then
+	echo "ERROR: Missing GNU coreutils!"
+	exit 1
+elif ! command -v ${sed} >/dev/null 2>&1; then
+	echo "ERROR: Missing GNU sed!"
+	exit 1
+fi
 
 read tty_height tty_width < <(${stty} size)
 
@@ -186,6 +195,12 @@ printf -v enter_key "\uD"
 printf -v ctrl_c "\u03"
 printf -v ctrl_z "\u1A"
 
+hide_cursor='\033[?25l'		#* Hide terminal cursor
+show_cursor='\033[?25h'		#* Show terminal cursor
+alt_screen='\033[?1049h'	#* Switch to alternate screen
+normal_screen='\033[?1049l'	#* Switch to normal screen
+clear_screen='\033[2J'		#* Clear screen
+
 #* Symbols for graphs
 declare -a graph_symbol
 graph_symbol=(" " "⡀" "⣀" "⣄" "⣤" "⣦" "⣴" "⣶" "⣷" "⣾" "⣿")
@@ -274,11 +289,12 @@ init_() { #? Collect needed information and set options before startig main loop
 	local i
 	#* Set terminal options, save and clear screen
 	saved_stty="$(${stty} -g)"
-	tput smcup
+	#tput smcup
+	echo -en "${alt_screen}${hide_cursor}${clear_screen}"
 	echo -en "\033]0;BashTOP\a"
-	tput clear
+	#tput clear
 	${stty} -echo
-	tput civis
+	#tput civis
 
 
 	#* Check if "sensors", "osx-cpu-temp" or "vcgencmd" commands is available, if not, disable temperature collection
@@ -515,9 +531,10 @@ color_init_() { #? Check for theme file and set colors
 
 quit_() { #? Clean exit
 	#* Restore terminal options and screen
-	tput clear
-	tput rmcup
-	tput cnorm
+	#tput clear
+	#tput rmcup
+	#tput cnorm
+	echo -en "${clear_screen}${normal_screen}${show_cursor}"
 	${stty} "${saved_stty}"
 	echo -en "\033]0;\a"
 
@@ -530,9 +547,10 @@ quit_() { #? Clean exit
 }
 
 sleep_() { #? Restore terminal options, stop and send to background if caught SIGTSTP (ctrl+z)
-	tput clear
-	tput rmcup
-	tput cnorm
+	# tput clear
+	# tput rmcup
+	# tput cnorm
+	echo -en "${clear_screen}${normal_screen}${show_cursor}"
 	${stty} "${saved_stty}"
 	echo -en "\033]0;\a"
 
@@ -541,11 +559,12 @@ sleep_() { #? Restore terminal options, stop and send to background if caught SI
 
 resume_() { #? Set terminal options and resume if caught SIGCONT ('fg' from terminal)
 	sleepy=0
-	tput smcup
+	#tput smcup
+	echo -en "${alt_screen}${hide_cursor}${clear_screen}"
 	echo -en "\033]0;BashTOP\a"
-	tput clear
+	#tput clear
 	${stty} -echo
-	tput civis
+	#tput civis
 
 	if [[ -n $pause_screen ]]; then
 		echo -en "$pause_screen"
@@ -614,7 +633,7 @@ draw_banner() { #? Draw banner, usage: draw_banner <line> [output variable]
 
 create_config() { #? Creates a new config file with default values from above
 	local c_line c_read this_file
-	this_file="$(realpath "$0")"
+	this_file="$(${realpath} "$0")"
 	echo "#? Config file for bashtop v. ${version}" > "$config_file"
 	while IFS= read -r c_line; do
 		if [[ $c_line =~ aaz_config() ]]; then break
@@ -1913,7 +1932,10 @@ for thread in threads:
 	print(f'cpu{x}', int(thread.user*10), int(thread.nice*10), int(thread.system*10), int(thread.idle*10))
 	x += 1
 
-print(round(psutil.cpu_freq().current))
+try:
+	print(round(psutil.cpu_freq().current))
+except:
+	print(0)
 
 print(str(timedelta(seconds=round(time()-psutil.boot_time(),0)))[:-3])
 
@@ -2152,7 +2174,7 @@ EOF
 	done
 
 	#* Get disk information from "df" command
-	local df_array df_line line_array dev_path dev_name iostat_var disk_read disk_write disk_io_string
+	local df_array df_line line_array dev_path dev_name iostat_var disk_read disk_write disk_io_string df_count=0
 	local -a device_array iostat_array
 	unset 'disks_free[@]' 'disks_used[@]' 'disks_used_percent[@]' 'disks_total[@]' 'disks_name[@]' 'disks_free_percent[@]' 'disks_io[@]'
 	readarray -t df_array < <(${df} -x squashfs -x tmpfs -x devtmpfs -x overlay 2>/dev/null || true)
@@ -2185,10 +2207,10 @@ EOF
 				dev_path="${line_array[0]%${dev_name}}"
 				if [[ ${dev_name::2} == "md" ]]; then dev_name="${dev_name::3}"; fi
 				unset iostat_var disk_io_string 'iostat_array[@]'
-				if [[ $use_psutil == true && $system == "MacOS" && ${disks_name[-1]} == "root" ]]; then
-					read -r iostat_var < <(python3 -c "import psutil; disk = psutil.disk_io_counters(perdisk=False); print(disk.read_bytes>>10, disk.write_bytes>>10)")
-				elif [[ $use_psutil == true && $system != "MacOS" ]]; then
-					read -r iostat_var < <(python3 -c "import os, psutil; disk = psutil.disk_io_counters(perdisk=True)[os.path.realpath('${dev_path}${dev_name}').split('/')[-1]]; print(disk.read_bytes>>10, disk.write_bytes>>10)")
+				if [[ $use_psutil == true && $system != "Linux" ]] && ((df_count==0)); then
+					read -r iostat_var < <(python3 -c "import psutil; disk = psutil.disk_io_counters(perdisk=False); print(disk.read_bytes>>10, disk.write_bytes>>10)" 2>/dev/null)
+				elif [[ $use_psutil == true && $system == "Linux" ]]; then
+					read -r iostat_var < <(python3 -c "import os, psutil; disk = psutil.disk_io_counters(perdisk=True)[os.path.realpath('${dev_path}${dev_name}').split('/')[-1]]; print(disk.read_bytes>>10, disk.write_bytes>>10)" 2>/dev/null)
 				elif [[ $use_psutil == false ]]; then
 					read -r iostat_var < <(iostat -dkz "${dev_path}${dev_name}" | tail -n +4)
 				fi
@@ -2216,6 +2238,7 @@ EOF
 		fi
 
 		if ((${#disks_name[@]}>=height/2)); then break; fi
+		((++df_count))
 	done
 
 
@@ -2497,12 +2520,13 @@ collect_processes_psutil() {
 	if [[ -n $skip_process_draw && $argument != "now" ]]; then return; fi
 	if [[ $argument == "now" ]]; then skip_process_draw=1; fi
 	local prog_len arg_len symbol="▼" sorting selected imports time_elapsed no_core_divide width=${box[processes_width]} height=${box[processes_height]}
-	local cmdargs titleargs titletr hide_self pid pcpu_usage pids p_count cpu_int pids
+	local cmdargs titleargs titletr hide_self pid pcpu_usage pids p_count cpu_int pids bsd_idle
 
 	#* Timestamp the values in milliseconds to accurately calculate cpu usage
 	get_ms proc[new_timestamp]
 
 	if [[ $proc_per_core == true ]]; then no_core_divide="1"; fi
+	if [[ $system == "BSD" ]]; then bsd_idle="or p.info['name'] == 'idle'"; fi
 
 	time_elapsed=$((proc[new_timestamp]-proc[old_timestamp]))
 
@@ -2584,7 +2608,7 @@ search = '${filter}'
 print(f"{'Pid:':>7} {'Program:':<${prog_len}}${titleargs}${titletr} {'User:':<9}Mem%{'Cpu%':>11}")
 
 for p in sorted(psutil.process_iter(['pid', 'name', 'cmdline', 'num_threads', 'username', 'memory_percent', 'cpu_times', 'create_time'], err), key=lambda p: ${sorting}):
-	if p.info['pid'] == selfpid:
+	if p.info['pid'] == selfpid ${bsd_idle}:
 		continue
 	if p.info['cpu_times'] == err:
 		p.info['memory_percent'] = 0.0
@@ -4671,8 +4695,8 @@ else
 	unset 'save_array[@]'
 fi
 
-#* Force the use of python psutil on MacOS
-if [[ $system == "MacOS" ]]; then use_psutil="true"; fi
+#* Force the use of python psutil if not on Linux
+if [[ $system != "Linux" ]]; then use_psutil="true"; fi
 
 #* Check for python3 and psutil if "use_psutil" is true
 if [[ $use_psutil == true ]]; then
@@ -4706,7 +4730,7 @@ if [[ $error_logging == true ]]; then
 
 	#* Remove everything but the last 500 lines of error log if larger than 500 lines
 	if [[ -e "${config_dir}/error.log" && $(wc -l <"${config_dir}/error.log") -gt 500 ]]; then
-		tail -n 500 "${config_dir}/error.log" > "${config_dir}/tmp"
+		${tail} -n 500 "${config_dir}/error.log" > "${config_dir}/tmp"
 		rm "${config_dir}/error.log"
 		mv "${config_dir}/tmp" "${config_dir}/error.log"
 	fi
