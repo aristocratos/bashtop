@@ -19,7 +19,7 @@
 * [Themes](#themes)
 * [Upcoming](#upcoming) (Updated, Python port)
 * [Support and funding](#support-and-funding)
-* [Compatibility](#compatibility) (Updated, OSX Support)
+* [Compatibility](#compatibility) (Updated, OSX and FreeBSD Support)
 * [Dependencies](#dependencies) (Updated)
 * [Screenshots](#screenshots)
 * [Installation](#installation) (Updated)
@@ -100,7 +100,7 @@ Recommended alternative [iTerm2](https://www.iterm2.com/)
 
 Will also need to be run as superuser on OSX to display stats for processes not owned by user.
 
-The disk io stats on OSX shows iostats for all disks at the top instead of per disk because of limitations with psutil on OSX.
+The disk io stats on OSX and FreeBSD shows iostats for all disks at the top instead of per disk.
 
 For correct display, a terminal with support for:
 
@@ -219,7 +219,7 @@ sudo make uninstall
 
 Available in the AUR as [bashtop-git](https://aur.archlinux.org/packages/bashtop-git/)
 
-Available in the Arch Linux repository as [bashtop](https://www.archlinux.org/packages/community/any/bashtop/) (Flagged out-of-date on 2020-04-28)
+Available in the Arch Linux repository as [bashtop](https://www.archlinux.org/packages/community/any/bashtop/)
 
 #### Debian based
 
