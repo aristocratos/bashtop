@@ -177,6 +177,7 @@ declare time_left timestamp_start timestamp_end timestamp_input_start timestamp_
 declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2 proc_out curled git_version has_iostat sensor_comm
 declare esc_character tab backspace sleepy late_update skip_process_draw winches quitting theme_int notifier saved_stty nic_int net_misc skip_net_draw
 declare -a disks_free disks_total disks_name disks_free_percent saved_key themes nic_list old_procs
+declare -a zrams_device zrams_algo zrams_size zrams_compressed_size zrams_used zrams_compressed zrams_mount zrams_ratio
 printf -v esc_character "\u1b"
 printf -v tab "\u09"
 printf -v backspace "\u7F" #? Backspace set to DELETE
@@ -2151,6 +2152,39 @@ EOF
 		done
 	done
 
+	#* Get zram information from "zramctl" command
+	local zram_array zram_line zram_dev zram_algo zram_size zram_used zram_compressed zram_meta zram_threads zram_mount zram_ratio zram_line_array zram_basename
+	unset 'zrams_device[@]' 'zrams_algo[@]' 'zrams_size[@]' 'zrams_used[@]' 'zrams_compressed[@]' 'zrams_mount[@]' 'zrams_ratio[@]' 'zrams_compressed_size[@]'
+
+        local -a zram_array
+        readarray -t zram_array < <(zramctl -n -b)
+
+        for zram_line in "${zram_array[@]:0}"; do
+	    zram_line_array=(${zram_line})
+	    
+            zram_dev=${zram_line_array[0]}
+	    zram_basename=$(basename $zram_dev)
+            zram_algo=${zram_line_array[1]}
+            zram_size=${zram_line_array[2]}
+            zram_used=${zram_line_array[3]}
+            zram_compressed=${zram_line_array[4]}
+            zram_meta=${zram_line_array[5]}
+            zram_threads=${zram_line_array[6]}
+            zram_mount=${zram_line_array[7]}
+	    zram_ratio="..."
+	    if (($zram_meta > 0)); then 
+		zram_ratio=$(printf %.2f $(($zram_used * 100 / $zram_meta))e-2)
+	    fi
+	    zrams_device+=("${zram_dev}")
+	    zrams_algo+=("${zram_algo}")
+	    zrams_size+=("${zram_size}")
+	    zrams_used+=("${zram_used}")
+	    zrams_compressed+=("${zram_meta}")
+	    zrams_ratio+=("${zram_ratio}")
+	    zrams_mount+=("${zram_mount}")
+	    zrams_compressed_size+=($(cut -d' ' -f4 /sys/block/$zram_basename/mm_stat))
+        done
+
 	#* Get disk information from "df" command
 	local df_array df_line line_array dev_path dev_name iostat_var disk_read disk_write disk_io_string
 	local -a device_array iostat_array
@@ -2985,6 +3019,17 @@ draw_bg() { #? Draw all box outlines
 		print -v boxes_out -m $((box[mem_line]+i)) $((box[mem_col]+box[m_width])) -fg ${theme[div_line]} -t "│"
 	done
 
+	local zram_divider
+	zram_divider=10
+	
+	if [[ -n $swap_on ]]; then zram_divider=12; fi
+
+	print -v boxes_out -m $((box[mem_line]+$zram_divider)) $((box[mem_col]-1)) -fg ${box[mem_color]} -t "├"
+        for ((i=1;i<=box[m_width]-1;i++)); do
+                print -v boxes_out -m $((box[mem_line]+$zram_divider)) $((box[mem_col]+i)) -fg ${theme[div_line]} -t "─"
+	done
+
+
 
 	#* Misc net box
 	create_box -v boxes_out -col $((box[n_col]-1)) -line $((box[n_line]-1)) -width ${box[n_width]} -height ${box[n_height]} -lc ${theme[div_line]} -t "Download"
@@ -2993,6 +3038,7 @@ draw_bg() { #? Draw all box outlines
 
 	if [[ $1 == "quiet" ]]; then draw_out="${boxes_out}"
 	else echo -en "${boxes_out}"; fi
+	print -v boxes_out -m $((box[mem_line]+$zram_divider)) $((box[mem_col]+box[mem_width])) -fg ${theme[div_line]} -t "┤"
 	draw_update_string $1
 }
 
@@ -3170,6 +3216,42 @@ draw_mem() { #? Draw mem, swap and disk statistics
 		done
 	done
 
+	#* Create text and meters for zram and adapt sizes based on available height
+	print -v mem_out -m $((y_pos++)) $m_col -rs -fg ${theme[title]} -b -t "┤zram├"
+	local zram_num zram_name zram_algo zram_ratio zram_size zram_used
+	zram_num=0
+	for zram_name in "${zrams_device[@]}"; do
+	    if ((y_pos>m_line+height-2)); then break; fi
+	    print -v mem_out -m $((y_pos)) $m_col -rs -fg ${theme[title]} -b -t "${zrams_device[$zram_num]}"
+	    print -v mem_out -m $y_pos $((m_col+m_width-11)) -fg ${theme[title]} -b -t "$(floating_humanizer -B ${zrams_size[$zram_num]})"
+	    print -v mem_out -m $((y_pos++)) $((m_col+m_width-18)) -fg ${theme[title]} -b -t "${zrams_algo[$zram_num]}"
+	    print -v mem_out -m $((y_pos))   $m_col -fg ${theme[main_fg]} -b -t "Used: "
+	    print -v mem_out -m $((y_pos)) $((m_col+m_width-11)) -fg ${theme[main_fg]} -b -t "$(floating_humanizer -B ${zrams_used[$zram_num]})"
+	    create_meter -v zram_used_meter -w $m_width-21 -f -c color_free_graph "$((${zrams_used[$zram_num]} * 100 / ${zrams_size[$zram_num]}))"
+	    print -v mem_out -m $((y_pos++)) $((m_col+7)) -t "$zram_used_meter" -rs -fg $normal_color
+	    print -v mem_out -m $((y_pos))   $m_col -fg ${theme[main_fg]} -b -t "Compressed: "
+	    print -v mem_out -m $((y_pos)) $((m_col+m_width-11)) -fg ${theme[main_fg]} -b -t "$(floating_humanizer -B ${zrams_compressed[$zram_num]})"
+	    if ((${zrams_compressed_size[$zram_num]} > 0)); then
+		create_meter -v zram_compressed_meter -w $m_width-26 -f -c color_used_graph "$((${zrams_compressed[$zram_num]} * 100 / ${zrams_compressed_size[$zram_num]}))"
+		
+	    else
+		create_meter -v zram_compressed_meter -w $m_width-26 -f -c color_used_graph "0"
+	    fi
+	    print -v mem_out -m $((y_pos++)) $((m_col+12)) -t "${zram_compressed_meter}" -rs -fg $normal_color
+	    print -v mem_out -m $((y_pos))   $m_col -fg ${theme[main_fg]} -b -t "Ratio: "
+	    print -v mem_out -m $((y_pos)) $((m_col+m_width-11)) -fg ${theme[main_fg]} -b -t "${zrams_ratio[$zram_num]}"
+	    if ((${zrams_used[$zram_num]} > 0)); then
+		create_meter -v zram_ratio_meter -w $m_width-21 -f -c color_available_graph "$((${zrams_compressed[$zram_num]} * 100 / ${zrams_used[$zram_num]}))"
+	    else
+		create_meter -v zram_ratio_meter -w $m_width-21 -f -c color_available_graph "0"
+	    fi
+	    
+	    print -v mem_out -m $((y_pos++)) $((m_col+7)) -t "${zram_ratio_meter}" -rs -fg $normal_color
+
+					
+#	    if [[ -z $meter_mod_w ]]; then print -v mem_out -jr 4 -t "${disk_value_percent[disk_num]}%"; fi
+	    ((++zram_num))
+	done
 
 	#* Create text and meters for disks and adapt sizes based on available height
 	local disk_num disk_name disk_value v_height2 just_val name_len
