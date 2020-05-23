@@ -1943,8 +1943,8 @@ EOF
 	done
 
 	#* Copy cpu usage for cpu package and cores to cpu history arrays and trim earlier entries
-	if ((${#cpu_history[@]}>tty_width*2)); then
-		cpu_history=( "${cpu_history[@]:$tty_width}" "${cpu_usage[0]}")
+	if ((${#cpu_history[@]}>tty_width*4)); then
+		cpu_history=( "${cpu_history[@]:$((tty_width*2))}" "${cpu_usage[0]}")
 	else
 		cpu_history+=("${cpu_usage[0]}")
 	fi
@@ -2821,8 +2821,8 @@ collect_net() { #? Collect information from "/proc/net/dev"
 
 			#* Copy download and upload speed to history arrays and trim earlier entries
 			local -n history="net_history_${direction}"
-			if ((${#history[@]}>box[net_width]*2)); then
-				history=( "${history[@]:${box[net_width]}}" "${net[speed_${direction}]}")
+			if ((${#history[@]}>box[net_width]*4)); then
+				history=( "${history[@]:$((box[net_width]*2))}" "${net[speed_${direction}]}")
 			else
 				history+=("${net[speed_${direction}]}")
 			fi
