@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.9.1
+
+* Added: FreeBSD support with python3 psutil data collection
+* Added: Check for gnu tools on non Linux platforms
+* Fixed: Increased graph history to avoid cut off on high resolution graphs
+
 ## v0.9.0
 
 * Added: Mac OS X support with python3 psutil data collection
