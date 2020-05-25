@@ -2218,7 +2218,7 @@ EOF
 	local -a device_array iostat_array
 	unset 'disks_free[@]' 'disks_used[@]' 'disks_used_percent[@]' 'disks_total[@]' 'disks_name[@]' 'disks_free_percent[@]' 'disks_io[@]'
 	if [[ $system == "MacOS" ]]; then
-		readarray -t df_array < <(df -k 2>/dev/null || true)
+		readarray -t df_array < <(/bin/df -k -P 2>/dev/null || true)
 	else
 		readarray -t df_array < <(${df} -x squashfs -x tmpfs -x devtmpfs -x overlay 2>/dev/null || true)
 	fi
@@ -2226,25 +2226,7 @@ EOF
 		line_array=(${df_line})
 		if ! is_int "${line_array[1]}"; then continue; fi
 
-		if [[ $system == "MacOS" ]]; then
-			if [[ ${line_array[0]} == "devfs" ]]; then continue; fi
-			if [[ ${line_array[8]} == "/private/var/vm" ]]; then
-				swap[total]="${line_array[1]}"
-				swap[used]="${line_array[2]}"
-				swap[free]="${line_array[3]}"
-				swap[free_percent]=$((swap[free]*100/swap[total]))
-				swap[used_percent]=$((swap[used]*100/swap[total]))
-
-				#* Convert values to floating point and humanize
-				for value in total used free; do
-					local -n this_value="swap[${value}]" this_string="swap[${value}_string]"
-					floating_humanizer -v this_string -s 1 -B "${this_value}"
-				done
-
-				continue
-			fi
-			line_array[5]="${line_array[8]}"
-		fi
+		if [[ $system == "MacOS" && ( ${line_array[0]} == "devfs" || ${line_array[5]} == "/private/var/vm" ) ]]; then continue; fi
 
 		if [[ ${line_array[5]} == "/" ]]; then disks_name+=("root")
 		else disks_name+=("${line_array[5]##*/}"); fi
@@ -2273,6 +2255,7 @@ EOF
 				unset iostat_var disk_io_string 'iostat_array[@]'
 				if [[ $use_psutil == true && $system != "Linux" ]] && ((df_count==0)); then
 					read -r iostat_var < <(python3 -c "import psutil; disk = psutil.disk_io_counters(perdisk=False); print(disk.read_bytes>>10, disk.write_bytes>>10)" 2>/dev/null)
+					df_count=1
 				elif [[ $use_psutil == true && $system == "Linux" ]]; then
 					read -r iostat_var < <(python3 -c "import os, psutil; disk = psutil.disk_io_counters(perdisk=True)[os.path.realpath('${dev_path}${dev_name}').split('/')[-1]]; print(disk.read_bytes>>10, disk.write_bytes>>10)" 2>/dev/null)
 				elif [[ $use_psutil == false ]]; then
@@ -2302,7 +2285,7 @@ EOF
 		fi
 
 		if ((${#disks_name[@]}>=height/2)); then break; fi
-		((++df_count))
+
 	done
 
 
@@ -3204,7 +3187,7 @@ draw_mem() { #? Draw mem, swap and disk statistics
 	local -a types=("mem")
 	unset mem_out
 
-	if [[ -n ${swap[total]} ]]; then types+=("swap"); fi
+	if [[ -n ${swap[total]} && ${swap[total]} -gt 0 ]]; then types+=("swap"); fi
 
 	#* Get variables from previous calculations
 	local col=$((box[mem_col]+1)) line=$((box[mem_line]+1)) width=$((box[mem_width]-2)) height=$((box[mem_height]-2))
