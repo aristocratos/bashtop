@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.9.3
+
+* Fixed: Resizing problems in iTerm2
+* Changed: Removed redundant error checking in print function for lower cpu usage
+* Fixed: Memory in OSX now shows active memory usage and /private/var/vm as swap memory
+* Fixed: Disks in OSX changed from using "GNU df" to "BSD df" for better compatibility
+
 ## v0.9.2
 
 * Fixed: Correct prefixes for some missed GNU tools
