@@ -57,6 +57,21 @@ fi
 shopt -qu failglob nullglob
 shopt -qs extglob globasciiranges globstar
 
+#* Check for UTF-8 locale and set LANG variable if not set
+if [[ ! $LANG =~ UTF-8|utf-8 ]]; then
+	for set_lang in $(locale -a); do
+		if [[ $set_lang =~ UTF-8|utf-8 ]]; then
+			declare -x LANG="${set_lang}"
+			set_lang="found"
+			break
+		fi
+	done
+	if [[ $set_lang != "found" ]]; then
+		echo "ERROR: No UTF-8 locale found!"
+		exit 1
+	fi
+fi
+
 declare -a banner banner_colors
 
 banner=(
@@ -390,7 +405,7 @@ init_() { #? Collect needed information and set options before startig main loop
 	if [[ -n $curled && $update_check == "true" ]]; then
 		print -bg "#00" -fg "#30ff50" -r 1 -t "√"
 		print -m $(( (tty_height/2-3)+stx++ )) 0 -bg "#00" -fg "#cc" -c -b "Checking for updates..."
-		if ! get_value -v git_version -ss "$(curl -m 4 --raw -r 0-3500 https://raw.githubusercontent.com/aristocratos/bashtop/master/bashtop 2>/dev/null)" -k "version=" -r "[^0-9.]"; then unset git_version; fi
+		if ! get_value -v git_version -ss "$(curl -m 4 --raw -r 0-5000 https://raw.githubusercontent.com/aristocratos/bashtop/master/bashtop 2>/dev/null)" -k "version=" -r "[^0-9.]"; then unset git_version; fi
 	fi
 
 	#* Add update notification to banner if new version is available
