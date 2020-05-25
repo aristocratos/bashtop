@@ -2163,7 +2163,7 @@ swap = psutil.swap_memory()
 try:
 	cmem = mem.cached>>10
 except:
-	cmem = 0
+	cmem = mem.active>>10
 print(mem.total>>10, mem.free>>10, mem.available>>10, cmem, swap.total>>10, swap.free>>10)
 EOF
 		)
@@ -2217,10 +2217,34 @@ EOF
 	local df_array df_line line_array dev_path dev_name iostat_var disk_read disk_write disk_io_string df_count=0
 	local -a device_array iostat_array
 	unset 'disks_free[@]' 'disks_used[@]' 'disks_used_percent[@]' 'disks_total[@]' 'disks_name[@]' 'disks_free_percent[@]' 'disks_io[@]'
-	readarray -t df_array < <(${df} -x squashfs -x tmpfs -x devtmpfs -x overlay 2>/dev/null || true)
+	if [[ $system == "MacOS" ]]; then
+		readarray -t df_array < <(df -k 2>/dev/null || true)
+	else
+		readarray -t df_array < <(${df} -x squashfs -x tmpfs -x devtmpfs -x overlay 2>/dev/null || true)
+	fi
 	for df_line in "${df_array[@]:1}"; do
 		line_array=(${df_line})
-		if ! is_int "${line_array[2]}"; then continue; fi
+		if ! is_int "${line_array[1]}"; then continue; fi
+
+		if [[ $system == "MacOS" ]]; then
+			if [[ ${line_array[0]} == "devfs" ]]; then continue; fi
+			if [[ ${line_array[8]} == "/private/var/vm" ]]; then
+				swap[total]="${line_array[1]}"
+				swap[used]="${line_array[2]}"
+				swap[free]="${line_array[3]}"
+				swap[free_percent]=$((swap[free]*100/swap[total]))
+				swap[used_percent]=$((swap[used]*100/swap[total]))
+
+				#* Convert values to floating point and humanize
+				for value in total used free; do
+					local -n this_value="swap[${value}]" this_string="swap[${value}_string]"
+					floating_humanizer -v this_string -s 1 -B "${this_value}"
+				done
+
+				continue
+			fi
+			line_array[5]="${line_array[8]}"
+		fi
 
 		if [[ ${line_array[5]} == "/" ]]; then disks_name+=("root")
 		else disks_name+=("${line_array[5]##*/}"); fi
@@ -3176,13 +3200,11 @@ draw_mem() { #? Draw mem, swap and disk statistics
 	if ((mem[counter]>0 & resized==0)); then return; fi
 
 	local i swap_used_meter swap_free_meter mem_available_meter mem_free_meter mem_used_meter mem_cached_meter normal_color="${theme[main_fg]}" value_text
-	local meter_mod_w meter_mod_pos value type m_title meter_options values
+	local meter_mod_w meter_mod_pos value type m_title meter_options values="used available cached free"
 	local -a types=("mem")
-	if [[ $system == "MacOS" ]]; then values="used available free"
-	else values="used available cached free"; fi
 	unset mem_out
 
-	if [[ -n $swap_on ]]; then types+=("swap"); fi
+	if [[ -n ${swap[total]} ]]; then types+=("swap"); fi
 
 	#* Get variables from previous calculations
 	local col=$((box[mem_col]+1)) line=$((box[mem_line]+1)) width=$((box[mem_width]-2)) height=$((box[mem_height]-2))
@@ -3190,7 +3212,7 @@ draw_mem() { #? Draw mem, swap and disk statistics
 
 	#* Create text and meters for memory and swap and adapt sizes based on available height
 	local y_pos=$m_line v_height=8 list value meter inv_meter
-	if [[ $system == "MacOS" ]]; then v_height=6; fi
+
 	for type in ${types[@]}; do
 		local -n type_name="$type"
 		if [[ $type == "mem" ]]; then
@@ -3201,16 +3223,17 @@ draw_mem() { #? Draw mem, swap and disk statistics
 		fi
 
 		#* Print name of type and total amount in humanized base 2 bytes
-		print -v mem_out -m $y_pos $m_col -rs -fg ${theme[title]} -b -jl 9 -t "${m_title^}:" -m $((y_pos++)) $((mem_line-10)) -jr 9 -trans -t " ${type_name[total_string]::$((m_width-11))}"
+		print -v mem_out -m $y_pos $m_col -rs -fg ${theme[title]} -b -jl 9 -t "${m_title^}:" -m $((y_pos++)) $((mem_line-10)) -jr 9 -t " ${type_name[total_string]::$((m_width-11))}"
 
 		for value in ${values}; do
 			if [[ $type == "swap" && $value =~ available|cached ]]; then continue; fi
 
-			value_text="${value::$((m_width-12))}"
+			if [[ $system == "MacOS" && $value == "cached" ]]; then value_text="active"
+			else value_text="${value::$((m_width-12))}"; fi
 			if ((height<14)); then value_text="${value_text::5}"; fi
 
 			#* Print name of value and value amount in humanized base 2 bytes
-			print -v mem_out -m $y_pos $m_col -rs -fg $normal_color -jl 9 -t "${value_text^}:" -m $((y_pos++)) $((mem_line-10)) -jr 9 -trans -t " ${type_name[${value}_string]::$((m_width-11))}"
+			print -v mem_out -m $y_pos $m_col -rs -fg $normal_color -jl 9 -t "${value_text^}:" -m $((y_pos++)) $((mem_line-10)) -jr 9 -t " ${type_name[${value}_string]::$((m_width-11))}"
 
 			#* Create meter for value and calculate size and placement depending on terminal size
 			if ((height>v_height++ | tty_width>100)); then
@@ -3230,7 +3253,7 @@ draw_mem() { #? Draw mem, swap and disk statistics
 
 				if [[ -z $meter_mod_w ]]; then print -v mem_out  -jr 4 -t "${type_name[${value}_percent]}%"; fi
 			fi
-		if [[ $system == "MacOS" && -z $swap_on ]] && ((height>8)); then ((y_pos++)); fi
+		#if [[ $system == "MacOS" && -z $swap_on ]] && ((height>14)); then ((y_pos++)); fi
 		done
 	done
 
