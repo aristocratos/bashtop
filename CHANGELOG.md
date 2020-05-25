@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.9.2
+
+* Fixed: Correct prefixes for some missed GNU tools
+* Added: Startup progress screen
+* Changed: replaced tput commands with escape sequence commands
+
 ## v0.9.1
 
 * Added: FreeBSD support with python3 psutil data collection
