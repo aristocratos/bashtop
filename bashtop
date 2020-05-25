@@ -75,7 +75,7 @@ banner_colors=("#E62525" "#CD2121" "#B31D1D" "#9A1919" "#801414")
 
 #* Set correct names for GNU tools depending on OS
 if [[ $system != "Linux" ]]; then tool_prefix="g"; fi
-for tool in "dd" "df" "stty" "tail" "realpath" "sed"; do
+for tool in "dd" "df" "stty" "tail" "realpath" "wc" "rm" "mv" "sleep" "stdbuf" "mkfifo" "date" "kill" "sed"; do
 	declare -n set_tool="${tool}"
 	set_tool="${tool_prefix}${tool}"
 done
@@ -262,13 +262,15 @@ else
 		tmpdir="/dev/shm"
 	elif [[ -w /tmp ]]; then
 		tmpdir="/tmp"
+	elif [[ -w "$HOME" ]]; then
+		tmpdir="$HOME"
 	fi
 
-	if [[ -n $tmpdir ]] && command -v stdbuf >/dev/null 2>&1; then
-		mkfifo "${tmpdir}/bashtop_datefifo"
-		exec 5> >(exec stdbuf -o0 date -f - +%s%3N > "${tmpdir}/bashtop_datefifo" 2>&1)
+	if [[ -n $tmpdir ]] && command -v ${stdbuf} >/dev/null 2>&1; then
+		${mkfifo} "${tmpdir}/bashtop_datefifo"
+		exec 5> >(exec ${stdbuf} -o0 ${date} -f - +%s%3N > "${tmpdir}/bashtop_datefifo" 2>&1)
 		exec 6< "${tmpdir}/bashtop_datefifo"
-		rm  "${tmpdir}/bashtop_datefifo"
+		${rm} -f "${tmpdir}/bashtop_datefifo"
 
 		get_ms() { #? Set given variable to current epoch millisecond with date command through background fifo
 			local -n ms_out=$1
@@ -280,24 +282,46 @@ else
 		get_ms() { #? Set given variable to current epoch millisecond with forked date command
 			local -n ms_out=$1
 			ms_out=""
-			read ms_out < <(date +%s%3N)
+			read ms_out < <(${date} +%s%3N)
 		}
 	fi
 fi
 
 init_() { #? Collect needed information and set options before startig main loop
-	local i
+	local i stx=0
 	#* Set terminal options, save and clear screen
 	saved_stty="$(${stty} -g)"
-	#tput smcup
 	echo -en "${alt_screen}${hide_cursor}${clear_screen}"
 	echo -en "\033]0;BashTOP\a"
-	#tput clear
 	${stty} -echo
-	#tput civis
 
+	#* Wait for resize if terminal size is smaller then 80x24
+	if (($tty_width<80 | $tty_height<24)); then resized; echo -en "${clear_screen}"; fi
+
+	#* Draw banner to banner array
+	local letter b_color banner_line y=0
+	local -a banner_out
+	#print -v banner_out[0] -t "\e[0m"
+	for banner_line in "${banner[@]}"; do
+		#* Read banner array letter by letter to set correct color for filled vs outline characters
+		while read -rN1 letter; do
+			if [[ $letter == "█" ]]; then b_color="${banner_colors[$y]}"
+			else b_color=$((80-y*6)); fi
+			if [[ $letter == " " ]]; then
+				print -v banner_out[y] -r 1
+			else
+				print -v banner_out[y] -fg ${b_color} "${letter}"
+			fi
+		done <<<"$banner_line"
+		((++y))
+	done
+	banner=("${banner_out[@]}")
+
+	#* Draw banner to screen and show status while running init
+	draw_banner $((tty_height/2-10))
 
 	#* Check if "sensors", "osx-cpu-temp" or "vcgencmd" commands is available, if not, disable temperature collection
+	print -m $(( (tty_height/2-3)+stx++ )) 0 -bg "#00" -fg "#cc" -b -c "Checking available tools..."
 	if [[ $check_temp == true ]]; then
 		local checker
 		for checker in "vcgencmd" "sensors" "osx-cpu-temp"; do
@@ -316,6 +340,8 @@ init_() { #? Collect needed information and set options before startig main loop
 	if [[ $use_psutil == false ]] && command -v iostat >/dev/null 2>&1; then has_iostat=1; else unset has_iostat; fi
 
 	#* Get number of cores and cpu threads
+	print -bg "#00" -fg "#30ff50" -r 1 -t "√"
+	print -m $(( (tty_height/2-3)+stx++ )) 0 -bg "#00" -fg "#cc" -c -b "Checking cpu..."
 	get_cpu_info
 
 	#* Set graph resolution
@@ -339,60 +365,53 @@ init_() { #? Collect needed information and set options before startig main loop
 		proc[pid_len]="7"
 	fi
 
-	#* Wait for resize if terminal size is smaller then 80x24
-	if (($tty_width<80 | $tty_height<24)); then resized; fi
-
 	#* Calculate sizes of boxes
+	print -bg "#00" -fg "#30ff50" -r 1 -t "√"
+	print -m $(( (tty_height/2-3)+stx++ )) 0 -bg "#00" -fg "#cc" -c -b "Calculating sizes..."
 	calc_sizes
 
 	#* Call init for cpu data collection
+	print -bg "#00" -fg "#30ff50" -r 1 -t "√"
+	print -m $(( (tty_height/2-3)+stx++ )) 0 -bg "#00" -fg "#cc" -c -b "Running cpu collection init..."
 	collect_cpu init
 
 	#* Call init for memory data collection and check if swap is available
+	print -bg "#00" -fg "#30ff50" -r 1 -t "√"
+	print -m $(( (tty_height/2-3)+stx++ )) 0 -bg "#00" -fg "#cc" -c -b "Running mem collection init..."
 	mem[counter]=10
 	collect_mem init
 
 	#* Get default network device from "ip route" command and call init for net collection if device is found
+	print -bg "#00" -fg "#30ff50" -r 1 -t "√"
+	print -m $(( (tty_height/2-3)+stx++ )) 0 -bg "#00" -fg "#cc" -c -b "Checking network devices..."
 	get_net_device
 
 	#* Check if newer version of bashtop is available from https://github.com/aristocratos/bashtop
 	if [[ -n $curled && $update_check == "true" ]]; then
-		if ! get_value -v git_version -ss "$(curl -m 2 --raw -r 0-3500 https://raw.githubusercontent.com/aristocratos/bashtop/master/bashtop 2>/dev/null)" -k "version=" -r "[^0-9.]"; then unset git_version; fi
+		print -bg "#00" -fg "#30ff50" -r 1 -t "√"
+		print -m $(( (tty_height/2-3)+stx++ )) 0 -bg "#00" -fg "#cc" -c -b "Checking for updates..."
+		if ! get_value -v git_version -ss "$(curl -m 4 --raw -r 0-3500 https://raw.githubusercontent.com/aristocratos/bashtop/master/bashtop 2>/dev/null)" -k "version=" -r "[^0-9.]"; then unset git_version; fi
 	fi
 
-	#* Draw banner to banner array and notify about new updates
-	local letter b_color banner_line y=0
-	local -a banner_out
-	#print -v banner_out[0] -t "\e[0m"
-	for banner_line in "${banner[@]}"; do
-		#* Read banner array letter by letter to set correct color for filled vs outline characters
-		while read -rN1 letter; do
-			if [[ $letter == "█" ]]; then b_color="${banner_colors[$y]}"
-			else b_color=$((80-y*6)); fi
-			if [[ $letter == " " ]]; then
-				print -v banner_out[y] -r 1
-			else
-				print -v banner_out[y] -fg ${b_color} "${letter}"
-			fi
-		done <<<"$banner_line"
-		((++y))
-	done
-	print -v banner_out[y] -rs -fg cc -b "← esc"
+	#* Add update notification to banner if new version is available
+	local banner_out_up
+	print -v banner_out_up -rs -fg cc -b "← esc"
 	if [[ -n $git_version && $git_version != "$version" ]]; then
-		print -v banner_out[y] -rs -fg "#80cc80" -r 15 "[${git_version} available!]" -r $((9-${#git_version}))
+		print -v banner_out_up -rs -fg "#80cc80" -r 15 "[${git_version} available!]" -r $((9-${#git_version}))
 		if [[ -n $notifier ]]; then
 			notify-send -u normal\
 			"Bashtop Update!" "New version of Bashtop available\!\nCurrent version: ${version}\n\New version: ${git_version}\nDownload at github.com/aristocratos/bashtop"\
 			-i face-glasses -t 10000
 		fi
 	else
-		print -v banner_out[y] -r 37
+		print -v banner_out_up -r 37
 	fi
-	print -v banner_out[y] -fg cc -i -b "Version: ${version}" -rs
-	unset 'banner[@]'
-	banner=("${banner_out[@]}")
+	print -v banner_out_up -fg cc -i -b "Version: ${version}" -rs
+	banner+=("${banner_out_up}")
 
 	#* Get theme and set colors
+	print -bg "#00" -fg "#30ff50" -r 1 -t "√"
+	print -m $(( (tty_height/2-3)+stx++ )) 0 -bg "#00" -fg "#cc" -c -b "Generating colors for theme..."
 	color_init_
 
 	#* Set up internals for quick processes sorting switching
@@ -414,10 +433,32 @@ init_() { #? Collect needed information and set options before startig main loop
 	fi
 
 	#* Call init for processes data collection
+	print -bg "#00" -fg "#30ff50" -r 1 -t "√"
+	print -m $(( (tty_height/2-3)+stx++ )) 0 -bg "#00" -fg "#cc" -c -b "Running process collection init..."
 	proc[selected]=0
 	proc[page]=1
 	collect_processes init
 
+	#* Draw first screen
+	print -bg "#00" -fg "#30ff50" -r 1 -t "√"
+	print -m $(( (tty_height/2-3)+stx++ )) 0 -bg "#00" -fg "#cc" -c -b "Drawing screen..."
+
+	draw_bg quiet
+	get_ms timestamp_start
+
+	for task in processes cpu mem net; do
+		collect_${task}
+		draw_${task}
+	done
+	last_screen="${draw_out}"
+
+	print -bg "#00" -fg "#30ff50" -r 1 -t "√" -rs
+	sleep 0.5
+
+	draw_clock
+	echo -en "${clear_screen}${draw_out}${proc_out}${clock_out}"
+	resized=0
+	unset draw_out
 }
 
 color_init_() { #? Check for theme file and set colors
@@ -531,9 +572,6 @@ color_init_() { #? Check for theme file and set colors
 
 quit_() { #? Clean exit
 	#* Restore terminal options and screen
-	#tput clear
-	#tput rmcup
-	#tput cnorm
 	echo -en "${clear_screen}${normal_screen}${show_cursor}"
 	${stty} "${saved_stty}"
 	echo -en "\033]0;\a"
@@ -547,24 +585,18 @@ quit_() { #? Clean exit
 }
 
 sleep_() { #? Restore terminal options, stop and send to background if caught SIGTSTP (ctrl+z)
-	# tput clear
-	# tput rmcup
-	# tput cnorm
 	echo -en "${clear_screen}${normal_screen}${show_cursor}"
 	${stty} "${saved_stty}"
 	echo -en "\033]0;\a"
 
-	kill -s SIGSTOP $$
+	${kill} -s SIGSTOP $$
 }
 
 resume_() { #? Set terminal options and resume if caught SIGCONT ('fg' from terminal)
 	sleepy=0
-	#tput smcup
 	echo -en "${alt_screen}${hide_cursor}${clear_screen}"
 	echo -en "\033]0;BashTOP\a"
-	#tput clear
 	${stty} -echo
-	#tput civis
 
 	if [[ -n $pause_screen ]]; then
 		echo -en "$pause_screen"
@@ -602,7 +634,7 @@ resized() { #? Get new terminal size if terminal is resized
 		else
 			create_box -w 30 -h 3 -c 1 -l 1 -lc "#EE2020" -title "resizing"
 			print -jc 28 -fg ${theme[title]} "New size: ${tty_width}x${tty_height}"
-			sleep 0.2
+			${sleep} 0.2
 			if [[ $(${stty} size) != "$tty_height $tty_width" ]]; then winches=0; fi
 		fi
 	done
@@ -611,11 +643,11 @@ resized() { #? Get new terminal size if terminal is resized
 size_error_msg() { #? Shows error message if terminal size is below 80x25
 	local width=$tty_width
 	local height=$tty_height
-	tput clear
+	echo -en "${clear_screen}"
 	create_box -full -lc "#EE2020" -title "resize window"
 	print -rs -m $((tty_height/2-1)) 2 -fg ${theme[title]} -c -l 11 "Current size: " -bg "#00" -fg dd2020 -d 1 -c "${tty_width}x${tty_height}" -rs
 	print -d 1 -fg ${theme[title]} -c -l 15 "Need to be atleast:" -bg "#00" -fg 30dd50 -d 1 -c "80x24" -rs
-	while [[ $(${stty} size) == "$tty_height $tty_width" ]]; do sleep 0.2; if [[ -n $quitting ]]; then quit_; fi ; done
+	while [[ $(${stty} size) == "$tty_height $tty_width" ]]; do ${sleep} 0.2; if [[ -n $quitting ]]; then quit_; fi ; done
 
 }
 
@@ -818,6 +850,9 @@ get_cpu_info() {
 
 		if [[ $system == "MacOS" ]]; then
 			lscpu_var="Model name:  $(sysctl -n machdep.cpu.brand_string)"
+		elif [[ $system == "BSD" ]]; then
+			lscpu_var="$(sysctl hw.model)"
+			lscpu_var="${lscpu_var/hw.model:/Model name:}"
 		elif command -v lscpu >/dev/null 2>&1; then
 			lscpu_var="$(lscpu)"
 		fi
@@ -3808,7 +3843,7 @@ help_() { #? Shows the help overlay
 
 		if [[ $(${stty} size) != "$tty_height $tty_width" ]]; then resized; fi
 		if ((resized>0)); then
-			sleep 0.5
+			${sleep} 0.5
 			calc_sizes; draw_bg quiet; redraw=1
 			d_banner=1
 			unset bannerd menu_out
@@ -4278,7 +4313,7 @@ killer_() { #? Kill process with selected signal
 			unpause_
 			break
 		elif ((confirmed>0)) && [[ -z $status ]]; then
-			if kill -${sig} ${kill_pid} >/dev/null 2>&1; then
+			if ${kill} -${sig} ${kill_pid} >/dev/null 2>&1; then
 				status="success"
 			else
 				if ! ps -p ${kill_pid} >/dev/null 2>&1; then
@@ -4729,10 +4764,10 @@ if [[ $error_logging == true ]]; then
 	trap 'traperr' ERR
 
 	#* Remove everything but the last 500 lines of error log if larger than 500 lines
-	if [[ -e "${config_dir}/error.log" && $(wc -l <"${config_dir}/error.log") -gt 500 ]]; then
+	if [[ -e "${config_dir}/error.log" && $(${wc} -l <"${config_dir}/error.log") -gt 500 ]]; then
 		${tail} -n 500 "${config_dir}/error.log" > "${config_dir}/tmp"
-		rm "${config_dir}/error.log"
-		mv "${config_dir}/tmp" "${config_dir}/error.log"
+		${rm} -f "${config_dir}/error.log"
+		${mv} -f "${config_dir}/tmp" "${config_dir}/error.log"
 	fi
 	( echo " " ; echo "New instance of bashtop version: ${version} Pid: $$" ) >> "${config_dir}/error.log"
 	exec 2>>"${config_dir}/error.log"
