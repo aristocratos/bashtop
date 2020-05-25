@@ -183,10 +183,7 @@ pip3 install psutil
 >Install optional dependency osx-cpu-temp
 
 ``` bash
-git clone https://github.com/lavoiesl/osx-cpu-temp.git
-cd osx-cpu-temp
-make
-sudo make install
+brew install osx-cpu-temp
 ```
 
 #### Dependencies installation FreeBSD
