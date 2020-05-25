@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.9.4
+
+* Fixed: Missing path for OSX df and correct swap usage reporting for OSX
+
 ## v0.9.3
 
 * Fixed: Resizing problems in iTerm2
