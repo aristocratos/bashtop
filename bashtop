@@ -4,7 +4,7 @@
 # shellcheck disable=SC2034 #Unused variables
 # shellcheck disable=SC2068 #Double quote array warning
 # shellcheck disable=SC2086 # Double quote warning
-## shellcheck disable=SC2120
+# shellcheck disable=SC2140 # Word form warning
 # shellcheck disable=SC2162 #Read without -r
 # shellcheck disable=SC2206 #Word split warning
 # shellcheck disable=SC2178 #Array to string warning
@@ -306,7 +306,7 @@ init_() { #? Collect needed information and set options before startig main loop
 		#* Read banner array letter by letter to set correct color for filled vs outline characters
 		while read -rN1 letter; do
 			if [[ $letter == "█" ]]; then b_color="${banner_colors[$y]}"
-			else b_color=$((80-y*6)); fi
+			else b_color="#$((80-y*6))"; fi
 			if [[ $letter == " " ]]; then
 				print -v banner_out[y] -r 1
 			else
@@ -395,7 +395,7 @@ init_() { #? Collect needed information and set options before startig main loop
 
 	#* Add update notification to banner if new version is available
 	local banner_out_up
-	print -v banner_out_up -rs -fg cc -b "← esc"
+	print -v banner_out_up -rs -fg "#cc" -b "← esc"
 	if [[ -n $git_version && $git_version != "$version" ]]; then
 		print -v banner_out_up -rs -fg "#80cc80" -r 15 "[${git_version} available!]" -r $((9-${#git_version}))
 		if [[ -n $notifier ]]; then
@@ -406,7 +406,7 @@ init_() { #? Collect needed information and set options before startig main loop
 	else
 		print -v banner_out_up -r 37
 	fi
-	print -v banner_out_up -fg cc -i -b "Version: ${version}" -rs
+	print -v banner_out_up -fg "#cc" -i -b "Version: ${version}" -rs
 	banner+=("${banner_out_up}")
 
 	#* Get theme and set colors
@@ -632,6 +632,7 @@ resized() { #? Get new terminal size if terminal is resized
 			size_error_msg
 			winches=0
 		else
+			echo -en "${clear_screen}"
 			create_box -w 30 -h 3 -c 1 -l 1 -lc "#EE2020" -title "resizing"
 			print -jc 28 -fg ${theme[title]} "New size: ${tty_width}x${tty_height}"
 			${sleep} 0.2
@@ -645,8 +646,8 @@ size_error_msg() { #? Shows error message if terminal size is below 80x25
 	local height=$tty_height
 	echo -en "${clear_screen}"
 	create_box -full -lc "#EE2020" -title "resize window"
-	print -rs -m $((tty_height/2-1)) 2 -fg ${theme[title]} -c -l 11 "Current size: " -bg "#00" -fg dd2020 -d 1 -c "${tty_width}x${tty_height}" -rs
-	print -d 1 -fg ${theme[title]} -c -l 15 "Need to be atleast:" -bg "#00" -fg 30dd50 -d 1 -c "80x24" -rs
+	print -rs -m $((tty_height/2-1)) 2 -fg ${theme[title]} -c -l 11 "Current size: " -bg "#00" -fg "#dd2020" -d 1 -c "${tty_width}x${tty_height}" -rs
+	print -d 1 -fg ${theme[title]} -c -l 15 "Need to be atleast:" -bg "#00" -fg "#30dd50" -d 1 -c "80x24" -rs
 	while [[ $(${stty} size) == "$tty_height $tty_width" ]]; do ${sleep} 0.2; if [[ -n $quitting ]]; then quit_; fi ; done
 
 }
@@ -1247,7 +1248,7 @@ create_graph() { 	#? Create a graph from an array of percentage values, usage; 	
 
 		#* Set up graph array print side numbers and lines
 		print -v graph_array[0] -rs
-		print -v graph_array[0] -m $((line+g_index[0])) ${col} ${normal_vals:+-jr 3 -fg ee -b -t "${side_num[0]}" -rs -fg ${theme[main_fg]} -t "${g_char[0]}"} -fg ${colors[100]}
+		print -v graph_array[0] -m $((line+g_index[0])) ${col} ${normal_vals:+-jr 3 -fg "#ee" -b -t "${side_num[0]}" -rs -fg ${theme[main_fg]} -t "${g_char[0]}"} -fg ${colors[100]}
 		for((i=1;i<height;i++)); do
 			print -v graph_array[i] -m $((line+g_index[i])) ${col} ${normal_vals:+-r 3 -fg ${theme[main_fg]} -t "${g_char[0]}"} -fg ${colors[$((100-i*100/height))]}
 		done
@@ -1256,7 +1257,7 @@ create_graph() { 	#? Create a graph from an array of percentage values, usage; 	
 
 		graph_array[height]=""
 		if [[ -z $no_guide ]]; then
-			print -v graph_array[$height] -m $((line+g_index[(-1)])) ${col} -jr 3 -fg ee -b -t "${side_num[1]}" -rs -fg ${theme[main_fg]} -t "${g_char[1]}" -rp ${width} -t "${g_char[2]}"
+			print -v graph_array[$height] -m $((line+g_index[(-1)])) ${col} -jr 3 -fg "#ee" -b -t "${side_num[1]}" -rs -fg ${theme[main_fg]} -t "${g_char[1]}" -rp ${width} -t "${g_char[2]}"
 		fi
 
 		#* If no color array was given, create a simple greyscale array
@@ -1562,7 +1563,7 @@ create_graph_hires() { 	#? Create a graph from an array of percentage values, us
 		fi
 
 		#* Set up graph array print side numbers and lines
-		print -v graph_array[0] -rs -m $((line+g_index[0])) ${col} ${normal_vals:+-jr 3 -fg ee -b -t "${side_num[0]}" -rs -fg ${theme[main_fg]} -t "${g_char[0]}"} -fg ${colors[100]}
+		print -v graph_array[0] -rs -m $((line+g_index[0])) ${col} ${normal_vals:+-jr 3 -fg "#ee" -b -t "${side_num[0]}" -rs -fg ${theme[main_fg]} -t "${g_char[0]}"} -fg ${colors[100]}
 		for((i=1;i<height;i++)); do
 			print -v graph_array[i] -m $((line+g_index[i])) ${col} ${normal_vals:+-r 3 -fg ${theme[main_fg]} -t "${g_char[0]}"} -fg ${colors[$((100-i*100/height))]}
 		done
@@ -1571,7 +1572,7 @@ create_graph_hires() { 	#? Create a graph from an array of percentage values, us
 
 		graph_array[$height]=""
 		if [[ -z $no_guide ]]; then
-			print -v graph_array[$height] -m $((line+g_index[(-1)])) ${col} -jr 3 -fg ee -b -t "${side_num[1]}" -rs -fg ${theme[main_fg]} -t "${g_char[1]}" -rp ${width} -t "${g_char[2]}"
+			print -v graph_array[$height] -m $((line+g_index[(-1)])) ${col} -jr 3 -fg "#ee" -b -t "${side_num[1]}" -rs -fg ${theme[main_fg]} -t "${g_char[1]}" -rp ${width} -t "${g_char[2]}"
 		fi
 
 		graph_even=("${graph_array[@]}")
@@ -1856,20 +1857,24 @@ print() {	#? Print text, set true-color foreground/background color, add effects
 		#* Argument parsing
 		until (($#==0)); do
 			case $1 in
-				-t|-text) if [[ -n $2 ]]; then text="$2"; shift 2; break; fi;;																#? String to print
+				-t|-text) text="$2"; shift 2; break;;																#? String to print
 				-stdin) text="$(</dev/stdin)"; shift; break;;																				#? Print from stdin
 				-fg|-foreground)	#? Set text foreground color, accepts either 6 digit hexadecimal "#RRGGBB", 2 digit hex (greyscale) or decimal RGB "<0-255> <0-255> <0-255>"
-					val=${2//#/}
-					if is_int "${@:2:3}"; then fgc="\e[38;2;$2;$3;$4m"; shift 3
-					elif [[ ${#val} == 6 ]] && is_hex "$val"; then fgc="\e[38;2;$((${hex}${val:0:2}));$((${hex}${val:2:2}));$((${hex}${val:4:2}))m"; shift
-					elif [[ ${#val} == 2 ]] && is_hex "$val"; then fgc="\e[38;2;$((${hex}${val:0:2}));$((${hex}${val:0:2}));$((${hex}${val:0:2}))m"; shift
+					if [[ ${2::1} == "#" ]]; then
+						val=${2//#/}
+						if [[ ${#val} == 6 ]]; then fgc="\e[38;2;$((${hex}${val:0:2}));$((${hex}${val:2:2}));$((${hex}${val:4:2}))m"; shift
+						elif [[ ${#val} == 2 ]]; then fgc="\e[38;2;$((${hex}${val:0:2}));$((${hex}${val:0:2}));$((${hex}${val:0:2}))m"; shift
+						fi
+					elif is_int "${@:2:3}"; then fgc="\e[38;2;$2;$3;$4m"; shift 3
 					fi
 					;;
 				-bg|-background)	#? Set text background color, accepts either 6 digit hexadecimal "#RRGGBB", 2 digit hex (greyscale) or decimal RGB "<0-255> <0-255> <0-255>"
-					val=${2//#/}
-					if is_int "${@:2:3}"; then bgc="\e[48;2;$2;$3;$4m"; shift 3
-					elif [[ ${#val} == 6 ]] && is_hex "$val"; then bgc="\e[48;2;$((${hex}${val:0:2}));$((${hex}${val:2:2}));$((${hex}${val:4:2}))m"; shift
-					elif [[ ${#val} == 2 ]] && is_hex "$val"; then bgc="\e[48;2;$((${hex}${val:0:2}));$((${hex}${val:0:2}));$((${hex}${val:0:2}))m"; shift
+					if [[ ${2::1} == "#" ]]; then
+						val=${2//#/}
+						if [[ ${#val} == 6 ]]; then bgc="\e[48;2;$((${hex}${val:0:2}));$((${hex}${val:2:2}));$((${hex}${val:4:2}))m"; shift
+						elif [[ ${#val} == 2 ]]; then bgc="\e[48;2;$((${hex}${val:0:2}));$((${hex}${val:0:2}));$((${hex}${val:0:2}))m"; shift
+						fi
+					elif is_int "${@:2:3}"; then bgc="\e[48;2;$2;$3;$4m"; shift 3
 					fi
 					;;
 				-c|-center) center=1;;																										#? Center text horizontally on screen
@@ -1885,15 +1890,15 @@ print() {	#? Print text, set true-color foreground/background color, add effects
 				-bl|-blink) effect="${effect}${effect:+;}5";;																				#? Enable blinking text
 				+bl|+blink) effect="${effect}${effect:+;}25";;																				#? Disable blinking text
 				-f|-font) if [[ $2 =~ ^(sans-serif|script|fraktur|monospace|double-struck)$ ]]; then custom_font="$2"; shift; fi;;			#? Set custom font
-				-m|-move) if is_int "${@:2:2}"; then add_command="${add_command}\e[${2};${3}f"; shift 2; fi;;								#? Move to postion "LINE" "COLUMN"
-				-l|-left) if is_int "$2"; then add_command="${add_command}\e[${2}D"; shift; fi;;											#? Move left x columns
-				-r|-right) if is_int "$2"; then add_command="${add_command}\e[${2}C"; shift; fi;;											#? Move right x columns
-				-u|-up) if is_int "$2"; then add_command="${add_command}\e[${2}A"; shift; fi;;												#? Move up x lines
-				-d|-down) if is_int "$2"; then add_command="${add_command}\e[${2}B"; shift; fi;;											#? Move down x lines
-				-jl|-justify-left) if is_int "$2"; then justify_left="${2}"; shift; fi;;													#? Justify string left within given width
-				-jr|-justify-right) if is_int "$2"; then justify_right="${2}"; shift; fi;;													#? Justify string right within given width
-				-jc|-justify-center) if is_int "$2"; then justify_center="${2}"; shift; fi;;												#? Justify string center within given width
-				-rp|-repeat) if is_int "$2"; then repeat=${2}; shift; fi;;																	#? Repeat next string x number of times
+				-m|-move) add_command="${add_command}\e[${2};${3}f"; shift 2;;																#? Move to postion "LINE" "COLUMN"
+				-l|-left) add_command="${add_command}\e[${2}D"; shift;;																		#? Move left x columns
+				-r|-right) add_command="${add_command}\e[${2}C"; shift;;																	#? Move right x columns
+				-u|-up) add_command="${add_command}\e[${2}A"; shift;;																		#? Move up x lines
+				-d|-down) add_command="${add_command}\e[${2}B"; shift;;																		#? Move down x lines
+				-jl|-justify-left) justify_left="${2}"; shift;;																				#? Justify string left within given width
+				-jr|-justify-right) justify_right="${2}"; shift;;																			#? Justify string right within given width
+				-jc|-justify-center) justify_center="${2}"; shift;;																			#? Justify string center within given width
+				-rp|-repeat) repeat=${2}; shift;;																							#? Repeat next string x number of times
 				-sc|-save) add_command="\e[s${add_command}";;																				#? Save cursor position
 				-rc|-restore) add_command="${add_command}\e[u";;																			#? Restore cursor position
 				-trans) trans=1;;																											#? Make whitespace transparent
@@ -3185,7 +3190,7 @@ draw_mem() { #? Draw mem, swap and disk statistics
 
 	#* Create text and meters for memory and swap and adapt sizes based on available height
 	local y_pos=$m_line v_height=8 list value meter inv_meter
-	if [[ $system == "MacOS" ]]; then v_height=4; fi
+	if [[ $system == "MacOS" ]]; then v_height=6; fi
 	for type in ${types[@]}; do
 		local -n type_name="$type"
 		if [[ $type == "mem" ]]; then
@@ -3225,7 +3230,7 @@ draw_mem() { #? Draw mem, swap and disk statistics
 
 				if [[ -z $meter_mod_w ]]; then print -v mem_out  -jr 4 -t "${type_name[${value}_percent]}%"; fi
 			fi
-		if [[ $system == "MacOS" ]] && ((height>8)); then ((y_pos++)); fi
+		if [[ $system == "MacOS" && -z $swap_on ]] && ((height>8)); then ((y_pos++)); fi
 		done
 	done
 
@@ -3344,7 +3349,7 @@ draw_processes() { #? Draw processes and values to screen
 				print -v proc_det2 -m ${d_line} $((d_col+2+detail_graph_width)) -t "┬" -m $((d_line+d_height)) $((d_col+detail_graph_width+2)) -t "┴"
 				print -v proc_det2 -m $((d_line+d_height)) ${d_col} -t "├" -r 1 -t "┤" -fg ${theme[title]} -b -t "${this_box}" -rs -fg ${box[processes_color]} -t "├" -r $((d_width-5-${#this_box})) -t "┤"
 				print -v proc_det2 -m ${d_line} $((d_col+2)) -t "┤" -fg ${theme[title]} -b -t "${proc[detailed_name],,}" -rs -fg ${box[processes_color]} -t "├"
-				if ((tty_width>128)); then print -v proc_det2 -m -r 1 -t "┤" -fg ${theme[title]} -b -t "${proc[detailed_pid]}" -rs -fg ${box[processes_color]} -t "├"; fi
+				if ((tty_width>128)); then print -v proc_det2 -r 1 -t "┤" -fg ${theme[title]} -b -t "${proc[detailed_pid]}" -rs -fg ${box[processes_color]} -t "├"; fi
 
 
 
@@ -3654,7 +3659,7 @@ unpause_() { #? Unpause
 menu_() { #? Shows the main menu overlay
 	local menu i count keypress selected_int=0 selected up local_rez d_banner=1 menu_out bannerd skipped menu_pause out_out wait_string trans
 	local -a menus=("options" "help" "quit") color
-
+	unset bannerd menu_out
 	until false; do
 
 		#* Put program to sleep if caught ctrl-z
@@ -3712,6 +3717,7 @@ menu_() { #? Shows the main menu overlay
 		if ((resized>0)); then
 			calc_sizes; draw_bg quiet; time_left=0; unset menu_out
 			unset bannerd
+			echo -en "${clear_screen}"
 		fi
 
 		case "$keypress" in
