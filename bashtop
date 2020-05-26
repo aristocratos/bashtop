@@ -58,10 +58,10 @@ shopt -qu failglob nullglob
 shopt -qs extglob globasciiranges globstar
 
 #* Check for UTF-8 locale and set LANG variable if not set
-if [[ ! $LANG =~ UTF-8|utf-8 ]]; then
+if [[ ! $LANG =~ UTF-8 ]]; then
 	for set_lang in $(locale -a); do
-		if [[ $set_lang =~ UTF-8|utf-8 ]]; then
-			declare -x LANG="${set_lang}"
+		if [[ $set_lang =~ utf8|UTF-8 ]]; then
+			declare -x LANG="${set_lang/utf8/UTF-8}"
 			set_lang="found"
 			break
 		fi
@@ -81,7 +81,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.9.5"
+declare version="0.9.6"
 
 #* Get latest version of BashTOP from https://github.com/aristocratos/bashtop
 

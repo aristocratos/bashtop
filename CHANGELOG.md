@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.9.6
+
+* Fixed: UTF-8 locale check
+
 ## v0.9.5
 
 * Added: UTF-8 locale check and automatic LANG variable set if not UTF-8
