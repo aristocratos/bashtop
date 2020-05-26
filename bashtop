@@ -861,7 +861,7 @@ get_cpu_info() {
 	local lscpu_var
 	if [[ $use_psutil == true ]]; then
 		if [[ -z ${cpu[threads]} || -z ${cpu[cores]} ]]; then
-			read cpu[threads] cpu[cores] < <(python3 -c "import psutil; print(psutil.cpu_count(logical=True), psutil.cpu_count(logical=False))")
+			read cpu[threads] cpu[cores] < <(python3 -c "import psutil; print(psutil.cpu_count(logical=True), psutil.cpu_count(logical=False))" 2>/dev/null)
 		fi
 
 		if [[ $system == "MacOS" ]]; then
@@ -2168,10 +2168,11 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 
 	local i tmp value array mem_info height=$((box[mem_height]-2)) skip filter_value
 	local -a mem_array swap_array available=("mem")
+	unset 'mem[total]'
 
 	#* Get memory and swap information from "/proc/meminfo" or psutil and calculate percentages
 	if [[ $use_psutil == true ]]; then
-		read mem[total] mem[free] mem[available] mem[cached] swap[total] swap[free] < <(python3 - <<EOF
+		read mem[total] mem[free] mem[available] mem[cached] swap[total] swap[free] < <(python3 - 2>/dev/null <<EOF
 import psutil
 mem = psutil.virtual_memory()
 swap = psutil.swap_memory()
@@ -2182,6 +2183,7 @@ except:
 print(mem.total>>10, mem.free>>10, mem.available>>10, cmem, swap.total>>10, swap.free>>10)
 EOF
 		)
+		if [[ -z ${mem[total]} ]]; then return; fi
 		if [[ -n $swap_on && -n ${swap[total]} ]] && ((swap[total]>0)); then
 			swap[free_percent]=$((swap[free]*100/swap[total]))
 			swap[used]=$((swap[total]-swap[free]))
@@ -2239,7 +2241,7 @@ EOF
 	fi
 	for df_line in "${df_array[@]:1}"; do
 		line_array=(${df_line})
-		if ! is_int "${line_array[1]}"; then continue; fi
+		if ! is_int "${line_array[1]}" || ((line_array[1]<=0)); then continue; fi
 
 		if [[ $system == "MacOS" && ( ${line_array[0]} == "devfs" || ${line_array[5]} == "/private/var/vm" ) ]]; then continue; fi
 
@@ -2658,7 +2660,7 @@ collect_processes_psutil() {
 	fi
 
 	unset 'proc_array[@]'
-	readarray -t proc_array < <(python3 - <<EOF #2>/dev/null
+	readarray -t proc_array < <(python3 - 2>/dev/null <<EOF
 import os, psutil
 ${imports:+"import time"}
 
@@ -2699,6 +2701,7 @@ for p in sorted(psutil.process_iter(['pid', 'name', 'cmdline', 'num_threads', 'u
 EOF
 )
 
+	if [[ -z ${proc_array[0]} ]]; then return; fi
 	proc_array[0]="${proc_array[0]/ ${selected}/${symbol}${selected}}"
 	proc[pages]=$(( (${#proc_array[@]}-1)/(height-3)+1 ))
 	if ((proc[page]>proc[pages])); then proc[page]=${proc[pages]}; fi
@@ -2746,7 +2749,7 @@ EOF
 			if [[ -z ${proc[detailed_name]} ]]; then
 				local get_mem mem_string cmdline=""
 				local -a det_array
-				readarray -t det_array < <(python3 - <<EOF
+				readarray -t det_array < <(python3 - 2>/dev/null <<EOF
 import psutil
 
 p = psutil.Process(${pid})
@@ -2759,6 +2762,7 @@ with p.oneshot():
 	print(' '.join(p.cmdline()) or '[' + p.name() + ']')
 EOF
 				)
+				if [[ -z ${det_array[0]} ]]; then continue; fi
 				proc[detailed_name]="${det_array[0]::15}"
 				proc[detailed_parent_name]="${det_array[1]}"
 				proc[detailed_user]="${det_array[2]}"
@@ -2769,7 +2773,7 @@ EOF
 			proc[detailed_cpu_int]="${cpu_int}"
 			proc[detailed_threads]="${out_arr[-5]}"
 
-			readarray -t det_array < <(python3 - <<EOF
+			readarray -t det_array < <(python3 - 2>/dev/null <<EOF
 import psutil
 from datetime import timedelta
 from time import time
@@ -2782,6 +2786,7 @@ with p.oneshot():
 	print(timedelta(seconds=round(time()-p.create_time(),0)))
 EOF
 			)
+			if [[ -z ${det_array[0]} ]]; then continue; fi
 			unset 'proc[detailed_mem_string]'
 			floating_humanizer -v proc[detailed_mem_string] -B ${det_array[0]}
 			if [[ -z ${proc[detailed_mem_string]} ]]; then proc[detailed_mem_string]="? Byte"; fi
