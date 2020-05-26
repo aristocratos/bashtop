@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.9.5
+
+* Added: UTF-8 locale check and automatic LANG variable set if not UTF-8
+* Fixed: Filter out zero sized disks and added some psutil error checks
+
 ## v0.9.4
 
 * Fixed: Missing path for OSX df and correct swap usage reporting for OSX
