@@ -58,7 +58,7 @@ shopt -qu failglob nullglob
 shopt -qs extglob globasciiranges globstar
 
 #* Check for UTF-8 locale and set LANG variable if not set
-if [[ ! $LANG =~ UTF-8 ]]; then
+if [[ ! $LANG =~ utf8|UTF-8 ]]; then
 	for set_lang in $(locale -a); do
 		if [[ $set_lang =~ utf8|UTF-8 ]]; then
 			declare -x LANG="${set_lang/utf8/UTF-8}"
