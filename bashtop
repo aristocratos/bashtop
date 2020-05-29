@@ -70,6 +70,8 @@ if [[ ! $LANG =~ utf8|UTF-8 ]]; then
 		echo "ERROR: No UTF-8 locale found!"
 		exit 1
 	fi
+else
+	declare -x LANG=${LANG/utf8/UTF-8}
 fi
 
 declare -a banner banner_colors
