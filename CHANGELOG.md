@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.9.7
+
+* Changed: UTF-8 locale check, try to find UTF-8 for current language if LANG is set but not with "UTF-8" suffix
+
 ## v0.9.6
 
 * Fixed: UTF-8 locale check
