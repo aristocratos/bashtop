@@ -1,5 +1,7 @@
 sudo: false
-language: bash
+language: python
+python:
+  - "3.6"
 dist: bionic
 addons:
   apt:
@@ -8,4 +10,7 @@ addons:
     packages:
       - bats
       - bc
+# command to install dependencies
+install:
+  - pip install -r requirements.txt
 script: ./test.sh
