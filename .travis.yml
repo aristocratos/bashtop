@@ -1,10 +1,11 @@
-udo: false
+sudo: false
 language: bash
 addons:
   apt:
     sources:
-    - sourceline: 'ppa:duggan/bats'
+      - sourceline: 'ppa:duggan/bats'
     packages:
-    - bats
-    - bc
+      - bash
+      - bats
+      - bc
 script: ./test.sh
