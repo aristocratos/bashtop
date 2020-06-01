@@ -1,5 +1,6 @@
 sudo: false
 language: bash
+dist: bionic
 env:
   - BASH=5.0.3
 addons:
@@ -9,6 +10,4 @@ addons:
     packages:
       - bats
       - bc
-before_script:
-  - docker pull bash:$BASH
 script: ./test.sh
