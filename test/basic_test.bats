@@ -5,7 +5,7 @@ load 'libs/bats-assert/load'
 
 load test_helper
 
-@test "sourcing works, by checking if $system is set" {
+@test "Sourcing works, by checking if $system is set" {
     run echo $system
     refute_output ""
 }
