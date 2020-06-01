@@ -1,8 +1,0 @@
-#!/usr/bin/env bats
-
-source bashtop
-
-@test "im a toy" {
-    result=$(echo hello)
-    [ "$result" = "hello" ]
-}
