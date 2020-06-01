@@ -7,6 +7,7 @@
 ![Bash](https://img.shields.io/badge/Bash-v4.4%5E-green?logo=GNU%20bash)
 ![Python](https://img.shields.io/badge/Python-v3.6%5E-orange?logo=python)
 ![bashtop_version](https://img.shields.io/github/v/tag/aristocratos/bashtop?label=version)
+[![Build Status](https://travis-ci.com/aristocratos/bashtop.svg?branch=master)](https://travis-ci.com/aristocratos/bashtop)
 [![Donate](https://img.shields.io/badge/-Donate-yellow?logo=paypal)](https://paypal.me/aristocratos)
 [![Sponsor](https://img.shields.io/badge/-Sponsor-red?logo=github)](https://github.com/sponsors/aristocratos)
 [![Coffee](https://img.shields.io/badge/-Buy%20me%20a%20Coffee-grey?logo=Ko-fi)](https://ko-fi.com/aristocratos)
