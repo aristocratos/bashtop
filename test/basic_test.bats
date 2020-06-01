@@ -7,7 +7,7 @@ load test_helper
 
 @test "Sourcing works, by checking if \$system is set" {
     run echo $system
-    assert_output ""
+    refute_output ""
 }
 
 @test "#get_themes populates themes" {
