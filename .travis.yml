@@ -1,4 +1,5 @@
-sudo: false
+# travis does not offer python container for OSX or Windows, not sure if we can get automated testing?
+os: linux
 language: python
 python:
   - "3.6"
