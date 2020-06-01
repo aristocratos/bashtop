@@ -3,14 +3,6 @@ language: python
 python:
   - "3.6"
 dist: bionic
-addons:
-  apt:
-    sources:
-      - sourceline: 'ppa:duggan/bats'
-    packages:
-      - bats
-      - bc
-# command to install dependencies
 install:
   - pip install -r requirements.txt
 script: ./test.sh
