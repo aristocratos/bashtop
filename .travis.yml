@@ -1,8 +1,6 @@
 sudo: false
 language: bash
 dist: bionic
-env:
-  - BASH=5.0.3
 addons:
   apt:
     sources:
