@@ -24,11 +24,13 @@ assignees: aristocratos
 [If applicable, add screenshots to help explain your problem.]
 
 **Info (please complete the following information):**
- - Bashtop version: 
- - Linux distribution and version: 
- - Terminal used: 
- - Font used: 
- - Bash version, "bash --version" (version 4.4 or above is required): 
+ - Bashtop version:
+ - (Linux) Linux distribution and version:
+ - (Linux) Data collection type (/proc or psutil):
+ - (OSX/FreeBSD) Os release version:
+ - Terminal used:
+ - Font used:
+ - Bash version, "bash --version" (version 4.4 or above is required):
  - Locales: output of "locale -v"
 
 **Additional context**

@@ -3,6 +3,7 @@ flat-remix-light.theme
 flat-remix.theme
 greyscale.theme
 gruvbox_dark.theme
+monokai_mod.theme
 monokai_nobg.theme
 monokai.theme
 solarized_dark.theme

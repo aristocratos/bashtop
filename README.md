@@ -1,9 +1,13 @@
 # ![bashtop](Imgs/logo-t.png)
 
-![os](https://img.shields.io/badge/Os-Linux-yellow?logo=linux)
-![usage](https://img.shields.io/badge/Usage-Linux%20resource%20monitor-red)
+![Linux](https://img.shields.io/badge/-Linux-grey?logo=linux)
+![OSX](https://img.shields.io/badge/-OSX-black?logo=apple)
+![FreeBSD](https://img.shields.io/badge/-FreeBSD-red?logo=freebsd)
+![Usage](https://img.shields.io/badge/Usage-System%20resource%20monitor-blue)
 ![Bash](https://img.shields.io/badge/Bash-v4.4%5E-green?logo=GNU%20bash)
+![Python](https://img.shields.io/badge/Python-v3.6%5E-orange?logo=python)
 ![bashtop_version](https://img.shields.io/github/v/tag/aristocratos/bashtop?label=version)
+[![Build Status](https://travis-ci.com/aristocratos/bashtop.svg?branch=master)](https://travis-ci.com/aristocratos/bashtop)
 [![Donate](https://img.shields.io/badge/-Donate-yellow?logo=paypal)](https://paypal.me/aristocratos)
 [![Sponsor](https://img.shields.io/badge/-Sponsor-red?logo=github)](https://github.com/sponsors/aristocratos)
 [![Coffee](https://img.shields.io/badge/-Buy%20me%20a%20Coffee-grey?logo=Ko-fi)](https://ko-fi.com/aristocratos)
@@ -16,8 +20,8 @@
 * [Themes](#themes)
 * [Upcoming](#upcoming) (Updated, Python port)
 * [Support and funding](#support-and-funding)
-* [Compatibility](#compatibility)
-* [Dependencies](#dependencies)
+* [Compatibility](#compatibility) (Updated, OSX and FreeBSD Support)
+* [Dependencies](#dependencies) (Updated)
 * [Screenshots](#screenshots)
 * [Installation](#installation) (Updated)
 * [Configurability](#configurability)
@@ -47,6 +51,8 @@ Resource monitor that shows usage and stats for processor, memory, disks, networ
 * UI menu for changing all config file options.
 * Auto scaling graph for network usage.
 * Shows message in menu if new version is available
+* Shows current read and write speeds for disks
+* Multiple data collection methods which can be switched if running on Linux
 
 ## Themes
 
@@ -58,20 +64,18 @@ Let me know if you want to contribute with new themes.
 
 ## Upcoming
 
-#### (Mac OSX and *BSD support)
+~~Currently rewriting to use python3 [psutil](https://github.com/giampaolo/psutil) for data collection instead of linux specific tools.
+This will add python 3 and psutil as dependencies, but will make bashtop cross platform compatible.~~
 
-Currently rewriting to use python3 [psutil](https://github.com/giampaolo/psutil) for data collection instead of linux specific tools.
-This will add python 3 and psutil as dependencies, but will make bashtop cross platform compatible.
+~~This will be integrated in to main version when done and add the possibility to switch between psutil and linux tools for users running linux.~~
 
-~~This will be in a new branch called bashtop-psutil when I'm done with initial testing~~
+Bashtop is now Mac OS X and FreeBSD compatible!
 
-This will be integrated in to main version when done and add the possibility to switch between psutil and linux tools for users running linux.
+#### Python port
 
-#### Update
+Work on a complete python port ~~will begin this summer~~ has begun. My aim is to keep it compatible with pypy3 for a lot of added efficiency.
 
-Work on a complete python port will begin this summer. My aim is to keep it compatible with pypy3 for a lot of added efficiency.
-
-Bash(py)top?
+PyPyTop?
 
 ## Support and funding
 
@@ -90,7 +94,14 @@ Any support is greatly appreciated!
 
 ## Compatibility
 
-Should work on most modern linux distributions.
+Should work on most modern linux distributions, on Mac OS X and on FreeBSD.
+
+Will not display correctly on the standard terminal on OSX!
+Recommended alternative [iTerm2](https://www.iterm2.com/)
+
+Will also need to be run as superuser on OSX to display stats for processes not owned by user.
+
+The disk io stats on OSX and FreeBSD shows iostats for all disks at the top instead of per disk.
 
 For correct display, a terminal with support for:
 
@@ -109,59 +120,104 @@ Dropbear seems to not be able to set correct locale. So if accessing bashtop ove
 
 ## Dependencies
 
-**[bash](https://www.gnu.org/software/bash/)** (v4.4 or later) Script functionality will most probably break with earlier versions.  
+## Linux, OSX and FreeBSD
+
+**[bash](https://www.gnu.org/software/bash/)** (v4.4 or later) Script functionality will most probably break with earlier versions.
 Bash version 5 is highly recommended to make use of $EPOCHREALTIME variable instead of a lot of external date command calls.
 
-**[GNU Core Utilities](https://www.gnu.org/software/coreutils/)**
+**[GNU coreutils](https://www.gnu.org/software/coreutils/)**
 
-**[GNU Grep](https://www.gnu.org/software/grep/)**
+**[GNU sed](https://www.gnu.org/software/sed/)**
+
+## Linux using /proc for data collection
+
+**[GNU grep](https://www.gnu.org/software/grep/)**
 
 **[ps from procps-ng](https://gitlab.com/procps-ng/procps)** (v3.1.15 or later)
 
-**[sed](https://www.gnu.org/software/sed/)**
+**[GNU awk](https://www.gnu.org/software/gawk/)**
 
-**[awk](https://www.gnu.org/software/gawk/)**
+## OSX and FreeBSD or Linux using psutil for data collection
 
-(Optional) **[lm-sensors](https://github.com/lm-sensors/lm-sensors)** Needed to show CPU temperatures
+**[Python3](https://www.python.org/downloads/)** (v3.6 or later)
 
-(Optional) **[curl](https://curl.haxx.se/download.html)** (v7.16.2 or later) Needed if you want messages about updates and the ability to download themes.
+**[psutil python module](https://github.com/giampaolo/psutil)**
 
-(Optional) **[iostat (part of sysstat)](https://github.com/sysstat/sysstat)** Needed if you want disk read/write stats
+## Optionals for additional stats
+
+(Optional OSX) **[osx-cpu-temp](https://github.com/lavoiesl/osx-cpu-temp)** Needed to show CPU temperatures.
+
+(Optional Linux) **[lm-sensors](https://github.com/lm-sensors/lm-sensors)** Needed to show CPU temperatures.
+
+(Optional Linux) **[iostat (part of sysstat)](https://github.com/sysstat/sysstat)** Needed if you want disk read/write stats and are not using psutil data collection.
+
+(Optional OSX/Linux/FreeBSD) **[curl](https://curl.haxx.se/download.html)** (v7.16.2 or later) Needed if you want messages about updates and the ability to download themes.
 
 ## Screenshots
 
-Main UI showing details for a selected process.  
+Main UI showing details for a selected process.
 ![Screenshot 1](Imgs/main.png)
 
-Main menu.  
+Main menu.
 ![Screenshot 2](Imgs/menu.png)
 
-Options menu.  
+Options menu.
 ![Screenshot 3](Imgs/options.png)
 
 ## Installation
 
-#### Manual installation
+#### Dependencies installation OSX
 
-Copy or link "bashtop" into PATH, or install with Makefile:
-
->From cloned directory
+>Install homebrew if not already installed
 
 ``` bash
- sudo make install
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+```
+
+>Install dependencies
+
+``` bash
+brew install bash coreutils gnu-sed python3 git
+pip3 install psutil
+```
+
+>Install optional dependency osx-cpu-temp
+
+``` bash
+brew install osx-cpu-temp
+```
+
+#### Dependencies installation FreeBSD
+
+>Install with pkg and pip
+
+``` bash
+sudo pkg install coreutils gsed python3 git
+sudo python3 -m ensurepip
+sudo pip3 install psutil
+```
+
+#### Manual installation Linux, OSX and FreeBSD
+
+>Clone and install
+
+``` bash
+git clone https://github.com/aristocratos/bashtop.git
+cd bashtop
+sudo make install
 ```
 
 >to uninstall it
 
 ``` bash
- sudo make uninstall
+sudo make uninstall
 ```
 
 #### Arch based
 
 Available in the AUR as [bashtop-git](https://aur.archlinux.org/packages/bashtop-git/)
 
-Available in the Arch Linux repository as [bashtop](https://www.archlinux.org/packages/community/any/bashtop/) (Flagged out-of-date on 2020-04-28)
+Available in the Arch Linux repository as [bashtop](https://www.archlinux.org/packages/community/any/bashtop/)
 
 #### Debian based
 
@@ -233,7 +289,7 @@ Config files stored in "$HOME/.config/bashtop" folder
 #### bashtop.cfg: (auto generated if not found)
 
 ```bash
-#? Config file for bashtop v. 0.8.22
+#? Config file for bashtop v. 0.9.0
 
 #* Color theme, looks for a .theme file in "$HOME/.config/bashtop/themes", "Default" for builtin default theme
 color_theme="Default"
@@ -248,7 +304,7 @@ proc_sorting="cpu lazy"
 #* Reverse sorting order, "true" or "false"
 proc_reversed="false"
 
-#* Check cpu temperature, only works if "sensors" command is available and have values for "Package" and "Core"
+#* Check cpu temperature, only works if "sensors", "vcgencmd" or "osx-cpu-temp" commands is available
 check_temp="true"
 
 #* Draw a clock at top of screen, formatting according to strftime, empty string to disable
@@ -271,6 +327,15 @@ proc_per_core="false"
 
 #* Optional filter for shown disks, should be names of mountpoints, "root" replaces "/", separate multiple values with space
 disks_filter=""
+
+#* Enable check for new version from github.com/aristocratos/bashtop at start
+update_check="true"
+
+#* Enable graphs with double the horizontal resolution, increases cpu usage
+hires_graphs="false"
+
+#* Enable the use of psutil python3 module for data collection, default on OSX
+use_psutil="true"
 ```
 
 #### Command line options: (not yet implemented)
@@ -285,7 +350,7 @@ USAGE: bashtop
 Might finish off items out of order since I usually work on multiple at a time.
 
 - [x] Add options to change colors for text, graphs and meters.
-- [ ] Fix cross platform compatibility for Mac OSX and *BSD: Currently in testing.
+- [x] Fix cross platform compatibility for Mac OSX and *BSD: Working on OSX, and FreeBSD.
 - [x] Add support for showing AMD cpu temperatures.
 - [x] Add option to show tree view of processes.
 - [x] Add option to reset network download/upload totals.

@@ -1,5 +1,71 @@
 # Changelog
 
+## v0.9.7
+
+* Changed: UTF-8 locale check, try to find UTF-8 for current language if LANG is set but not with "UTF-8" suffix
+
+## v0.9.6
+
+* Fixed: UTF-8 locale check
+
+## v0.9.5
+
+* Added: UTF-8 locale check and automatic LANG variable set if not UTF-8
+* Fixed: Filter out zero sized disks and added some psutil error checks
+
+## v0.9.4
+
+* Fixed: Missing path for OSX df and correct swap usage reporting for OSX
+
+## v0.9.3
+
+* Fixed: Resizing problems in iTerm2
+* Changed: Removed redundant error checking in print function for lower cpu usage
+* Fixed: Memory in OSX now shows active memory usage and /private/var/vm as swap memory
+* Fixed: Disks in OSX changed from using "GNU df" to "BSD df" for better compatibility
+
+## v0.9.2
+
+* Fixed: Correct prefixes for some missed GNU tools
+* Added: Startup progress screen
+* Changed: replaced tput commands with escape sequence commands
+
+## v0.9.1
+
+* Added: FreeBSD support with python3 psutil data collection
+* Added: Check for gnu tools on non Linux platforms
+* Fixed: Increased graph history to avoid cut off on high resolution graphs
+
+## v0.9.0
+
+* Added: Mac OS X support with python3 psutil data collection
+* Added: Ability to switch between all available network devices
+
+## v0.8.32
+
+* Fixed: Error in theme error checking corrupting default theme
+
+## v0.8.31
+
+* Fixed: Theme 2-color gradient generation
+* Fixed: Theme file error checking
+
+## v0.8.30
+
+* Fixed: Crash on missing net device
+
+## v0.8.29
+
+* Fixed: Cpu temperature colors not working when above high temp value
+* Fixed: Unescaped "\" in process list and indent fixes
+* Changed: Changes to net graph rescaling parameters
+
+## v0.8.28
+
+* Fixed: Ctrl-C and Ctrl-Z not registering after change to "dd"
+* Added: Option to switch to high resolution graphs
+* Added: Current peak value for download/upload graphs
+
 ## v0.8.27
 
 * Fixed: Use value for "Inactive"+"MemFree" if "MemAvailable" is missing in /proc/meminfo
