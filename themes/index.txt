@@ -6,5 +6,6 @@ gruvbox_dark.theme
 monokai_mod.theme
 monokai_nobg.theme
 monokai.theme
+nord.theme
 solarized_dark.theme
 whiteout.theme
