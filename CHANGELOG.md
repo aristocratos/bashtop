@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.9.9
+
+* Fixed: Fixed theme downloader not reporting new themes and corrected comment in config
+
 ## v0.9.8
 
 * Added: Nord theme by Justin Zobel

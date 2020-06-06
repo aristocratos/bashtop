@@ -91,7 +91,7 @@ banner=(
 "██╔══██╗██╔══██║╚════██║██╔══██║   ██║   ██║   ██║██╔═══╝ "
 "██████╔╝██║  ██║███████║██║  ██║   ██║   ╚██████╔╝██║     "
 "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝     ")
-declare version="0.9.8"
+declare version="0.9.9"
 
 #* Get latest version of BashTOP from https://github.com/aristocratos/bashtop
 
@@ -120,7 +120,7 @@ read tty_height tty_width < <(${stty} size)
 #? Any changes made here will be ignored if config file exists
 aaa_config() { : ; } #! Do not remove this line!
 
-#* Color theme, looks for a .theme file in "$HOME/.config/bashtop/themes", "Default" for builtin default theme
+#* Color theme, looks for a .theme file in "$HOME/.config/bashtop/themes" and "$HOME/.config/bashtop/user_themes", "Default" for builtin default theme
 color_theme="Default"
 
 #* Update time in milliseconds, increases automatically if set below internal loops processing time, recommended 2000 ms or above for better sample times for graphs
@@ -4106,14 +4106,16 @@ options_() { #? Shows the options overlay
 
 		if [[ -n $theme_check ]]; then
 			local -a theme_index
-			local git_theme new_themes=0 down_themes=0
+			local git_theme new_themes=0 down_themes=0 new_theme
 			unset 'theme_index[@]' 'desc_color_theme[-1]' 'desc_color_theme[-1]' 'desc_color_theme[-1]' options_out
 			theme_index=($(curl -m 3 --raw https://raw.githubusercontent.com/aristocratos/bashtop/master/themes/index.txt 2>/dev/null))
 			if [[ ${theme_index[*]} =~ .theme ]]; then
 				for git_theme in ${theme_index[@]}; do
+					unset new_theme
+					if [[ ! -e "${config_dir}/themes/${git_theme}" ]]; then new_theme=1; fi
 					if curl -m 3 --raw "https://raw.githubusercontent.com/aristocratos/bashtop/master/themes/${git_theme}" >"${config_dir}/themes/${git_theme}" 2>/dev/null; then
 						((++down_themes))
-						if [[ ! -e "${config_dir}/themes/${git_theme}" ]]; then
+						if [[ -n $new_theme ]]; then
 							((++new_themes))
 							themes+=("themes/${git_theme%.theme}")
 						fi
@@ -4766,7 +4768,6 @@ main_loop() { #? main loop...
 #* Read config file or create if non existant
 config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/bashtop"
 if [[ -d "${config_dir}" && -w "${config_dir}" ]] || mkdir -p "${config_dir}"; then
-	theme_dir="${config_dir}/themes"
 	if [[ ! -d "${config_dir}/themes" ]]; then mkdir -p "${config_dir}/themes"; fi
 	if [[ ! -d "${config_dir}/user_themes" ]]; then mkdir -p "${config_dir}/user_themes"; fi
 	config_file="${config_dir}/bashtop.cfg"
