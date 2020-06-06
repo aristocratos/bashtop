@@ -24,7 +24,7 @@
 * [Dependencies](#dependencies) (Updated)
 * [Screenshots](#screenshots)
 * [Installation](#installation) (Updated)
-* [Configurability](#configurability)
+* [Configurability](#configurability) (Updated)
 * [TODO](#todo) (Updated)
 * [License](#license)
 
@@ -292,9 +292,9 @@ Config files stored in "$HOME/.config/bashtop" folder
 #### bashtop.cfg: (auto generated if not found)
 
 ```bash
-#? Config file for bashtop v. 0.9.0
+#? Config file for bashtop v. 0.9.9
 
-#* Color theme, looks for a .theme file in "$HOME/.config/bashtop/themes", "Default" for builtin default theme
+#* Color theme, looks for a .theme file in "$HOME/.config/bashtop/themes" and "$HOME/.config/bashtop/user_themes", "Default" for builtin default theme
 color_theme="Default"
 
 #* Update time in milliseconds, increases automatically if set below internal loops processing time, recommended 2000 ms or above for better sample times for graphs
