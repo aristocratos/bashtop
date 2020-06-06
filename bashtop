@@ -503,9 +503,9 @@ color_init_() { #? Check for theme file and set colors
 	done
 
 	#* Check if theme set in config exists and source it if it does
-	if [[ -n ${color_theme} && ${color_theme} != "Default" && -e "${theme_dir}/${color_theme%.theme}.theme" ]]; then
+	if [[ -n ${color_theme} && ${color_theme} != "Default" && -e "${config_dir}/${color_theme%.theme}.theme" ]]; then
 		# shellcheck source=/dev/null
-		source "${theme_dir}/${color_theme%.theme}.theme"
+		source "${config_dir}/${color_theme%.theme}.theme"
 		sourced=1
 	else
 		color_theme="Default"
@@ -1011,9 +1011,14 @@ get_themes() {
 	local file
 	theme_int=0
 	themes=("Default")
-	for file in "${theme_dir}"/*.theme; do
+	for file in "${config_dir}/themes"/*.theme; do
 		file="${file##*/}"
-		if [[ ${file} != "*.theme" ]]; then themes+=("${file%.theme}"); fi
+		if [[ ${file} != "*.theme" ]]; then themes+=("themes/${file%.theme}"); fi
+		if [[ ${themes[-1]} == "${color_theme}" ]]; then theme_int=${#themes[@]}-1; fi
+	done
+	for file in "${config_dir}/user_themes"/*.theme; do
+		file="${file##*/}"
+		if [[ ${file} != "*.theme" ]]; then themes+=("user_themes/${file%.theme}"); fi
 		if [[ ${themes[-1]} == "${color_theme}" ]]; then theme_int=${#themes[@]}-1; fi
 	done
 }
@@ -3910,13 +3915,17 @@ options_() { #? Shows the options overlay
 	desc_color_theme=(	"Set bashtop color theme."
 						" "
 						"Choose between theme files located in"
-						"\"\$HOME/.config/bashtop/themes\""
+						"\"\$HOME/.config/bashtop/themes\" &"
+						"\"\$HOME/.config/bashtop/user_themes"
 						" "
+						"User themes are prefixed with \"*\"."
 						"\"Default\" for builtin default."
 						" ")
 	if [[ -z $curled ]]; then desc_color_theme+=("Get more themes at:"
 						"https://github.com/aristocratos/bashtop")
-	else desc_color_theme+=("\e[1mPress ENTER to check for new themes."); fi
+	else desc_color_theme+=("\e[1mPress ENTER to download the default themes."
+							"Will overwrite changes made to the default"
+							"themes if not copied to user_themes folder."); fi
 
 	desc_update_ms=(	"Update time in milliseconds."
 						"Recommended 2000 ms or above for better sample"
@@ -4075,8 +4084,13 @@ options_() { #? Shows the options overlay
 					fg="${theme[selected_fg]}"
 				fi
 				option_string="${option_string//_/ }:"
-				if [[ $option_string == "proc sorting:" ]]; then option_string+=" $((proc[sorting_int]+1))/${#sorting[@]}"
-				elif [[ $option_string == "color theme:" ]]; then option_string+=" $((theme_int+1))/${#themes[@]}"; fi
+				if [[ $option_string == "proc sorting:" ]]; then
+					option_string+=" $((proc[sorting_int]+1))/${#sorting[@]}"
+				elif [[ $option_string == "color theme:" ]]; then
+					option_string+=" $((theme_int+1))/${#themes[@]}"
+					if [[ ${option_value::12} == "user_themes/" ]]; then option_value="*${option_value#*/}"
+					else option_value="${option_value#*/}"; fi
+				fi
 				print -v options_out -m $((line+ypos)) $((col+1)) -rs -fg ${fg:-${theme[title]}}${bg} -b -jc 25 -t "${option_string^}"
 				print -v options_out -m $((line+ypos+1)) $((col+1)) -rs -fg ${fg:-${theme[main_fg]}}${bg} -jc 25 -t "${enter:+ } ${left} \"${option_value::15}\" ${right} ${enter}"
 				unset right left enter bg fg
@@ -4092,18 +4106,20 @@ options_() { #? Shows the options overlay
 
 		if [[ -n $theme_check ]]; then
 			local -a theme_index
-			local git_theme new_themes=0
-			unset 'theme_index[@]' 'desc_color_theme[-1]' options_out
+			local git_theme new_themes=0 down_themes=0
+			unset 'theme_index[@]' 'desc_color_theme[-1]' 'desc_color_theme[-1]' 'desc_color_theme[-1]' options_out
 			theme_index=($(curl -m 3 --raw https://raw.githubusercontent.com/aristocratos/bashtop/master/themes/index.txt 2>/dev/null))
 			if [[ ${theme_index[*]} =~ .theme ]]; then
 				for git_theme in ${theme_index[@]}; do
-					if [[ $git_theme =~ .theme && ! -e "${theme_dir}/${git_theme}" ]]; then
-						if curl -m 3 --raw "https://raw.githubusercontent.com/aristocratos/bashtop/master/themes/${git_theme}" >"${theme_dir}/${git_theme}" 2>/dev/null; then
+					if curl -m 3 --raw "https://raw.githubusercontent.com/aristocratos/bashtop/master/themes/${git_theme}" >"${config_dir}/themes/${git_theme}" 2>/dev/null; then
+						((++down_themes))
+						if [[ ! -e "${config_dir}/themes/${git_theme}" ]]; then
 							((++new_themes))
-							themes+=("${git_theme%.theme}")
+							themes+=("themes/${git_theme%.theme}")
 						fi
 					fi
 				done
+				desc_color_theme+=("Downloaded ${down_themes} theme(s).")
 				desc_color_theme+=("Found ${new_themes} new theme(s)!")
 			else
 				desc_color_theme+=("ERROR: Couldn't get theme index!")
@@ -4751,7 +4767,8 @@ main_loop() { #? main loop...
 config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/bashtop"
 if [[ -d "${config_dir}" && -w "${config_dir}" ]] || mkdir -p "${config_dir}"; then
 	theme_dir="${config_dir}/themes"
-	if [[ ! -d "${theme_dir}" ]]; then mkdir -p "${theme_dir}"; fi
+	if [[ ! -d "${config_dir}/themes" ]]; then mkdir -p "${config_dir}/themes"; fi
+	if [[ ! -d "${config_dir}/user_themes" ]]; then mkdir -p "${config_dir}/user_themes"; fi
 	config_file="${config_dir}/bashtop.cfg"
 	# shellcheck source=/dev/null
 	if [[ -e "$config_file" ]]; then
