@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.9.8
+
+* Added: Nord theme by Justin Zobel
+* Changed: Theme downloader now overwrites default themes, folder user_themes (safe from overwrites) added
+* Changed: Cleaned up monokai theme variants
+* Added: Base for testing with BATS by Maciek Swiech
+
 ## v0.9.7
 
 * Changed: UTF-8 locale check, try to find UTF-8 for current language if LANG is set but not with "UTF-8" suffix
