@@ -10,7 +10,7 @@
 # Use "start", "mid" and "end" for three color gradient
 
 # Main background, empty for terminal default, need to be empty if you want transparent background
-theme[main_bg]="#272822"
+theme[main_bg]=""
 
 # Main text color
 theme[main_fg]="#F8F8F2"
@@ -22,7 +22,7 @@ theme[title]="#F8F8F2"
 theme[hi_fg]="#F92672"
 
 # Background color of selected item in processes box
-theme[selected_bg]="#7a1137" 
+theme[selected_bg]="#7a1137"
 
 # Foreground color of selected item in processes box
 theme[selected_fg]="#F8F8F2"
@@ -49,13 +49,13 @@ theme[proc_box]="#75715E"
 theme[div_line]="#595647"
 
 # Temperature graph colors
-theme[temp_start]="#F8F8F2"
-theme[temp_mid]=""
+theme[temp_start]="#7976B7"
+theme[temp_mid]="#D8B8B2"
 theme[temp_end]="#F92672"
 
 # CPU graph colors
-theme[cpu_start]="#F8F8F2"
-theme[cpu_mid]="#b05475"
+theme[cpu_start]="#A6E22E"
+theme[cpu_mid]="#F8F8F2" #b05475"
 theme[cpu_end]="#F92672"
 
 # Mem/Disk free meter
