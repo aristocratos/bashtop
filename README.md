@@ -17,10 +17,10 @@
 * [Documents](#documents)
 * [Description](#description)
 * [Features](#features)
-* [Themes](#themes)
-* [Upcoming](#upcoming) (Updated, Python port)
+* [Themes](#themes) (Updated)
+* [Upcoming](#upcoming) (Python port)
 * [Support and funding](#support-and-funding)
-* [Compatibility](#compatibility) (Updated, OSX and FreeBSD Support)
+* [Compatibility](#compatibility) (OSX and FreeBSD Support)
 * [Dependencies](#dependencies) (Updated)
 * [Screenshots](#screenshots)
 * [Installation](#installation) (Updated)
@@ -59,6 +59,9 @@ Resource monitor that shows usage and stats for processor, memory, disks, networ
 Bashtop now has theme support and a function to download missing local themes from repository.
 
 See [themes](themes) folder for available themes.
+
+The builtin theme downloader places the default themes in `$HOME/.config/bashtop/themes`.
+User created themes should be placed in `$HOME/.config/bashtop/user_themes` to be safe from overwrites.
 
 Let me know if you want to contribute with new themes.
 
@@ -363,10 +366,13 @@ Might finish off items out of order since I usually work on multiple at a time.
 - [ ] Add optional window for tailing log files.
 - [ ] Add options for resizing all boxes.
 - [ ] Add command line argument parsing.
+- [ ] Builtin updater. Relevant PR #96 by Jukoo
+- [ ] Add support for zram in memory box. Relevant PR #122 by perkinslr
+
 - [ ] Miscellaneous optimizations and code cleanup.
 - [ ] Add more commenting where it's sparse.
 
-- [ ] Python port.
+- [ ] Python port. (Porting started)
 
 ## LICENSE
 
