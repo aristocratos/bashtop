@@ -2734,13 +2734,13 @@ EOF
 		pid="${out_arr[0]}"
 		pcpu_usage="${out_arr[-2]}"
 
-		printf -v cpu_int "%.0f" "${pcpu_usage}"
+		if ! printf -v cpu_int "%.0f" "${pcpu_usage}" 2>/dev/null; then continue; fi
 
 		pid_history[${pid}]="1"
 
 		#* Create small graphs for all visible processes using more than 1% cpu time
 		pid_graph="pid_${pid}_graph"
-		local -n pid_count="pid_${pid}_count"
+		if ! local -n pid_count="pid_${pid}_count" 2>/dev/null; then continue; fi
 
 		if [[ ${cpu_int} -gt 0 ]]; then pid_count=5; fi
 
@@ -3486,6 +3486,8 @@ draw_processes() { #? Draw processes and values to screen
 		pid_graph="pid_${pid}_graph"
 
 		out_line="${out_line//'\'/'\\'}"
+		out_line="${out_line//'$'/'\$'}"
+		out_line="${out_line//'"'/'\"'}"
 
 		if ((current_num==proc[selected])); then print -v proc_out -bg ${theme[selected_bg]} -fg ${theme[selected_fg]} -b; proc[selected_pid]="$pid"
 		else print -v proc_out -rs -fg $((fg_r-fg_step_r)) $((fg_b-fg_step_b)) $((fg_b-fg_step_b)); fi
