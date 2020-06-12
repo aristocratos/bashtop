@@ -317,7 +317,7 @@ init_() { #? Collect needed information and set options before startig main loop
 	#* Set terminal options, save and clear screen
 	saved_stty="$(${stty} -g)"
 	echo -en "${alt_screen}${hide_cursor}${clear_screen}"
-	echo -en "\033]0;BashTOP\a"
+	echo -en "\033]0;${TERMINAL_TITLE} BashTOP\a"
 	${stty} -echo
 
 	#* Wait for resize if terminal size is smaller then 80x24
@@ -620,7 +620,7 @@ sleep_() { #? Restore terminal options, stop and send to background if caught SI
 resume_() { #? Set terminal options and resume if caught SIGCONT ('fg' from terminal)
 	sleepy=0
 	echo -en "${alt_screen}${hide_cursor}${clear_screen}"
-	echo -en "\033]0;BashTOP\a"
+	echo -en "\033]0;${TERMINAL_TITLE} BashTOP\a"
 	${stty} -echo
 
 	if [[ -n $pause_screen ]]; then
