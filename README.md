@@ -262,7 +262,7 @@ Available in the Fedora repository.
 sudo dnf install bashtop
 ```
 
-#### CentOS
+#### CentOS 8
 
 >Installation
 

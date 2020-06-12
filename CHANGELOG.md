@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.9.10
+
+* Fixed: Humanizer function now round values 1000-1023 up to 1024 to fit size constraints.
+* Added: More error checks for psutil
+* Changed: Terminal title now includes original title if $TERMINAL_TITLE is set, suggested by @theytaz
+
 ## v0.9.9
 
 * Fixed: Fixed theme downloader not reporting new themes and corrected comment in config
