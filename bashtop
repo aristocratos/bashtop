@@ -852,16 +852,19 @@ floating_humanizer() { 	#? Convert integer to floating point and scale up in ste
 
 		until ((${#value}<6)); do
 			value=$((value>>10))
+			if ((value<100)); then value=100; fi
 			((++selector))
 		done
 
-		if [[ -z $short ]] && ((${#value}<5 & ${#value}>=2 & selector>0)); then
+		if ((${#value}<5 & ${#value}>=2 & selector>0)); then
 			decimals=$((5-${#value}))
 			value="${value::-2}.${value:(-${decimals})}"
 		elif ((${#value}>=2)); then
 			value="${value::-2}"
 		fi
 	fi
+
+	if [[ -n $short ]]; then value="${value%.*}"; fi
 
 	out_var="${value}${sep}${unit[$selector]::${short:-${#unit[$selector]}}}${per_second}"
 	if [[ -z $ext_var ]]; then echo -n "${out_var}"; fi
@@ -4814,6 +4817,9 @@ if [[ $use_psutil == true ]]; then
 	fi
 fi
 
+#* if we have been sourced by another shell, quit. Allows sourcing only function definition.
+[[ "${#BASH_SOURCE[@]}" -gt 1 ]] && { return 0; }
+
 #* Set up traps for ctrl-c, soft kill, window resize, ctrl-z and resume from ctrl-z
 trap 'quitting=1; time_left=0' SIGINT SIGQUIT SIGTERM
 trap 'resized=1; time_left=0' SIGWINCH
@@ -4841,10 +4847,6 @@ if [[ $error_logging == true ]]; then
 else
 	exec 2>/dev/null
 fi
-
-
-#* if we have been sourced by another shell, quit. Allows sourcing only function definition.
-[[ "${#BASH_SOURCE[@]}" -gt 1 ]] && { return 0; }
 
 #* Call init function
 init_
