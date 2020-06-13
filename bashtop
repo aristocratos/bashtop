@@ -3493,7 +3493,7 @@ draw_processes() { #? Draw processes and values to screen
 		out_line="${out_line//'"'/'\"'}"
 
 		if ((current_num==proc[selected])); then print -v proc_out -bg ${theme[selected_bg]} -fg ${theme[selected_fg]} -b; proc[selected_pid]="$pid"
-		else print -v proc_out -rs -fg $((fg_r-fg_step_r)) $((fg_b-fg_step_b)) $((fg_b-fg_step_b)); fi
+		else print -v proc_out -rs -fg $((fg_r-fg_step_r)) $((fg_g-fg_step_g)) $((fg_b-fg_step_b)); fi
 
 		print -v proc_out -m $((line+y)) $((col+1)) -t "${out_line::$((width-3))} "
 
