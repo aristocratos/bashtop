@@ -224,6 +224,8 @@ Available in the Arch Linux repository as [bashtop](https://www.archlinux.org/pa
 
 #### Debian based
 
+Available in [official Debian repository](https://tracker.debian.org/pkg/bashtop) since Debian 11
+
 Available for debian/ubuntu from [Azlux's repository](http://packages.azlux.fr/)
 
 Or use quick installation:
@@ -241,6 +243,8 @@ Or use quick installation:
 ```
 
 #### Ubuntu based
+
+Available in [official Ubuntu repository](https://launchpad.net/ubuntu/+source/bashtop) since Ubuntu 20.10
 
 Available for Ubuntu from [PPA repository](https://code.launchpad.net/~bashtop-monitor/+archive/ubuntu/bashtop)
 
