@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.9.11
+
+* Fixed: Processes text color now sets RGB instead of RBB...
+
 ## v0.9.10
 
 * Fixed: Humanizer function now round values 1000-1023 up to 1024 to fit size constraints.
