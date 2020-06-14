@@ -126,12 +126,15 @@ color_theme="Default"
 #* Update time in milliseconds, increases automatically if set below internal loops processing time, recommended 2000 ms or above for better sample times for graphs
 update_ms="2500"
 
-#* Processes sorting, "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" "tree"
-#* "cpu lazy" updates sorting over time, "cpu responsive" updates sorting directly at a cpu usage cost
+#* Processes sorting, "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive"
+#* "cpu lazy" updates sorting over time, "cpu responsive" updates sorting directly
 proc_sorting="cpu lazy"
 
 #* Reverse sorting order, "true" or "false"
 proc_reversed="false"
+
+#* Show processes as a tree
+proc_tree="false"
 
 #* Check cpu temperature, only works if "sensors", "vcgencmd" or "osx-cpu-temp" commands is available
 check_temp="true"
@@ -201,10 +204,10 @@ declare -A cpu mem swap proc net box theme disks
 declare -a cpu_usage cpu_graph_a cpu_graph_b color_meter color_temp_graph color_cpu color_cpu_graph cpu_history color_mem_graph color_swap_graph
 declare -a mem_history swap_history net_history_download net_history_upload mem_graph swap_graph proc_array download_graph upload_graph trace_array
 declare resized=1 size_error clock tty_width tty_height hex="16#" cpu_p_box swap_on=1 draw_out esc_character boxes_out last_screen clock_out update_string
-declare -a options_array=("color_theme" "update_ms" "use_psutil" "proc_sorting" "check_temp" "draw_clock" "background_update" "custom_cpu_name" "proc_per_core"
-		"proc_reversed" "proc_gradient" "disks_filter" "hires_graphs" "net_totals_reset" "update_check" "error_logging")
+declare -a options_array=("color_theme" "update_ms" "use_psutil" "proc_sorting" "proc_tree" "check_temp" "draw_clock" "background_update" "custom_cpu_name"
+	"proc_per_core" "proc_reversed" "proc_gradient" "disks_filter" "hires_graphs" "net_totals_reset" "update_check" "error_logging")
 declare -a save_array=(${options_array[*]/net_totals_reset/})
-declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" "tree" )
+declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive")
 declare -a detail_graph detail_history detail_mem_history disks_io
 declare -A pid_history
 declare time_left timestamp_start timestamp_end timestamp_input_start timestamp_input_end time_string mem_out proc_misc prev_screen pause_screen filter input_to_filter
@@ -473,6 +476,12 @@ init_() { #? Collect needed information and set options before startig main loop
 		proc[reverse]="+"
 	else
 		unset 'proc[reverse]'
+	fi
+
+	if [[ ${proc_tree} == true ]]; then
+		proc[tree]="+"
+	else
+		unset 'proc[tree]'
 	fi
 
 	#* Call init for processes data collection
@@ -2346,13 +2355,13 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 		"user") selected="User:"; sort="euser";;
 		"memory") selected="Mem%"; sort="pmem";;
 		"cpu lazy"|"cpu responsive") sort="pcpu"; selected="Cpu%";;
-		"tree") selected="Tree:"; tree="Tree:"; sort="pid";
 	esac
 
+	if [[ $proc_tree == true ]]; then tree="Tree:"; fi
 	if [[ $proc_per_core == true ]]; then no_core_divide="1"; fi
 
 	#* Collect output from ps command to array
-	if ((width>60)) && [[ $proc_sorting != "tree" ]] ; then format_args=",args:$(( width-(47+proc[pid_len]) ))=Arguments:"; format_cmd=15
+	if ((width>60)) && [[ $proc_tree != true ]] ; then format_args=",args:$(( width-(47+proc[pid_len]) ))=Arguments:"; format_cmd=15
 	else format_cmd=$(( width-(31+proc[pid_len]) )); fi
 	saved_proc_array=("${proc_array[@]}")
 	unset 'proc_array[@]' 'pid_array[@]'
@@ -2412,7 +2421,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 		pcpu_usage="${work_array[-1]}"
 
 		#* If showing tree structure replace slashes and pipes with actual lines and terminate them at the correct places
-		if [[ $proc_sorting == "tree" ]]; then
+		if [[ $proc_tree == true ]]; then
 			tree_compare1="${proc_array[$((count+1))]%'\_'*}"
 			tree_compare2="${proc_array[count]%'\_'*}"
 			tree_compare3="${proc_array[$((count+1))]%'|'*}"
@@ -2573,7 +2582,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 	elif [[ -n ${proc[detailed_cpu]} ]]; then unset 'proc[detailed_killed]'; fi
 
 	#* Sort output array based on cpu usage if "cpu responsive" is selected
-	if [[ ${proc_sorting} == "cpu responsive" ]]; then
+	if [[ ${proc_sorting} == "cpu responsive" && ${proc_tree} != true ]]; then
 		local -a sort_array
 		if [[ -z ${proc[reverse]} ]]; then local sort_rev="-r"; fi
 		sort_array[0]="${proc_array[0]}"
@@ -3448,7 +3457,9 @@ draw_processes() { #? Draw processes and values to screen
 			reverse_string="-fg ${box[processes_color]} -t ┤ -fg ${theme[hi_fg]}${proc[reverse]:+ -ul} -b -t r -fg ${theme[title]} -t everse -rs -fg ${box[processes_color]} -t ├"
 			reverse_pos=9
 		fi
-		print -v proc_misc -m $line $((col+width-${#proc_sorting}-8-reverse_pos)) -rs ${reverse_string}\
+		print -v proc_misc -m $line $((col+width-${#proc_sorting}-14-reverse_pos)) -rs\
+		${reverse_string}\
+		-fg ${box[processes_color]} -t ┤ -fg ${theme[title]}${proc[tree]:+ -ul} -b -t "tre" -fg ${theme[hi_fg]} -t "e" -rs -fg ${box[processes_color]} -t ├\
 		-fg ${box[processes_color]} -t "┤" -fg ${theme[hi_fg]} -b -t "‹" -fg ${theme[title]} -t " ${proc_sorting} "  -fg ${theme[hi_fg]} -t "›" -rs -fg ${box[processes_color]} -t "├"
 
 		if [[ -z $filter && -z $input_to_filter ]]; then
@@ -3714,12 +3725,13 @@ help_() { #? Shows the help overlay
 		"(Home) (End)"
 		"(Left) (Right)"
 		"(b, B) (n, N)"
+		"(E, e)"
 		"(R, r)"
 		"(F, f)"
 		"(C, c)"
-		"(T, t)"
-		"(K, k)"
-		"(I, i)"
+		"Selected (T, t)"
+		"Selected (K, k)"
+		"Selected (I, i)"
 		" "
 		" "
 		" "
@@ -3736,6 +3748,7 @@ help_() { #? Shows the help overlay
 		"Jump to first or last page in process list."
 		"Select previous/next sorting column."
 		"Select previous/next network device."
+		"Toggle processes tree view"
 		"Reverse sorting order in processes box."
 		"Input a string to filter processes with."
 		"Clear any entered filter."
@@ -3872,6 +3885,13 @@ options_() { #? Shows the options overlay
 						" "
 						"\"tree\" shows a tree structure of running"
 						"processes. (not available with psutil)")
+	desc_proc_tree=(	"Processes tree view."
+						" "
+						"Set true to show processes grouped by parents,"
+						"with lines drawn between parent and child"
+						"process."
+						" "
+						"True or false.")
 	desc_check_temp=(	"Check cpu temperature."
 						" "
 						"True or false."
@@ -4125,14 +4145,16 @@ options_() { #? Shows the options overlay
 						if ((net[reset]==1)); then net_totals_reset="Off"; net[reset]=0
 						else net_totals_reset="On"; net[reset]=1; fi
 					;;
-				"check_temp"*|"error_logging"*|"background_update"*|"proc_reversed"*|"proc_gradient"*|"proc_per_core"*|"update_check"*|"hires_graphs"*|"use_psutil"*)
+				"check_temp"*|"error_logging"*|"background_update"*|"proc_reversed"*|"proc_gradient"*|"proc_per_core"*|"update_check"*|"hires_graphs"*|"use_psutil"*|"proc_tree"*)
 						local -n selected_var=${selected}
 						if [[ ${selected_var} == "true" ]]; then
 							selected_var="false"
-							if [[ $selected == "proc_reversed" ]]; then proc[order_change]=1; unset 'proc[reverse]'; fi
+							if [[ $selected == "proc_reversed" ]]; then proc[order_change]=1; unset 'proc[reverse]'
+							elif [[ $selected == "proc_tree" ]]; then proc[order_change]=1; unset 'proc[tree]'; fi
 						else
 							selected_var="true"
-							if [[ $selected == "proc_reversed" ]]; then proc[order_change]=1; proc[reverse]="+"; fi
+							if [[ $selected == "proc_reversed" ]]; then proc[order_change]=1; proc[reverse]="+"
+							elif [[ $selected == "proc_tree" ]]; then proc[order_change]=1; proc[tree]="+"; fi
 						fi
 						if [[ $selected == "check_temp" && $check_temp == true ]]; then
 							local has_temp
@@ -4527,6 +4549,16 @@ process_input() { #? Process keypresses for main ui
 				else
 					proc_reversed="false"
 					unset 'proc[reverse]'
+				fi
+				filter_change=1
+			;;
+			e|E) #* Show processes as a tree
+				if [[ -z ${proc[tree]} ]]; then
+					proc[tree]="+"
+					proc_tree="true"
+				else
+					proc_tree="false"
+					unset 'proc[tree]'
 				fi
 				filter_change=1
 			;;
