@@ -350,7 +350,7 @@ init_() { #? Collect needed information and set options before startig main loop
 	if [[ $check_temp == true ]]; then
 		local checker
 		for checker in "vcgencmd" "sensors" "osx-cpu-temp"; do
-			if command -v "${checker}" >/dev/null 2>&1; then sensor_comm="${checker}"; fi
+			if command -v "${checker}" >/dev/null 2>&1; then sensor_comm="${checker}"; break; fi
 		done
 		if [[ -z $sensor_comm ]]; then check_temp="false"; fi
 	fi
@@ -4222,7 +4222,7 @@ options_() { #? Shows the options overlay
 						if [[ $selected == "check_temp" ]]; then
 							local checker
 							for checker in "vcgencmd" "sensors" "osx-cpu-temp"; do
-								if command -v "${checker}" >/dev/null 2>&1; then sensor_comm="${checker}"; fi
+								if command -v "${checker}" >/dev/null 2>&1; then sensor_comm="${checker}"; break; fi
 							done
 							if [[ -z $sensor_comm ]]; then check_temp="false"; fi
 						fi
