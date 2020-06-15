@@ -184,6 +184,12 @@ menu_quit=(
 "│─┼┐│ │ │ │ "
 "└─┘└└─┘ ┴ ┴ ")
 
+menu_update=(
+"┬ ┬┌─┐┌┬┐┌─┐┌┬┐┌─┐"  
+"│ │├─┘ ││├─┤ │ ├┤ " 
+"└─┘┴  ─┴┘┴ ┴ ┴ └─┘"
+)
+
 menu_options_selected=(
 "╔═╗╔═╗╔╦╗╦╔═╗╔╗╔╔═╗"
 "║ ║╠═╝ ║ ║║ ║║║║╚═╗"
@@ -195,8 +201,15 @@ menu_help_selected=(
 menu_quit_selected=(
 "╔═╗ ╦ ╦ ╦╔╦╗ "
 "║═╬╗║ ║ ║ ║  "
-"╚═╝╚╚═╝ ╩ ╩  ")
+"╚═╝╚╚═╝ ╩ ╩  ")  
 
+menu_update_selected=(
+"╦ ╦╔═╗╔╦╗╔═╗╔╦╗╔═╗"
+"║ ║╠═╝ ║║╠═╣ ║ ║╣ "
+"╚═╝╩  ═╩╝╩ ╩ ╩ ╚═╝"
+)
+
+declare -r remote_src="https://raw.githubusercontent.com/aristocratos/bashtop/master/bashtop"
 declare -A cpu mem swap proc net box theme disks
 declare -a cpu_usage cpu_graph_a cpu_graph_b color_meter color_temp_graph color_cpu color_cpu_graph cpu_history color_mem_graph color_swap_graph
 declare -a mem_history swap_history net_history_download net_history_upload mem_graph swap_graph proc_array download_graph upload_graph trace_array
@@ -208,9 +221,12 @@ declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu 
 declare -a detail_graph detail_history detail_mem_history disks_io
 declare -A pid_history
 declare time_left timestamp_start timestamp_end timestamp_input_start timestamp_input_end time_string mem_out proc_misc prev_screen pause_screen filter input_to_filter
+
 declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2 proc_out curled git_version has_iostat sensor_comm
 declare esc_character tab backspace sleepy late_update skip_process_draw winches quitting theme_int notifier saved_stty nic_int net_misc skip_net_draw
 declare -a disks_free disks_total disks_name disks_free_percent saved_key themes nic_list old_procs
+declare -a menus=("options" "help" "quit") color
+
 printf -v esc_character "\u1b"
 printf -v tab "\u09"
 printf -v backspace "\u7F" #? Backspace set to DELETE
@@ -312,6 +328,12 @@ else
 	fi
 fi
 
+
+has_command () {  #? check  the avaibility  of the  command  
+    command  -v  $1 > /dev/null  
+}
+
+
 init_() { #? Collect needed information and set options before startig main loop
 	local i stx=0
 	#* Set terminal options, save and clear screen
@@ -412,17 +434,23 @@ init_() { #? Collect needed information and set options before startig main loop
 	get_net_device
 
 	#* Check if newer version of bashtop is available from https://github.com/aristocratos/bashtop
+
 	if [[ -n $curled && $update_check == "true" ]]; then
+
 		print -bg "#00" -fg "#30ff50" -r 1 -t "√"
 		print -m $(( (tty_height/2-3)+stx++ )) 0 -bg "#00" -fg "#cc" -c -b "Checking for updates..."
 		if ! get_value -v git_version -ss "$(curl -m 4 --raw -r 0-5000 https://raw.githubusercontent.com/aristocratos/bashtop/master/bashtop 2>/dev/null)" -k "version=" -r "[^0-9.]"; then unset git_version; fi
+
 	fi
 
 	#* Add update notification to banner if new version is available
 	local banner_out_up
 	print -v banner_out_up -rs -fg "#cc" -b "← esc"
 	if [[ -n $git_version && $git_version != "$version" ]]; then
+  
+    menus+=("update") 
 		print -v banner_out_up -rs -fg "#80cc80" -r 15 "[${git_version} available!]" -r $((9-${#git_version}))
+
 		if [[ -n $notifier ]]; then
 			notify-send -u normal\
 			"Bashtop Update!" "New version of Bashtop available\!\nCurrent version: ${version}\n\New version: ${git_version}\nDownload at github.com/aristocratos/bashtop"\
@@ -608,6 +636,96 @@ quit_() { #? Clean exit
 
 	exit 0
 }
+
+update_ () {
+
+     local -a root_dirs=("/bin/" "/usr/bin/") 
+     local btop_exec=${remote_src##*/} 
+     local btop_path 
+     
+     for  xbin  in  ${root_dirs[@]} ; do 
+         if  [[  -x  ${xbin}${btop_exec} ]] ; then 
+             btop_path=${xbin}${btop_exec}   
+         fi
+     done
+      
+     # the update will only work if bashtop has been installed in the system. 
+     if [[  -z  ${btop_path} ]] ; then  
+         if [[  -n ${notifier}  ]]  ; then  notify-send   "install  bashtop in your system first" ;fi
+         return  
+     fi
+      
+     declare  -A   pkg_distro_manager=(
+          [apt-get]="--only-upgrade install bashtop -y"                  # debian based     
+          [dnf]="upgrade bashtop"                                        # fedora 
+          [yum]="update  bashtop"                                        # redhat ?    
+          [zypper]="update bashtop"                                      # open  suse 
+          [pacman]="-S  bashtop"                                         # arch   
+     )
+
+     # get dynamicly  the related package manager  on the  current distro  
+     local  local_pkgman  related_opt  
+     for pkg  in ${!pkg_distro_manager[@]}  ; do 
+           if  has_command ${pkg}  ; then  
+                local_pkgman=${pkg} 
+                related_opt=${pkg_distro_manager[$pkg]}
+           fi
+     done  
+     
+     # check if  the new release  version are  available  via package manager
+     read  -a  pkgman_version <<<   $(sudo ${local_pkgman} ${related_opt} | grep -Po '(\d+\.)+\d+')
+
+     # otherwise  download  directly  from remote  repository 
+     if  [[   -z  ${pkgman_version[0]} ]]   ||  [[   ${pkgman_version[0]} !=  ${git_version} ]]   ; then  
+         $(curl ${remote_src} -o  ${btop_path})
+           if  [[  $? -eq 0  ]]  ; then 
+                 if [[ -n ${notifier} ]] ;then   notify-send  "$btop_exec  updated to  v${git_version}"  ; fi  
+                  
+                 if [[  'menus[${#menus[@]}-1]'  == "update" ]] ;then unset  'menus[${#menus[@]}-1]' ; fi    #  unset update  label
+            else 
+                if [[ -n ${notifier} ]] ;then   notify-send  "UPDATE FAILED : require root user" -i face-sad ; fi 
+            fi  
+      fi
+}
+
+[[  "ARGS::PARSE" ]]  
+{
+usage()  {
+
+cat   <<  EOF 
+
+usage  :  bashtop  [ OPT ]  
+    
+    --update        :   upgrade  bastop to the new version release  
+    --version  | -v :   get version of bashtop
+    --help     | -h :   help  usage
+
+EOF
+}
+     
+
+if  [[ -n ${1} ]]  ; then  
+        case  ${1}  in 
+            "--update")  
+                if  [[  $UID  -ne  0  ]]  ; then 
+                    read  -p "require root  user : "  -s -t 15  
+                    if [[ -n  ${REPLY} ]] ; then
+                        sudo  -S <<<  ${REPLY}  $0 --update   
+                    fi
+                else 
+                     sleep 1  
+                     update_
+                     exit  
+                fi 
+                ;; 
+            "--version"|"-v")  
+                echo -e "Bashtop v.${version}" ; exit 0 ;;  
+            "--help"|"-h") 
+                usage ; exit 0 ;;          
+        esac  
+     fi 
+}
+
 
 sleep_() { #? Restore terminal options, stop and send to background if caught SIGTSTP (ctrl+z)
 	echo -en "${clear_screen}${normal_screen}${show_cursor}"
@@ -3704,8 +3822,10 @@ unpause_() { #? Unpause
 
 menu_() { #? Shows the main menu overlay
 	local menu i count keypress selected_int=0 selected up local_rez d_banner=1 menu_out bannerd skipped menu_pause out_out wait_string trans
+
 	local -a menus=("options" "help" "quit") color
 	unset bannerd menu_out
+
 	until false; do
 
 		#* Put program to sleep if caught ctrl-z
@@ -3774,6 +3894,7 @@ menu_() { #? Shows the main menu overlay
 					options) options_ ;;
 					help) help_ ;;
 					quit) quit_ ;;
+                    update)update_;; 
 				esac
 			;;
 			m|M|escape|backspace) break ;;
