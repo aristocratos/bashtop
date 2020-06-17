@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.9.12
+
+* Changed: Psutil data collection now runs a python script in a coprocess taking commands and sending output over coproc pipes
+* Added: Psutil data collection now replaces most external calls including sensors, cpu info, disks info and io collection
+* Changed: Tree view is now a toggle instead of sorting option
+* Fixed: Cpu temp check not using vcgencmd when sensors is available
+
 ## v0.9.11
 
 * Fixed: Processes text color now sets RGB instead of RBB...
