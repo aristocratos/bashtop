@@ -208,7 +208,7 @@ declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu 
 declare -a detail_graph detail_history detail_mem_history disks_io
 declare -A pid_history
 declare time_left timestamp_start timestamp_end timestamp_input_start timestamp_input_end time_string mem_out proc_misc prev_screen pause_screen filter input_to_filter
-declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2 proc_out curled git_version has_iostat sensor_comm
+declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2 proc_out curled git_version has_iostat sensor_comm failed_pipes=0
 declare esc_character tab backspace sleepy late_update skip_process_draw winches quitting theme_int notifier saved_stty nic_int net_misc skip_net_draw
 declare -a disks_free disks_total disks_name disks_free_percent saved_key themes nic_list old_procs
 printf -v esc_character "\u1b"
@@ -313,45 +313,63 @@ else
 fi
 
 init_() { #? Collect needed information and set options before startig main loop
-	local i stx=0
-	#* Set terminal options, save and clear screen
-	saved_stty="$(${stty} -g)"
-	echo -en "${alt_screen}${hide_cursor}${clear_screen}"
-	echo -en "\033]0;${TERMINAL_TITLE} BashTOP\a"
-	${stty} -echo
+	if [[ -z $1 ]]; then
+		local i stx=0
+		#* Set terminal options, save and clear screen
+		saved_stty="$(${stty} -g)"
+		echo -en "${alt_screen}${hide_cursor}${clear_screen}"
+		echo -en "\033]0;${TERMINAL_TITLE} BashTOP\a"
+		${stty} -echo
 
-	#* Wait for resize if terminal size is smaller then 80x24
-	if (($tty_width<80 | $tty_height<24)); then resized; echo -en "${clear_screen}"; fi
+		#* Wait for resize if terminal size is smaller then 80x24
+		if (($tty_width<80 | $tty_height<24)); then resized; echo -en "${clear_screen}"; fi
 
-	#* Draw banner to banner array
-	local letter b_color banner_line y=0
-	local -a banner_out
-	#print -v banner_out[0] -t "\e[0m"
-	for banner_line in "${banner[@]}"; do
-		#* Read banner array letter by letter to set correct color for filled vs outline characters
-		while read -rN1 letter; do
-			if [[ $letter == "█" ]]; then b_color="${banner_colors[$y]}"
-			else b_color="#$((80-y*6))"; fi
-			if [[ $letter == " " ]]; then
-				print -v banner_out[y] -r 1
-			else
-				print -v banner_out[y] -fg ${b_color} "${letter}"
-			fi
-		done <<<"$banner_line"
-		((++y))
-	done
-	banner=("${banner_out[@]}")
+		#* Draw banner to banner array
+		local letter b_color banner_line y=0
+		local -a banner_out
+		#print -v banner_out[0] -t "\e[0m"
+		for banner_line in "${banner[@]}"; do
+			#* Read banner array letter by letter to set correct color for filled vs outline characters
+			while read -rN1 letter; do
+				if [[ $letter == "█" ]]; then b_color="${banner_colors[$y]}"
+				else b_color="#$((80-y*6))"; fi
+				if [[ $letter == " " ]]; then
+					print -v banner_out[y] -r 1
+				else
+					print -v banner_out[y] -fg ${b_color} "${letter}"
+				fi
+			done <<<"$banner_line"
+			((++y))
+		done
+		banner=("${banner_out[@]}")
 
-	#* Draw banner to screen and show status while running init
-	draw_banner $((tty_height/2-10))
+		#* Draw banner to screen and show status while running init
+		draw_banner $((tty_height/2-10))
+
+		#* Start psutil coprocess if enabled
+		if [[ $use_psutil == true ]]; then
+			print -m $(( (tty_height/2-3)+stx++ )) 0 -bg "#00" -fg "#cc" -b -c "Creating psutil coprocess..."
+			return
+		fi
+	fi
+
+	if [[ -n $1 ]]; then local i stx=1; print -bg "#00" -fg "#30ff50" -r 1 -t "√"; fi
 
 	#* Check if "sensors", "osx-cpu-temp" or "vcgencmd" commands is available, if not, disable temperature collection
 	print -m $(( (tty_height/2-3)+stx++ )) 0 -bg "#00" -fg "#cc" -b -c "Checking available tools..."
 	if [[ $check_temp == true ]]; then
-		local checker
-		for checker in "vcgencmd" "sensors" "osx-cpu-temp"; do
-			if command -v "${checker}" >/dev/null 2>&1; then sensor_comm="${checker}"; break; fi
-		done
+		local has_temp
+		sensor_comm=""
+		if [[ $use_psutil == true ]]; then
+			py_command -v has_temp "get_sensors_check()"
+			if [[ $has_temp == true ]]; then sensor_comm="psutil"; fi
+		fi
+		if [[ -z $sensor_comm ]]; then
+			local checker
+			for checker in "vcgencmd" "sensors" "osx-cpu-temp"; do
+				if command -v "${checker}" >/dev/null 2>&1; then sensor_comm="${checker}"; break; fi
+			done
+		fi
 		if [[ -z $sensor_comm ]]; then check_temp="false"; fi
 	fi
 
@@ -597,6 +615,11 @@ color_init_() { #? Check for theme file and set colors
 
 quit_() { #? Clean exit
 	#* Restore terminal options and screen
+	if [[ $use_psutil == true && $2 != "psutil" ]]; then
+		py_command quit
+		sleep 0.1
+		rm "${pywrapper}"
+	fi
 	echo -en "${clear_screen}${normal_screen}${show_cursor}"
 	${stty} "${saved_stty}"
 	echo -en "\033]0;\a"
@@ -606,13 +629,22 @@ quit_() { #? Clean exit
 		save_config "${save_array[@]}"
 	fi
 
-	exit 0
+	if [[ $1 == "restart" ]]; then exec "$(${realpath} "$0")"; fi
+
+	exit ${1:-0}
 }
 
 sleep_() { #? Restore terminal options, stop and send to background if caught SIGTSTP (ctrl+z)
 	echo -en "${clear_screen}${normal_screen}${show_cursor}"
 	${stty} "${saved_stty}"
 	echo -en "\033]0;\a"
+
+	if [[ $use_psutil == true ]]; then
+		if ((failed_pipes>1)); then ((failed_pipes--)); fi
+		py_command quit
+		failed_pipe=1
+		wait ${pycoproc_PID}
+	fi
 
 	${kill} -s SIGSTOP $$
 }
@@ -674,7 +706,6 @@ size_error_msg() { #? Shows error message if terminal size is below 80x25
 	print -rs -m $((tty_height/2-1)) 2 -fg ${theme[title]} -c -l 11 "Current size: " -bg "#00" -fg "#dd2020" -d 1 -c "${tty_width}x${tty_height}" -rs
 	print -d 1 -fg ${theme[title]} -c -l 15 "Need to be atleast:" -bg "#00" -fg "#30dd50" -d 1 -c "80x24" -rs
 	while [[ $(${stty} size) == "$tty_height $tty_width" ]]; do ${sleep} 0.2; if [[ -n $quitting ]]; then quit_; fi ; done
-
 }
 
 draw_banner() { #? Draw banner, usage: draw_banner <line> [output variable]
@@ -871,19 +902,11 @@ floating_humanizer() { 	#? Convert integer to floating point and scale up in ste
 }
 
 get_cpu_info() {
-	local lscpu_var
+	local lscpu_var pyin
 	if [[ $use_psutil == true ]]; then
 		if [[ -z ${cpu[threads]} || -z ${cpu[cores]} ]]; then
-			read cpu[threads] cpu[cores] < <(python3 -c "import psutil; print(psutil.cpu_count(logical=True), psutil.cpu_count(logical=False))" 2>/dev/null)
-		fi
-
-		if [[ $system == "MacOS" ]]; then
-			lscpu_var="Model name:  $(sysctl -n machdep.cpu.brand_string)"
-		elif [[ $system == "BSD" ]]; then
-			lscpu_var="$(sysctl hw.model)"
-			lscpu_var="${lscpu_var/hw.model:/Model name:}"
-		elif command -v lscpu >/dev/null 2>&1; then
-			lscpu_var="$(lscpu)"
+			py_command -v pyin "get_cpu_cores()"
+			read cpu[threads] cpu[cores] <<<"${pyin}"
 		fi
 
 	else
@@ -899,12 +922,14 @@ get_cpu_info() {
 		fi
 	fi
 
-	if [[ -z $custom_cpu_name ]]; then
+	if [[ $use_psutil == false && -z $custom_cpu_name ]]; then
 		if ! get_value -v 'cpu[model]' -sv "lscpu_var" -k "Model name:" -a -b -k "CPU" -mk -1; then
 			if ! get_value -v 'cpu[model]' -sv "lscpu_var" -k "Model name:" -r "  "; then
 				cpu[model]="cpu"
 			fi
 		fi
+	elif [[ $use_psutil == true && -z $custom_cpu_name ]]; then
+		py_command -v cpu[model] "get_cpu_name()"
 	else
 		cpu[model]="${custom_cpu_name}"
 	fi
@@ -1048,18 +1073,7 @@ get_net_device() { #? Check for internet connection, name of default network dev
 
 get_net_device_psutil() {
 	unset 'nic_list[@]'
-	readarray -t nic_list < <(python3 - 2>/dev/null <<EOF
-import psutil
-
-io_all = psutil.net_io_counters(pernic=True)
-up_stat = psutil.net_if_stats()
-
-for nic in sorted(psutil.net_if_addrs(), key=lambda nic: (io_all[nic].bytes_recv + io_all[nic].bytes_sent), reverse=True):
-	if up_stat[nic].isup is False:
-		continue
-	print(nic)
-EOF
-	)
+	py_command -a nic_list "get_nics()"
 	net[device]="${nic_list[0]}"
 	nic_int=0
 	if [[ -z ${net[device]} ]]; then
@@ -1991,51 +2005,31 @@ collect_cpu() { #? Collects cpu stats from /proc/stat and compares with previous
 
 	#* Get values from /proc/stat or psutil, compare to get cpu usage
 	if [[ $use_psutil == true ]]; then
-		readarray -t stat_input < <(python3 - << EOF
-import os, psutil
-from datetime import timedelta
-from time import time
-
-cpu = psutil.cpu_times(percpu=False)
-threads = psutil.cpu_times(percpu=True)
-x = 0
-
-print('cpu', int(cpu.user*10), int(cpu.nice*10), int(cpu.system*10), int(cpu.idle*10))
-for thread in threads:
-	print(f'cpu{x}', int(thread.user*10), int(thread.nice*10), int(thread.system*10), int(thread.idle*10))
-	x += 1
-
-try:
-	print(round(psutil.cpu_freq().current))
-except:
-	print(0)
-
-print(str(timedelta(seconds=round(time()-psutil.boot_time(),0)))[:-3])
-
-for lavg in os.getloadavg():
-	print(round(lavg, 2), ' ', end='')
-print()
-EOF
-		)
-		cpu[freq]="${stat_input[-3]}"
-		cpu[uptime]="${stat_input[-2]}"
-		cpu[load_avg]="${stat_input[-1]}"
+		local -a usage_arr
+		local x=1
+		py_command -a usage_arr "get_cpu_usage()"
+		cpu_usage[0]=${usage_arr[0]}
+		for thread in ${usage_arr[@]:1}; do
+			cpu_usage[$((x++))]=$thread
+		done
+		py_command -v cpu[freq] "get_cpu_freq()"
+		py_command -v cpu[uptime] "get_uptime()"
+		py_command -v cpu[load_avg] "get_load_avg()"
 	else
 		readarray -t stat_input </proc/stat
+		thread=0
+		while ((thread<threads+1)); do
+			stat_array=(${stat_input[thread]})
+			cpu[new_${thread}]=$((stat_array[1]+stat_array[2]+stat_array[3]+stat_array[4]))
+			cpu[idle_new_${thread}]=${stat_array[4]}
+			if [[ -n ${cpu[old_${thread}]} && -n ${cpu[idle_new_${thread}]} && ${cpu[old_${thread}]} -ne ${cpu[new_${thread}]} ]]; then
+				cpu_usage[${thread}]="$(( ( 100*(${cpu[old_${thread}]}-${cpu[new_${thread}]}-${cpu[idle_old_${thread}]}+${cpu[idle_new_${thread}]}) ) / (${cpu[old_${thread}]}-${cpu[new_${thread}]}) ))"
+			fi
+			cpu[old_${thread}]=${cpu[new_${thread}]}
+			cpu[idle_old_${thread}]=${cpu[idle_new_${thread}]}
+			((++thread))
+		done
 	fi
-
-	thread=0
-	while ((thread<threads+1)); do
-		stat_array=(${stat_input[thread]})
-		cpu[new_${thread}]=$((stat_array[1]+stat_array[2]+stat_array[3]+stat_array[4]))
-		cpu[idle_new_${thread}]=${stat_array[4]}
-		if [[ -n ${cpu[old_${thread}]} && -n ${cpu[idle_new_${thread}]} && ${cpu[old_${thread}]} -ne ${cpu[new_${thread}]} ]]; then
-			cpu_usage[${thread}]="$(( ( 100*(${cpu[old_${thread}]}-${cpu[new_${thread}]}-${cpu[idle_old_${thread}]}+${cpu[idle_new_${thread}]}) ) / (${cpu[old_${thread}]}-${cpu[new_${thread}]}) ))"
-		fi
-		cpu[old_${thread}]=${cpu[new_${thread}]}
-		cpu[idle_old_${thread}]=${cpu[idle_new_${thread}]}
-		((++thread))
-	done
 
 	#* Copy cpu usage for cpu package and cores to cpu history arrays and trim earlier entries
 	if ((${#cpu_history[@]}>tty_width*4)); then
@@ -2059,7 +2053,7 @@ EOF
 	fi
 
 	#* If getting cpu frequency from "proc/cpuinfo" was unsuccessfull try "/sys/devices/../../scaling_cur_freq"
-	if [[ -n ${cpu[no_cpu_info]} && -e "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq" ]]; then
+	if [[ $use_psutil == false && -n ${cpu[no_cpu_info]} && -e "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq" ]]; then
 		get_value -v 'cpu[freq]' -sf "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq" -i
 		printf -v 'cpu[freq]' "%.0f0" "${cpu[freq]}e-4"
 	fi
@@ -2086,11 +2080,21 @@ collect_cpu_temps() { #? Collect cpu temperatures
 	local unit c div threads=${cpu[threads]} sens_var i it ccd_value breaking core_value misc_var
 	local -a ccd_array core_array
 
-	#* Fetch output from "sensors" command to a variable
-	if [[ $sensor_comm == "sensors" ]]; then
-		read -rd '' sens_var < <(sensors 2>/dev/null || true) || true
+	#* Fetch output from "sensors" command or psutil to a variable
+	if [[ $sensor_comm == "psutil" ]]; then
+		py_command -vn sens_var "get_sensors()"
+	elif [[ $sensor_comm == "sensors" ]]; then
+		if [[ $use_psutil == true ]]; then
+			py_command -vn sens_var "get_cmd_out('sensors 2>/dev/null')"
+		else
+			read -rd '' sens_var < <(sensors 2>/dev/null || true) || true
+		fi
 	elif [[ $sensor_comm != "sensors" ]]; then
-		read -r misc_var < <(${sensor_comm} measure_temp 2>/dev/null ||true)
+		if [[ $use_psutil == true ]]; then
+			py_command -v misc_var "get_cmd_out('${sensor_comm} measure_temp 2>/dev/null')"
+		else
+			read -r misc_var < <(${sensor_comm} measure_temp 2>/dev/null ||true)
+		fi
 	fi
 
 	#* Get CPU package temp for intel cpus
@@ -2181,6 +2185,7 @@ collect_cpu_temps() { #? Collect cpu temperatures
 collect_mem() { #? Collect memory information from "/proc/meminfo"
 	((++mem[counter]))
 
+	#if [[ $use_psutil == false ]] && ((mem[counter]<4)); then return; fi
 	if ((mem[counter]<4)); then return; fi
 	mem[counter]=0
 
@@ -2190,19 +2195,13 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 
 	#* Get memory and swap information from "/proc/meminfo" or psutil and calculate percentages
 	if [[ $use_psutil == true ]]; then
-		read mem[total] mem[free] mem[available] mem[cached] swap[total] swap[free] < <(python3 - 2>/dev/null <<EOF
-import psutil
-mem = psutil.virtual_memory()
-swap = psutil.swap_memory()
-try:
-	cmem = mem.cached>>10
-except:
-	cmem = mem.active>>10
-print(mem.total>>10, mem.free>>10, mem.available>>10, cmem, swap.total>>10, swap.free>>10)
-EOF
-		)
+		local pymemout
+
+		py_command -v pymemout "get_mem()"
+		read mem[total] mem[free] mem[available] mem[cached] swap[total] swap[free] <<<"$pymemout"
+
 		if [[ -z ${mem[total]} ]]; then return; fi
-		if [[ -n $swap_on && -n ${swap[total]} ]] && ((swap[total]>0)); then
+		if [[ -n ${swap[total]} ]] && ((swap[total]>0)); then
 			swap[free_percent]=$((swap[free]*100/swap[total]))
 			swap[used]=$((swap[total]-swap[free]))
 			swap[used_percent]=$((swap[used]*100/swap[total]))
@@ -2227,7 +2226,7 @@ EOF
 	mem[free_percent]=$((mem[free]*100/mem[total]))
 	mem[cached_percent]=$((mem[cached]*100/mem[total]))
 
-	if [[ -n $swap_on && $use_psutil == false ]] && get_value -v swap[total] -sv "mem_info" -k "SwapTotal:" -i && ((swap[total]>0)); then
+	if [[ $use_psutil == false ]] && get_value -v swap[total] -sv "mem_info" -k "SwapTotal:" -i && ((swap[total]>0)); then
 		get_value -v 'swap[free]' -sv "mem_info" -k "SwapFree:" -i
 		swap[free_percent]=$((swap[free]*100/swap[total]))
 
@@ -2248,12 +2247,13 @@ EOF
 		done
 	done
 
-	#* Get disk information from "df" command
-	local df_array df_line line_array dev_path dev_name iostat_var disk_read disk_write disk_io_string df_count=0
+	#* Get disk information
+	local df_array df_line line_array dev_path dev_name iostat_var disk_read disk_write disk_io_string df_count=0 filtering
 	local -a device_array iostat_array
 	unset 'disks_free[@]' 'disks_used[@]' 'disks_used_percent[@]' 'disks_total[@]' 'disks_name[@]' 'disks_free_percent[@]' 'disks_io[@]'
-	if [[ $system == "MacOS" ]]; then
-		readarray -t df_array < <(/bin/df -k -P 2>/dev/null || true)
+	if [[ $use_psutil == true ]]; then
+		if [[ -n $disks_filter ]]; then filtering=", filtering='${disks_filter}'"; fi
+		py_command -a df_array "get_disks(exclude='squashfs'${filtering})"
 	else
 		readarray -t df_array < <(${df} -x squashfs -x tmpfs -x devtmpfs -x overlay 2>/dev/null || true)
 	fi
@@ -2261,46 +2261,45 @@ EOF
 		line_array=(${df_line})
 		if ! is_int "${line_array[1]}" || ((line_array[1]<=0)); then continue; fi
 
-		if [[ $system == "MacOS" && ( ${line_array[0]} == "devfs" || ${line_array[5]} == "/private/var/vm" ) ]]; then continue; fi
-
-		if [[ ${line_array[5]} == "/" ]]; then disks_name+=("root")
-		else disks_name+=("${line_array[5]##*/}"); fi
+		if [[ $use_psutil == false && ${line_array[5]} == "/" ]]; then disks_name+=("root")
+		elif [[ $use_psutil == false ]]; then disks_name+=("${line_array[5]##*/}")
+		elif [[ $use_psutil == true ]]; then disks_name+=("${line_array[*]:7}"); fi
 
 		#* Filter disks showed if $disks_filter is set
-		if [[ -n $disks_filter ]]; then
+		if [[ $use_psutil == false && -n $disks_filter ]]; then
 			unset found
 			for filter_value in ${disks_filter}; do
 				if [[ $filter_value == "${disks_name[-1]}" ]]; then found=1; fi
 			done
 		fi
 
-		if [[ -z $disks_filter || -n $found ]]; then
+		if [[ $use_psutil == true || -z $disks_filter || -n $found ]]; then
 			disks_total+=("$(floating_humanizer -s 1 -B ${line_array[1]})")
 			disks_used+=("$(floating_humanizer -s 1 -B ${line_array[2]})")
 			disks_used_percent+=("${line_array[4]%'%'}")
 			disks_free+=("$(floating_humanizer -s 1 -B ${line_array[3]})")
 			disks_free_percent+=("$((100-${line_array[4]%'%'}))")
 
-			#* Get read/write stats for disk if iostat or psutil is available
-			if [[ -n $has_iostat || $use_psutil == true ]]; then
-				unset iostat_var disk_io_string
+			#* Get read/write stats for disk from iostat or psutil if available
+			if [[ $use_psutil == true || -n $has_iostat ]]; then
+				unset disk_io_string
 				dev_name="${line_array[0]##*/}"
-				dev_path="${line_array[0]%${dev_name}}"
-				if [[ ${dev_name::2} == "md" ]]; then dev_name="${dev_name::3}"; fi
-				unset iostat_var disk_io_string 'iostat_array[@]'
-				if [[ $use_psutil == true && $system != "Linux" ]] && ((df_count==0)); then
-					read -r iostat_var < <(python3 -c "import psutil; disk = psutil.disk_io_counters(perdisk=False); print(disk.read_bytes>>10, disk.write_bytes>>10)" 2>/dev/null)
-					df_count=1
-				elif [[ $use_psutil == true && $system == "Linux" ]]; then
-					read -r iostat_var < <(python3 -c "import os, psutil; disk = psutil.disk_io_counters(perdisk=True)[os.path.realpath('${dev_path}${dev_name}').split('/')[-1]]; print(disk.read_bytes>>10, disk.write_bytes>>10)" 2>/dev/null)
-				elif [[ $use_psutil == false ]]; then
+				if [[ $use_psutil == false && ${dev_name::2} == "md" ]]; then dev_name="${dev_name::3}"; fi
+				if [[ $use_psutil == false ]]; then
+					unset iostat_var 'iostat_array[@]'
+					dev_path="${line_array[0]%${dev_name}}"
 					read -r iostat_var < <(iostat -dkz "${dev_path}${dev_name}" | tail -n +4)
+					iostat_array=(${iostat_var})
 				fi
-				iostat_array=(${iostat_var})
-				if [[ -n ${iostat_var} ]]; then
+				if [[ $use_psutil == true || -n ${iostat_var} ]]; then
 
-					disk_read=$((iostat_array[-2]-${disks[${dev_name}_read]:-${iostat_array[-2]}}))
-					disk_write=$((iostat_array[-1]-${disks[${dev_name}_write]:-${iostat_array[-1]}}))
+					if [[ $use_psutil == true ]]; then
+						disk_read=${line_array[5]}
+						disk_write=${line_array[6]}
+					else
+						disk_read=$((iostat_array[-2]-${disks[${dev_name}_read]:-${iostat_array[-2]}}))
+						disk_write=$((iostat_array[-1]-${disks[${dev_name}_write]:-${iostat_array[-1]}}))
+					fi
 
 					if ((box[m_width2]>25)); then
 						if ((disk_read>0)); then disk_io_string="▲$(floating_humanizer -s 1 -short -B ${disk_read}) "; fi
@@ -2309,8 +2308,10 @@ EOF
 						disk_io_string+="▼▲$(floating_humanizer -s 1 -short -B $((disk_read+disk_write)))"
 					fi
 
-					disks[${dev_name}_read]="${iostat_array[-2]}"
-					disks[${dev_name}_write]="${iostat_array[-1]}"
+					if [[ $use_psutil == false ]]; then
+						disks[${dev_name}_read]="${iostat_array[-2]}"
+						disks[${dev_name}_write]="${iostat_array[-1]}"
+					fi
 				fi
 				disks_io+=("${disk_io_string:-0}")
 			fi
@@ -2601,59 +2602,22 @@ collect_processes_psutil() {
 	local argument=$1
 	if [[ -n $skip_process_draw && $argument != "now" ]]; then return; fi
 	if [[ $argument == "now" ]]; then skip_process_draw=1; fi
-	local prog_len arg_len symbol="▼" sorting selected imports time_elapsed no_core_divide width=${box[processes_width]} height=${box[processes_height]}
-	local cmdargs titleargs titletr hide_self pid pcpu_usage pids p_count cpu_int pids bsd_idle
-
-	#* Timestamp the values in milliseconds to accurately calculate cpu usage
-	get_ms proc[new_timestamp]
-
-	if [[ $proc_per_core == true ]]; then no_core_divide="1"; fi
-	if [[ $system == "BSD" ]]; then bsd_idle="or p.info['name'] == 'idle'"; fi
-
-	time_elapsed=$((proc[new_timestamp]-proc[old_timestamp]))
+	local prog_len arg_len symbol="▼" selected width=${box[processes_width]} height=${box[processes_height]}
+	local pcpu_usage pids p_count cpu_int pids max_lines i pi
 
 	case ${proc_sorting} in
-		"pid")
-			selected="Pid:"
-			sorting="p.info['pid'], reverse=True"
-		;;
-		"program")
-			selected="Program:"
-			sorting="p.info['name'], reverse=False"
-		;;
-		"arguments")
-			selected="Arguments:"
-			sorting="' '.join(str(p.info['cmdline'])) or p.info['name'], reverse=False"
-		;;
-		"threads")
-			selected="Threads:"
-			sorting="str(p.info['num_threads']), reverse=True"
-		;;
-		"user")
-			selected="User:"
-			sorting="p.info['username'], reverse=False"
-		;;
-		"memory")
-			selected="Mem%"
-			sorting="str(p.info['memory_percent']), reverse=True"
-		;;
-		"cpu lazy"|"tree")
-			selected="Cpu%"
-			sorting="(sum(p.info['cpu_times'][:2]) * 1000 / (time.time() - p.info['create_time'])), reverse=True"
-			imports=1
-		;;
-		"cpu responsive")
-			selected="Cpu%"
-			sorting="float( (sum(p.info['cpu_times'][:2]) - procs.get(p.info['pid'], 0)) * 100000 / (${time_elapsed} * ${no_core_divide:-${cpu[threads]}}) ), reverse=True"
-		;;
+		"pid") selected="Pid:";;
+		"program") selected="Program:";;
+		"arguments") selected="Arguments:";;
+		"threads") selected="Threads:";;
+		"user") selected="User:";;
+		"memory") selected="Mem%";;
+		"cpu lazy"|"cpu responsive") selected="Cpu%";;
 	esac
 
-	if [[ -n ${proc[reverse]} ]]; then
-		symbol="▲"
-		if [[ ${sorting:(-4)} == "True" ]]; then sorting="${sorting::-4}False"
-		elif [[ ${sorting:(-5)} == "False" ]]; then sorting="${sorting::-5}True"
-		fi
-	fi
+	if [[ ${proc_tree} == true && ${proc_sorting} =~ pid|program|arguments ]]; then selected="Tree:"; fi
+
+	if [[ -n ${proc[reverse]} ]]; then symbol="▲"; fi
 
 	if ((proc[detailed]==0)) && [[ -n ${proc[detailed_name]} ]]; then
 		unset 'proc[detailed_name]' 'proc[detailed_killed]' 'proc[detailed_cpu_int]' 'proc[detailed_cmd]'
@@ -2664,78 +2628,36 @@ collect_processes_psutil() {
 
 	unset 'proc[detailed_cpu]'
 
-	if [[ -z ${old_procs[*]} ]]; then old_procs=("{ }"); fi
 
 	if ((width>60)); then
 		arg_len=$((width-55))
 		prog_len=15
-		cmdargs="f\"{' '.join(p.info['cmdline']) or '[' + p.info['name'] + ']':<${arg_len}.$((arg_len-1))}\","
-		titleargs="{'Arguments:':<$((arg_len-4))}"
-		titletr="{'Threads:'}"
 	else
 		prog_len=$((width-40))
-		titletr=" {'Tr:'}"
+		arg_len=0
+		if [[ $proc_sorting == "threads" ]]; then selected="Tr:"; fi
 	fi
 
+
 	unset 'proc_array[@]'
-	readarray -t proc_array < <(python3 - 2>/dev/null <<EOF
-import os, psutil
-${imports:+"import time"}
+	py_command -a proc_array "get_proc(sorting='${proc_sorting}', tree=${proc_tree^}, prog_len=${prog_len}, arg_len=${arg_len}, search='${filter}', reverse=${proc_reversed^}, proc_per_cpu=${proc_per_core^})"
 
-selfpid = os.getpid()
-procs = ${old_procs[@]}
-err = [ 0.0, 0.0 ]
-search = '${filter}'
-
-print(f"{'Pid:':>7} {'Program:':<${prog_len}}${titleargs}${titletr} {'User:':<9}Mem%{'Cpu%':>11}")
-
-for p in sorted(psutil.process_iter(['pid', 'name', 'cmdline', 'num_threads', 'username', 'memory_percent', 'cpu_times', 'create_time'], err), key=lambda p: ${sorting}):
-	if p.info['pid'] == selfpid ${bsd_idle}:
-		continue
-	if p.info['cpu_times'] == err:
-		p.info['memory_percent'] = 0.0
-		p.info['num_threads'] = 0
-		p.info['cmdline'] = ''
-	if search:
-		found = False
-		for value in [ p.info['name'], ' '.join(p.info['cmdline']), str(p.info['pid']), p.info['username'] ]:
-			if search in value:
-				found = True
-				break
-		if not found:
-			continue
-
-	cpu = float((sum(p.info['cpu_times'][:2]) - procs.get(p.info['pid'], sum(p.info['cpu_times'][:2]))) * 100000 / (${time_elapsed} * ${no_core_divide:-${cpu[threads]}}))
-	mem = p.info['memory_percent']
-	print(f"{p.info['pid']:>7} ",
-		f"{p.info['name']:<${prog_len}.$((prog_len-1))}",
-		${cmdargs}
-		f"{p.info['num_threads']:>4} " if p.info['num_threads'] < 1000 else '999> ',
-		f"{p.info['username']:<9.9}",
-		f"{mem:>4.1f}" if mem < 100 else f"{mem:>4.0f} ",
-		f"{cpu:>11.1f} " if cpu < 100 else f"{cpu:>11.0f} ",
-		f"{sum(p.info['cpu_times'][:2])}",
-		sep='')
-EOF
-)
-
-	if [[ -z ${proc_array[0]} ]]; then unset 'old_procs[@]'; return; fi
 	proc_array[0]="${proc_array[0]/ ${selected}/${symbol}${selected}}"
 	proc[pages]=$(( (${#proc_array[@]}-1)/(height-3)+1 ))
 	if ((proc[page]>proc[pages])); then proc[page]=${proc[pages]}; fi
-
-	unset 'old_procs[@]'
-	old_procs=("{")
 
 	for((i=1;i<${#proc_array[@]};i++)); do
 		if [[ -z ${proc_array[i]} ]]; then continue; fi
 
 		out_arr=(${proc_array[i]})
-		old_procs+=(" ${out_arr[0]}: ${out_arr[-1]},")
-		proc_array[i]="${proc_array[i]% ${out_arr[-1]}}"
 
-		pid="${out_arr[0]}"
-		pcpu_usage="${out_arr[-2]}"
+		pi=0
+		if [[ $proc_tree == true ]]; then
+			while [[ ! ${out_arr[pi]} =~ ^[0-9]+$ ]]; do ((++pi)); done
+		fi
+		pid="${out_arr[pi]}"
+
+		pcpu_usage="${out_arr[-1]}"
 
 		if ! printf -v cpu_int "%.0f" "${pcpu_usage}" 2>/dev/null; then continue; fi
 
@@ -2764,46 +2686,25 @@ EOF
 
 		#* Get info for detailed box if enabled
 		if [[ ${pid} == "${proc[detailed_pid]}" ]]; then
+			local -a det_array
 			if [[ -z ${proc[detailed_name]} ]]; then
 				local get_mem mem_string cmdline=""
-				local -a det_array
-				readarray -t det_array < <(python3 - 2>/dev/null <<EOF
-import psutil
 
-p = psutil.Process(${pid})
-pa = psutil.Process(p.ppid())
+				py_command -a det_array "get_detailed_names_cmd(${pid})"
 
-with p.oneshot():
-	print(p.name())
-	print(pa.name())
-	print(p.username())
-	print(' '.join(p.cmdline()) or '[' + p.name() + ']')
-EOF
-				)
 				if [[ -z ${det_array[0]} ]]; then continue; fi
 				proc[detailed_name]="${det_array[0]::15}"
 				proc[detailed_parent_name]="${det_array[1]}"
 				proc[detailed_user]="${det_array[2]}"
 				proc[detailed_cmd]="${det_array[3]}"
-
 			fi
-			proc[detailed_cpu]="${out_arr[-2]}"
+			proc[detailed_cpu]="${out_arr[-1]}"
 			proc[detailed_cpu_int]="${cpu_int}"
-			proc[detailed_threads]="${out_arr[-5]}"
+			proc[detailed_threads]="${out_arr[-4]}"
 
-			readarray -t det_array < <(python3 - 2>/dev/null <<EOF
-import psutil
-from datetime import timedelta
-from time import time
+			unset 'det_array[@]'
+			py_command -a det_array "get_detailed_mem_time(${pid})"
 
-p = psutil.Process(${pid})
-pa = psutil.Process(p.ppid())
-
-with p.oneshot():
-	print(p.memory_info().rss)
-	print(timedelta(seconds=round(time()-p.create_time(),0)))
-EOF
-			)
 			if [[ -z ${det_array[0]} ]]; then continue; fi
 			unset 'proc[detailed_mem_string]'
 			floating_humanizer -v proc[detailed_mem_string] -B ${det_array[0]}
@@ -2812,7 +2713,7 @@ EOF
 			else proc[detailed_runtime]="${det_array[1]}"; fi
 
 			proc[detailed_mem_count]=0
-			proc[detailed_mem]="${out_arr[-3]}"
+			proc[detailed_mem]="${out_arr[-2]}"
 			proc[detailed_mem_int]="${proc[detailed_mem]/./}"
 			if [[ ${proc[detailed_mem_int]::1} == "0" ]]; then proc[detailed_mem_int]="${proc[detailed_mem_int]:1}0"; fi
 			#* Scale up low mem values to see any changes on mini graph
@@ -2843,9 +2744,6 @@ EOF
 		fi
 
 	done
-	old_procs[-1]="${old_procs[-1]%,} }"
-
-	proc[old_timestamp]=${proc[new_timestamp]}
 
 	if ((proc[detailed]==1)) && [[ -z ${proc[detailed_cpu]} && -z ${proc[detailed_killed]} ]]; then proc[detailed_killed]=1; proc[detailed_change]=1
 	elif [[ -n ${proc[detailed_cpu]} ]]; then unset 'proc[detailed_killed]'; fi
@@ -2886,8 +2784,9 @@ collect_net() { #? Collect information from "/proc/net/dev"
 
 	#* Get the line with relevant net device from /proc/net/dev or psutil into array net_dev, index 1 is download, index 9 is upload
 	if [[ $use_psutil == true ]]; then
-		read -a net_dev < <(python3 -c "import psutil; net = psutil.net_io_counters(pernic=True)['${net[device]}']; print(0,net.bytes_recv,0,0,0,0,0,0,0,net.bytes_sent)" 2>/dev/null)
-		if [[ -z ${net_dev[*]} ]]; then net[no_device]=1; return; fi
+		py_command -v net_dev "get_net('${net[device]}')"
+		net_dev=(${net_dev})
+		if ! is_int "${net_dev[0]}"; then net[no_device]=1; return; fi
 	else
 		if ! get_value -map net_dev -sf "/proc/net/dev" -k "${net[device]}" -a; then net[no_device]=1; return; fi
 	fi
@@ -3483,14 +3382,25 @@ draw_processes() { #? Draw processes and values to screen
 
 	print -v proc_out -rs -m $((line+y++)) $((col+1)) -fg ${theme[title]} -b -t "${proc_array[0]::$((width-3))} " -rs
 
-
+	local -a out_arr
 	for out_line in "${proc_array[@]:$proc_start}"; do
-		pid="${out_line::$((proc[pid_len]+1))}"; pid="${pid// /}"
-		pid_graph="pid_${pid}_graph"
 
-		out_line="${out_line//'\'/'\\'}"
-		out_line="${out_line//'$'/'\$'}"
-		out_line="${out_line//'"'/'\"'}"
+		if [[ $use_psutil == true ]]; then
+			out_arr=(${out_line})
+			pi=0
+			if [[ $proc_tree == true ]]; then
+				while [[ ! ${out_arr[pi]} =~ ^[0-9]+$ ]]; do ((++pi)); done
+			fi
+			pid="${out_arr[pi]}"
+
+		else
+			pid="${out_line::$((proc[pid_len]+1))}"; pid="${pid// /}"
+			out_line="${out_line//'\'/'\\'}"
+			out_line="${out_line//'$'/'\$'}"
+			out_line="${out_line//'"'/'\"'}"
+		fi
+
+		pid_graph="pid_${pid}_graph"
 
 		if ((current_num==proc[selected])); then print -v proc_out -bg ${theme[selected_bg]} -fg ${theme[selected_fg]} -b; proc[selected_pid]="$pid"
 		else print -v proc_out -rs -fg $((fg_r-fg_step_r)) $((fg_g-fg_step_g)) $((fg_b-fg_step_b)); fi
@@ -3941,7 +3851,10 @@ options_() { #? Shows the options overlay
 						" "
 						"Max value: 86400000 ms = 24 hours.")
 	desc_use_psutil=(	"Enable the use of psutil python3 module for"
-						"data collection, default on Mac OSX"
+						"data collection. Default on non Linux."
+						""
+						"Program will automatically restart if setting"
+						"to true to check for compatibility."
 						" "
 						"True or false."
 						" "
@@ -3986,8 +3899,10 @@ options_() { #? Shows the options overlay
 	desc_error_logging=("Enable error logging to"
 						"\"\$HOME/.config/bashtop/error.log\""
 						" "
-						"True or false."
-						"Takes effect after program restart.")
+						"Program will be automatically restarted if"
+						"changing this option."
+						" "
+						"True or false.")
 	desc_proc_reversed=("Reverse sorting order."
 						" "
 						"True or false.")
@@ -4219,14 +4134,27 @@ options_() { #? Shows the options overlay
 							selected_var="true"
 							if [[ $selected == "proc_reversed" ]]; then proc[order_change]=1; proc[reverse]="+"; fi
 						fi
-						if [[ $selected == "check_temp" ]]; then
-							local checker
-							for checker in "vcgencmd" "sensors" "osx-cpu-temp"; do
-								if command -v "${checker}" >/dev/null 2>&1; then sensor_comm="${checker}"; break; fi
-							done
-							if [[ -z $sensor_comm ]]; then check_temp="false"; fi
+						if [[ $selected == "check_temp" && $check_temp == true ]]; then
+							local has_temp
+							sensor_comm=""
+							if [[ $use_psutil == true ]]; then
+								py_command -v has_temp "get_sensors_check()"
+								if [[ $has_temp == true ]]; then sensor_comm="psutil"; fi
+							fi
+							if [[ -z $sensor_comm ]]; then
+								local checker
+								for checker in "vcgencmd" "sensors" "osx-cpu-temp"; do
+									if command -v "${checker}" >/dev/null 2>&1; then sensor_comm="${checker}"; break; fi
+								done
+							fi
+							if [[ -z $sensor_comm ]]; then check_temp="false"
+							else resized=1; fi
+						elif [[ $selected == "check_temp" ]]; then
+							resized=1
 						fi
-						if [[ $selected == "use_psutil" && $system != "Linux" ]]; then use_psutil="true"; fi
+						if [[ $selected == "use_psutil" && $system != "Linux" ]]; then use_psutil="true"
+						elif [[ $selected == "use_psutil" && $use_psutil == true ]]; then quit_ restart psutil; fi
+						if [[ $selected == "error_logging" ]]; then quit_ restart; fi
 
 					;;
 				"proc_sorting right")
@@ -4479,7 +4407,7 @@ process_input() { #? Process keypresses for main ui
 	late_update=0
 	#* Wait while reading input
 	get_key -v keypress -w "${wait_time}"
-	if [[ -z $keypress ]]; then return; fi
+	if [[ -z $keypress ]] || [[ -n $failed_pipe ]]; then return; fi
 
 	if [[ -n $input_to_filter ]]; then
 		filter_change=1
@@ -4681,7 +4609,7 @@ collect_and_draw() { #? Run all collect and draw functions
 		draw_${task}
 		if get_key -save && [[ -z $pause_screen ]]; then process_input; fi
 		draw_clock "$1"
-		if ((resized>0 & resized<task_int)); then return; fi
+		if ((resized>0 & resized<task_int)) || [[ -n $failed_pipe ]]; then return; fi
 	done
 
 	last_screen="${draw_out}"
@@ -4753,6 +4681,7 @@ main_loop() { #? main loop...
 
 			#* Wait while reading input
 			process_input "${wait_string}"
+			if [[ -n $failed_pipe ]]; then return; fi
 
 			#* Draw clock if set
 			draw_clock now
@@ -4807,7 +4736,7 @@ if [[ $use_psutil == true ]]; then
 		else
 			exit 1
 		fi
-	elif ! python3 -c "import psutil" >/dev/null 2>&1; then
+	elif [[ $use_psutil == true ]] && ! python3 -c "import psutil" >/dev/null 2>&1; then
 		echo "Error: Missing python3 psutil module!"
 		if [[ $system == "Linux" ]]; then
 			use_psutil="false"
@@ -4820,11 +4749,430 @@ fi
 #* if we have been sourced by another shell, quit. Allows sourcing only function definition.
 [[ "${#BASH_SOURCE[@]}" -gt 1 ]] && { return 0; }
 
+#* Setup psutil script
+if [[ $use_psutil == true ]]; then
+	py_command() {
+		if [[ -n $failed_pipe ]]; then return; fi
+		local arr var output cmd pyerr ln
+		case $1 in
+			"quit")
+				echo "quit" >&${pycoproc[1]} 2>/dev/null || true
+				return
+				;;
+			"-v") var=1;;
+			"-vn") var=1; ln=1;;
+			"-a") arr=1;;
+			*) return;;
+		esac
+		local -n pyout=$2
+		cmd="$3"
+
+		echo "${cmd}" >&${pycoproc[1]} #2>/dev/null || true
+		if [[ -n $var ]]; then pyout=""
+		else pyout=(); fi
+		while IFS= read -r -u ${pycoproc[0]} -t 1 output; do #2>/dev/null
+			if [[ $output == '/EOL' || -n $failed_pipe ]]; then break; fi
+			if [[ -n $arr ]]; then pyout+=("${output}")
+			elif [[ -n $var ]]; then pyout+="${output}${ln:+\n}"; fi
+		done
+		if [[ -n $ln ]]; then printf -v pyout "%b" "${pyout}"; fi
+	}
+
+	pywrapper=$(mktemp "${TMPDIR:-/tmp}"/bashtop.psutil.XXXX)
+
+cat << 'EOF' > "${pywrapper}"
+import os, sys, subprocess, re, time, psutil
+from datetime import timedelta
+from collections import defaultdict
+from typing import List, Set, Dict, Tuple, Optional, Union
+
+system: str
+if "linux" in sys.platform: system = "Linux"
+elif "bsd" in sys.platform: system = "BSD"
+elif "darwin" in sys.platform: system = "MacOS"
+else: system = "Other"
+
+parent_pid: int = psutil.Process(os.getpid()).ppid()
+
+allowed_commands: Tuple[str] = (
+	'get_proc',
+	'get_disks',
+	'get_cpu_name',
+	'get_cpu_cores',
+	'get_nics',
+	'get_cpu_cores',
+	'get_cpu_usage',
+	'get_cpu_freq',
+	'get_uptime',
+	'get_load_avg',
+	'get_mem',
+	'get_detailed_names_cmd',
+	'get_detailed_mem_time',
+	'get_net',
+	'get_cmd_out',
+	'get_sensors',
+	'get_sensors_check'
+	)
+command: str = ''
+cpu_count: int = psutil.cpu_count()
+disk_hist: Dict = {}
+
+def cleaned(string: str) -> str:
+	'''Escape characters not suitable for "echo -e" in bash'''
+	return string.replace("\\", "\\\\").replace("$", "\\$").replace("\n", "\\n").replace("\t", "\\t").replace("\"", "\\\"").replace("\'", "\\\'")
+
+def get_cmd_out(cmd: str):
+	'''Save bash the trouble of creating child processes by running through python instead'''
+	print(subprocess.check_output(cmd, shell=True, universal_newlines=True).rstrip())
+
+def get_sensors():
+	'''A clone of "sensors" but using psutil'''
+	temps = psutil.sensors_temperatures()
+	if not temps:
+		return
+	for name, entries in temps.items():
+		print(name)
+		for entry in entries:
+			print(f'{entry.label or name}: {entry.current}°C (high = {entry.high}°C, crit = {entry.critical}°C)')
+		print()
+
+def get_sensors_check():
+	'''Check if get_sensors() output contains accepted CPU temperature values'''
+	if not hasattr(psutil, "sensors_temperatures"): print("false"); return
+	temps = psutil.sensors_temperatures()
+	if not temps: print("false"); return
+	for _, entries in temps.items():
+		for entry in entries:
+			if entry.label.startswith(('Package', 'Core 0', 'Tdie')):
+				print("true")
+				return
+	print("false")
+
+def get_cpu_name():
+	'''Fetch a suitable CPU identifier from the CPU model name string'''
+	name: str = ""
+	command: str = ""
+	all_info: str = ""
+	rem_line: str = ""
+	if system == "Linux":
+		command = "cat /proc/cpuinfo"
+		rem_line = "model name"
+	elif system == "MacOS":
+		command ="sysctl -n machdep.cpu.brand_string"
+	elif system == "BSD":
+		command ="sysctl hw.model"
+		rem_line = "hw.model"
+
+	all_info = subprocess.check_output("LANG=C " + command, shell=True, universal_newlines=True)
+	if rem_line:
+		for line in all_info.split("\n"):
+			if rem_line in line:
+				name = re.sub( ".*" + rem_line + ".*:", "", line,1).lstrip()
+	else:
+		name = all_info
+	if "Xeon" in name:
+		name = name.split(" ")
+		name = name[name.index("CPU")+1]
+	elif "Ryzen" in name:
+		name = name.split(" ")
+		name = " ".join(name[name.index("Ryzen"):name.index("Ryzen")+3])
+	elif "CPU" in name:
+		name = name.split(" ")
+		name = name[name.index("CPU")-1]
+
+	print(name)
+
+def get_cpu_cores():
+	'''Get number of CPU cores and threads'''
+	cores: int = psutil.cpu_count(logical=True)
+	threads: int = psutil.cpu_count(logical=False)
+	print(f'{cores} {threads if threads else cores}')
+
+def get_cpu_usage():
+	cpu: float = psutil.cpu_percent(percpu=False)
+	threads: List[float] = psutil.cpu_percent(percpu=True)
+	print(f'{cpu:.0f}')
+	for thread in threads:
+		print(f'{thread:.0f}')
+
+def get_cpu_freq():
+	'''Get current CPU frequency'''
+	try:
+		print(f'{psutil.cpu_freq().current:.0f}')
+	except:
+		print(0)
+
+def get_uptime():
+	'''Get current system uptime'''
+	print(str(timedelta(seconds=round(time.time()-psutil.boot_time(),0)))[:-3])
+
+def get_load_avg():
+	'''Get CPU load average'''
+	for lavg in os.getloadavg():
+		print(round(lavg, 2), ' ', end='')
+	print()
+
+def get_mem():
+	'''Get current system memory and swap usage'''
+	mem = psutil.virtual_memory()
+	swap = psutil.swap_memory()
+	try:
+		cmem = mem.cached>>10
+	except:
+		cmem = mem.active>>10
+	print(mem.total>>10, mem.free>>10, mem.available>>10, cmem, swap.total>>10, swap.free>>10)
+
+def get_nics():
+	'''Get a list of all network devices sorted by highest throughput'''
+	io_all = psutil.net_io_counters(pernic=True)
+	up_stat = psutil.net_if_stats()
+
+	for nic in sorted(psutil.net_if_addrs(), key=lambda nic: (io_all[nic].bytes_recv + io_all[nic].bytes_sent), reverse=True):
+		if up_stat[nic].isup is False:
+			continue
+		print(nic)
+
+def get_net(net_dev: str):
+	'''Emulated /proc/net/dev for selected network device'''
+	net = psutil.net_io_counters(pernic=True)[net_dev]
+	print(0,net.bytes_recv,0,0,0,0,0,0,0,net.bytes_sent)
+
+def get_detailed_names_cmd(pid: int):
+	'''Get name, parent name, username and arguments for selected pid'''
+	p = psutil.Process(pid)
+	pa = psutil.Process(p.ppid())
+	with p.oneshot():
+		print(p.name())
+		print(pa.name())
+		print(p.username())
+		cmd = ' '.join(p.cmdline()) or '[' + p.name() + ']'
+		print(cleaned(cmd))
+
+def get_detailed_mem_time(pid: int):
+	'''Get memory usage and runtime for selected pid'''
+	p = psutil.Process(pid)
+	with p.oneshot():
+		print(p.memory_info().rss)
+		print(timedelta(seconds=round(time.time()-p.create_time(),0)))
+
+def get_proc(sorting='cpu lazy', tree=False, prog_len=0, arg_len=0, search='', reverse=True, proc_per_cpu=True, max_lines=0):
+	'''List all processess with pid, name, arguments, threads, username, memory percent and cpu percent'''
+	line_count: int = 0
+	err: float = 0.0
+	reverse = not reverse
+
+	if sorting == 'pid':
+		sort_cmd = "p.info['pid']"
+	elif sorting == 'program' or tree and sorting == "arguments":
+		sort_cmd = "p.info['name']"
+		reverse = not reverse
+	elif sorting == 'arguments':
+		sort_cmd = "' '.join(str(p.info['cmdline'])) or p.info['name']"
+		reverse = not reverse
+	elif sorting == 'threads':
+		sort_cmd = "str(p.info['num_threads'])"
+	elif sorting == 'user':
+		sort_cmd = "p.info['username']"
+		reverse = not reverse
+	elif sorting == 'memory':
+		sort_cmd = "str(p.info['memory_percent'])"
+	elif sorting == 'cpu responsive':
+		sort_cmd = "p.info['cpu_percent']" if proc_per_cpu else "(p.info['cpu_percent'] / cpu_count)"
+	else:
+		sort_cmd = "(sum(p.info['cpu_times'][:2] if not p.info['cpu_times'] == 0.0 else [0.0, 0.0]) * 1000 / (time.time() - p.info['create_time']))"
+
+	if tree:
+		proc_tree(width=prog_len + arg_len, sorting=sort_cmd, reverse=reverse, max_lines=max_lines, proc_per_cpu=proc_per_cpu, search=search)
+		return
+
+
+	print(f"{'Pid:':>7} {'Program:':<{prog_len}}", f"{'Arguments:':<{arg_len-4}}" if arg_len else '', f"{'Threads:' if arg_len else ' Tr:'} {'User:':<9}Mem%{'Cpu%':>11}", sep='')
+
+	for p in sorted(psutil.process_iter(['pid', 'name', 'cmdline', 'num_threads', 'username', 'memory_percent', 'cpu_percent', 'cpu_times', 'create_time'], err), key=lambda p: eval(sort_cmd), reverse=reverse):
+		if p.info['name'] == 'idle':
+			continue
+		if p.info['cpu_times'] == err:
+			p.info['num_threads'] = 0
+			p.info['cmdline'] = ''
+		if search:
+			found = False
+			for value in [ p.info['name'], ' '.join(p.info['cmdline']), str(p.info['pid']), p.info['username'] ]:
+				if search in value:
+					found = True
+					break
+			if not found:
+				continue
+
+		cpu = p.info['cpu_percent'] if proc_per_cpu else (p.info['cpu_percent'] / psutil.cpu_count())
+		mem = p.info['memory_percent']
+		cmd = ' '.join(p.info['cmdline']) or '[' + p.info['name'] + ']'
+		print(f"{p.info['pid']:>7} ",
+			f"{cleaned(p.info['name']):<{prog_len}.{prog_len-1}}",
+			f"{cleaned(cmd):<{arg_len}.{arg_len-1}}" if arg_len else '',
+			f"{p.info['num_threads']:>4} " if p.info['num_threads'] < 1000 else '999> ',
+			f"{p.info['username']:<9.9}" if len(p.info['username']) < 10 else f"{p.info['username'][:8]:<8}+",
+			f"{mem:>4.1f}" if mem < 100 else f"{mem:>4.0f} ",
+			f"{cpu:>11.1f} " if cpu < 100 else f"{cpu:>11.0f} ",
+			sep='')
+		line_count += 1
+		if max_lines and line_count == max_lines:
+			break
+
+def proc_tree(width: int, sorting: str = 'cpu lazy', reverse: bool = True, max_lines: int = 0, proc_per_cpu=True, search=''):
+	'''List all processess in a tree view with pid, name, threads, username, memory percent and cpu percent'''
+	tree_line_count: int = 0
+	err: float = 0.0
+
+	def create_tree(parent: int, tree, indent: str = '', inindent: str = ' ', found: bool = False):
+		nonlocal infolist, tree_line_count, max_lines, tree_width, proc_per_cpu, search
+		cont: bool = True
+		if max_lines and tree_line_count >= max_lines:
+			return
+		try:
+			name: str = psutil.Process(parent).name()
+			if name == "idle": return
+		except psutil.Error:
+			pass
+			name: str = ''
+		try:
+			getinfo: Dict = infolist[parent]
+		except:
+			pass
+			getinfo: bool = False
+		if search and not found:
+			for value in [ name, str(parent), getinfo['username'] if getinfo else '' ]:
+				if search in value:
+					found = True
+					break
+			if not found:
+				cont = False
+		if cont: print(f"{f'{inindent}{parent} {cleaned(name)}':<{tree_width}.{tree_width-1}}", sep='', end='')
+		if getinfo and cont:
+			if getinfo['cpu_times'] == err:
+				getinfo['num_threads'] = 0
+			cpu = getinfo['cpu_percent'] if proc_per_cpu else (getinfo['cpu_percent'] / psutil.cpu_count())
+			print(f"{getinfo['num_threads']:>4} " if getinfo['num_threads'] < 1000 else '999> ',
+				f"{getinfo['username']:<9.9}" if len(getinfo['username']) < 10 else f"{getinfo['username'][:8]:<8}+",
+				f"{getinfo['memory_percent']:>4.1f}" if getinfo['memory_percent'] < 100 else f"{getinfo['memory_percent']:>4.0f} ",
+				f"{cpu:>11.1f} " if cpu < 100 else f"{cpu:>11.0f} ",
+				sep='')
+		elif cont:
+			print(f"{'':>14}{'0.0':>4}{'0.0':>11} ", sep='')
+		tree_line_count += 1
+		if parent not in tree:
+			return
+		children = tree[parent][:-1]
+		for child in children:
+			create_tree(child, tree, indent + " │ ", indent + " ├─ ", found=found)
+			if max_lines and tree_line_count >= max_lines:
+				break
+		child = tree[parent][-1]
+		create_tree(child, tree, indent + "  ", indent + " └─ ")
+
+	infolist: Dict = {}
+	tree: List = defaultdict(list)
+	for p in sorted(psutil.process_iter(['pid', 'name', 'num_threads', 'username', 'memory_percent', 'cpu_percent', 'cpu_times', 'create_time'], err), key=lambda p: eval(sorting), reverse=reverse):
+		try:
+			tree[p.ppid()].append(p.pid)
+		except (psutil.NoSuchProcess, psutil.ZombieProcess):
+			pass
+		else:
+			infolist[p.pid] = p.info
+	if 0 in tree and 0 in tree[0]:
+		tree[0].remove(0)
+
+	tree_width: int = width + 8
+
+	print(f"{' Tree:':<{tree_width-4}}", 'Threads: ', f"{'User:':<9}Mem%{'Cpu%':>11}", sep='')
+	create_tree(min(tree), tree)
+
+def get_disks(exclude: str = None, filtering: str = None):
+	'''Get stats, current read and current write for all disks'''
+	global disk_hist
+	disk_read: int = 0
+	disk_write: int = 0
+	dev_name: str
+	disk_name: str
+	disk_list: List[str] = []
+	excludes: List[str] = []
+	if exclude: excludes = exclude.split(' ')
+	if system == "BSD": excludes += ["devfs", "tmpfs", "procfs", "linprocfs", "gvfs", "fusefs"]
+	if filtering: filtering: Tuple[str] = tuple(filtering.split(' '))
+	io_counters = psutil.disk_io_counters(perdisk=True if system == "Linux" else False, nowrap=True)
+	print("Ignored line")
+	for disk in psutil.disk_partitions():
+		disk_io = None
+		disk_name = disk.mountpoint.rsplit('/', 1)[-1] if not disk.mountpoint == "/" else "root"
+		while disk_name in disk_list: disk_name += "_"
+		disk_list += [disk_name]
+		if excludes and disk.fstype in excludes or filtering and not disk_name.endswith(filtering):
+			continue
+		if system == "MacOS" and disk.mountpoint == "/private/var/vm":
+			continue
+		try:
+			disk_u = psutil.disk_usage(disk.mountpoint)
+		except:
+			pass
+		print(f'{disk.device} {disk_u.total >> 10} {disk_u.used >> 10} {disk_u.free >> 10} {disk_u.percent:.0f} ', end='')
+		try:
+			if system == "Linux":
+				dev_name = os.path.realpath(disk.device).rsplit('/', 1)[-1]
+				if dev_name.startswith("md"):
+					try:
+						dev_name = dev_name[:dev_name.index("p")]
+					except:
+						pass
+				disk_io = io_counters[dev_name]
+			elif disk.mountpoint == "/":
+				disk_io = io_counters
+			else:
+				raise Exception
+			disk_read = disk_io.read_bytes
+			disk_write = disk_io.write_bytes
+
+			disk_read -= disk_hist[disk.device][0]
+			disk_write -= disk_hist[disk.device][1]
+		except:
+			pass
+			disk_read = 0
+			disk_write = 0
+
+		if disk_io: disk_hist[disk.device] = (disk_io.read_bytes, disk_io.write_bytes)
+		print(f'{disk_read >> 10} {disk_write >> 10} {disk_name}')
+
+#* The script takes input over coproc pipes and runs command if in the accepted commands list
+while command != 'quit':
+	if not psutil.pid_exists(parent_pid):
+		quit()
+	try:
+		command = input()
+	except:
+		pass
+		quit()
+
+	if not command or command == 'test':
+		continue
+	elif command.startswith(allowed_commands):
+		try:
+			exec(command)
+		except Exception as e:
+			pass
+			print('/ERROR', '\n', command, '\n', e)
+			print(f'PSUTIL ERROR! Command: {command}\n{e}', file=sys.stderr)
+	else:
+		continue
+	print('/EOL')
+	#print(f'{command}', file=sys.stderr)
+EOF
+
+fi
+
 #* Set up traps for ctrl-c, soft kill, window resize, ctrl-z and resume from ctrl-z
 trap 'quitting=1; time_left=0' SIGINT SIGQUIT SIGTERM
 trap 'resized=1; time_left=0' SIGWINCH
 trap 'sleepy=1; time_left=0' SIGTSTP
 trap 'resume_' SIGCONT
+trap 'failed_pipe=1; time_left=0' PIPE
 
 #* Set up error logging to file if enabled
 if [[ $error_logging == true ]]; then
@@ -4851,8 +5199,28 @@ fi
 #* Call init function
 init_
 
+if [[ $use_psutil == true ]]; then
+	coproc pycoproc (python3 ${pywrapper})
+	sleep 0.1
+	init_ cont
+fi
+
 #* Start infinite loop
-until false; do main_loop; done
+until false; do
+	if [[ $use_psutil == true && -n $failed_pipe ]]; then
+		if ((++failed_pipes>10)); then
+			if [[ $system == "Linux" ]]; then
+				use_psutil="false"
+			else
+				quit_ 1
+			fi
+		fi
+		coproc pycoproc (python3 ${pywrapper})
+		sleep 0.1
+		unset failed_pipe
+	fi
+	main_loop
+done
 
 #* Quit cleanly even if false starts being true...
 quit_
