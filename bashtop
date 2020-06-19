@@ -211,7 +211,7 @@ declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu 
 declare -a detail_graph detail_history detail_mem_history disks_io
 declare -A pid_history
 declare time_left timestamp_start timestamp_end timestamp_input_start timestamp_input_end time_string mem_out proc_misc prev_screen pause_screen filter input_to_filter
-declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2 proc_out curled git_version has_iostat sensor_comm failed_pipes=0
+declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2 proc_out curled git_version has_iostat sensor_comm failed_pipes=0 py_error
 declare esc_character tab backspace sleepy late_update skip_process_draw winches quitting theme_int notifier saved_stty nic_int net_misc skip_net_draw
 declare -a disks_free disks_total disks_name disks_free_percent saved_key themes nic_list old_procs
 printf -v esc_character "\u1b"
@@ -2206,7 +2206,7 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 	if [[ $use_psutil == true ]]; then
 		local pymemout
 
-		py_command -v pymemout "get_mem()"
+		py_command -v pymemout "get_mem()" || return
 		read mem[total] mem[free] mem[available] mem[cached] swap[total] swap[free] <<<"$pymemout"
 
 		if [[ -z ${mem[total]} ]]; then return; fi
@@ -2262,7 +2262,7 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 	unset 'disks_free[@]' 'disks_used[@]' 'disks_used_percent[@]' 'disks_total[@]' 'disks_name[@]' 'disks_free_percent[@]' 'disks_io[@]'
 	if [[ $use_psutil == true ]]; then
 		if [[ -n $disks_filter ]]; then filtering=", filtering='${disks_filter}'"; fi
-		py_command -a df_array "get_disks(exclude='squashfs'${filtering})"
+		py_command -a df_array "get_disks(exclude='squashfs'${filtering})" || return
 	else
 		readarray -t df_array < <(${df} -x squashfs -x tmpfs -x devtmpfs -x overlay 2>/dev/null || true)
 	fi
@@ -2649,7 +2649,7 @@ collect_processes_psutil() {
 
 
 	unset 'proc_array[@]'
-	py_command -a proc_array "get_proc(sorting='${proc_sorting}', tree=${proc_tree^}, prog_len=${prog_len}, arg_len=${arg_len}, search='${filter}', reverse=${proc_reversed^}, proc_per_cpu=${proc_per_core^})"
+	py_command -a proc_array "get_proc(sorting='${proc_sorting}', tree=${proc_tree^}, prog_len=${prog_len}, arg_len=${arg_len}, search='${filter}', reverse=${proc_reversed^}, proc_per_cpu=${proc_per_core^})" || return
 
 	proc_array[0]="${proc_array[0]/ ${selected}/${symbol}${selected}}"
 	proc[pages]=$(( (${#proc_array[@]}-1)/(height-3)+1 ))
@@ -2793,7 +2793,7 @@ collect_net() { #? Collect information from "/proc/net/dev"
 
 	#* Get the line with relevant net device from /proc/net/dev or psutil into array net_dev, index 1 is download, index 9 is upload
 	if [[ $use_psutil == true ]]; then
-		py_command -v net_dev "get_net('${net[device]}')"
+		py_command -v net_dev "get_net('${net[device]}')" || return
 		net_dev=(${net_dev})
 		if ! is_int "${net_dev[0]}"; then net[no_device]=1; return; fi
 	else
@@ -4641,7 +4641,7 @@ collect_and_draw() { #? Run all collect and draw functions
 		draw_${task}
 		if get_key -save && [[ -z $pause_screen ]]; then process_input; fi
 		draw_clock "$1"
-		if ((resized>0 & resized<task_int)) || [[ -n $failed_pipe ]]; then return; fi
+		if ((resized>0 & resized<task_int)) || [[ -n $failed_pipe || -n $py_error ]]; then return; fi
 	done
 
 	last_screen="${draw_out}"
@@ -4713,7 +4713,7 @@ main_loop() { #? main loop...
 
 			#* Wait while reading input
 			process_input "${wait_string}"
-			if [[ -n $failed_pipe ]]; then return; fi
+			if [[ -n $failed_pipe || -n $py_error ]]; then return; fi
 
 			#* Draw clock if set
 			draw_clock now
@@ -4803,11 +4803,13 @@ if [[ $use_psutil == true ]]; then
 		if [[ -n $var ]]; then pyout=""
 		else pyout=(); fi
 		while IFS= read -r -u ${pycoproc[0]} -t 1 output; do #2>/dev/null
-			if [[ $output == '/EOL' || -n $failed_pipe ]]; then break; fi
+			if [[ $output == '/EOL' ]]; then break; fi
+			if [[ $output == '/ERROR' || -n $failed_pipe ]]; then py_error=1; py_out=""; return 1; fi
 			if [[ -n $arr ]]; then pyout+=("${output}")
 			elif [[ -n $var ]]; then pyout+="${output}${ln:+\n}"; fi
 		done
 		if [[ -n $ln ]]; then printf -v pyout "%b" "${pyout}"; fi
+		return 0
 	}
 
 	pywrapper=$(mktemp "${TMPDIR:-/tmp}"/bashtop.psutil.XXXX)
@@ -5189,12 +5191,12 @@ while command != 'quit':
 			exec(command)
 		except Exception as e:
 			pass
-			print('/ERROR', '\n', command, '\n', e)
+			print('/ERROR')
 			print(f'PSUTIL ERROR! Command: {command}\n{e}', file=sys.stderr)
+			quit()
 	else:
 		continue
 	print('/EOL')
-	#print(f'{command}', file=sys.stderr)
 EOF
 
 fi
@@ -5239,7 +5241,7 @@ fi
 
 #* Start infinite loop
 until false; do
-	if [[ $use_psutil == true && -n $failed_pipe ]]; then
+	if [[ $use_psutil == true ]] && [[ -n $failed_pipe || -n $py_error ]]; then
 		if ((++failed_pipes>10)); then
 			if [[ $system == "Linux" ]]; then
 				use_psutil="false"
@@ -5249,7 +5251,7 @@ until false; do
 		fi
 		coproc pycoproc (python3 ${pywrapper})
 		sleep 0.1
-		unset failed_pipe
+		unset failed_pipe py_error
 	fi
 	main_loop
 done

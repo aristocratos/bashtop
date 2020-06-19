@@ -378,8 +378,9 @@ while command != 'quit':
 			exec(command)
 		except Exception as e:
 			pass
-			print('/ERROR', '\n', command, '\n', e)
+			print('/ERROR')
 			print(f'PSUTIL ERROR! Command: {command}\n{e}', file=sys.stderr)
+			quit()
 	else:
 		continue
 	print('/EOL')
