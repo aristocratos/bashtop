@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.9.13
+
+* Added: More robust psutil error handling
+
 ## v0.9.12
 
 * Changed: Psutil data collection now runs a python script in a coprocess taking commands and sending output over coproc pipes
