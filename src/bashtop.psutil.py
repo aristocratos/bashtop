@@ -51,22 +51,32 @@ def get_sensors():
 	temps = psutil.sensors_temperatures()
 	if not temps:
 		return
-	for name, entries in temps.items():
-		print(name)
-		for entry in entries:
-			print(f'{entry.label or name}: {entry.current}°C (high = {entry.high}°C, crit = {entry.critical}°C)')
-		print()
+	try:
+		for name, entries in temps.items():
+			print(name)
+			for entry in entries:
+				print(f'{entry.label or name}: {entry.current}°C (high = {entry.high}°C, crit = {entry.critical}°C)')
+			print()
+	except:
+		pass
 
 def get_sensors_check():
 	'''Check if get_sensors() output contains accepted CPU temperature values'''
 	if not hasattr(psutil, "sensors_temperatures"): print("false"); return
-	temps = psutil.sensors_temperatures()
+	try:
+		temps = psutil.sensors_temperatures()
+	except:
+		pass
+		print("false"); return
 	if not temps: print("false"); return
-	for _, entries in temps.items():
-		for entry in entries:
-			if entry.label.startswith(('Package', 'Core 0', 'Tdie')):
-				print("true")
-				return
+	try:
+		for _, entries in temps.items():
+			for entry in entries:
+				if entry.label.startswith(('Package', 'Core 0', 'Tdie')):
+					print("true")
+					return
+	except:
+		pass
 	print("false")
 
 def get_cpu_name():
