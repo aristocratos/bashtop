@@ -1368,10 +1368,10 @@ create_graph() { 	#? Create a graph from an array of percentage values, usage; 	
 		#* Create graph by walking through all values for each line, speed up by counting similar values and print once, when difference is met
 		while ((x<value_width)); do
 
-			if [[ -z ${input_array[x]} ]]; then input_array[x]=0; fi
+			if [[ -z ${input_array[x]} ]] || ((input_array[x]<1)); then input_array[x]=0; fi
 
 			#* Print empty space if current value is less than percentage for current line
-			while ((x<value_width & input_array[offset+x]*virt_height/100<next_value)); do
+			while ((x<value_width & input_array[x]*virt_height/100<next_value)); do
 				((++count))
 				((++x))
 			done
@@ -2091,14 +2091,18 @@ collect_cpu_temps() { #? Collect cpu temperatures
 
 	#* Fetch output from "sensors" command or psutil to a variable
 	if [[ $sensor_comm == "psutil" ]]; then
-		py_command -vn sens_var "get_sensors()"
-	elif [[ $sensor_comm == "sensors" ]]; then
+		if ! py_command -vn sens_var "get_sensors()"; then
+			if command -v sensors >/dev/null 2>&1; then sensor_comm="sensors"
+			else sensor_comm=""; check_temp="false"; resized=1; return; fi
+		fi
+	fi
+	if [[ $sensor_comm == "sensors" ]]; then
 		if [[ $use_psutil == true ]]; then
 			py_command -vn sens_var "get_cmd_out('sensors 2>/dev/null')"
 		else
 			read -rd '' sens_var < <(sensors 2>/dev/null || true) || true
 		fi
-	elif [[ $sensor_comm != "sensors" ]]; then
+	elif [[ $sensor_comm != "sensors" && $sensor_comm != "psutil" ]]; then
 		if [[ $use_psutil == true ]]; then
 			py_command -v misc_var "get_cmd_out('${sensor_comm} measure_temp 2>/dev/null')"
 		else
@@ -5201,9 +5205,8 @@ while command != 'quit':
 			exec(command)
 		except Exception as e:
 			pass
-			print('/ERROR')
+			print('\n', '/ERROR')
 			print(f'PSUTIL ERROR! Command: {command}\n{e}', file=sys.stderr)
-			quit()
 	else:
 		continue
 	print('/EOL')
@@ -5251,7 +5254,7 @@ fi
 
 #* Start infinite loop
 until false; do
-	if [[ $use_psutil == true ]] && [[ -n $failed_pipe || -n $py_error ]]; then
+	if [[ $use_psutil == true ]] && [[ -n $failed_pipe ]]; then
 		if ((++failed_pipes>10)); then
 			if [[ $system == "Linux" ]]; then
 				use_psutil="false"
@@ -5261,7 +5264,17 @@ until false; do
 		fi
 		coproc pycoproc (python3 ${pywrapper})
 		sleep 0.1
-		unset failed_pipe py_error
+		unset failed_pipe
+	fi
+	if [[ -n $py_error ]]; then
+		if ((++py_errors>10)); then
+			if [[ $system == "Linux" ]]; then
+				use_psutil="false"
+			else
+				quit_ 1
+			fi
+		fi
+		unset py_error
 	fi
 	main_loop
 done
