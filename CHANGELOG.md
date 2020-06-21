@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.9.14
+
+* Added: Additional processes error checking
+* Added: Additional sensors error checking
+* Added: Additional psutil error checking
+
 ## v0.9.13
 
 * Added: More robust psutil error handling
