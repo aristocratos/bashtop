@@ -2666,9 +2666,10 @@ collect_processes_psutil() {
 
 		pi=0
 		if [[ $proc_tree == true ]]; then
-			while [[ ! ${out_arr[pi]} =~ ^[0-9]+$ ]]; do ((++pi)); done
+			while ! is_int "${out_arr[pi]}" && ((pi<${#out_arr[@]}-1)); do ((++pi)); done
 		fi
 		pid="${out_arr[pi]}"
+		if ! is_int "${pid}"; then continue; fi
 
 		pcpu_usage="${out_arr[-1]}"
 
