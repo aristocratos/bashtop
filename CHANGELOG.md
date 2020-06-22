@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.9.15
+
+* Fixed: Psutil error on disk collection now fallback to df and iostat
+
 ## v0.9.14
 
 * Added: Additional processes error checking
