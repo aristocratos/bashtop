@@ -14,6 +14,8 @@
 # shellcheck disable=SC2207 #split array warning
 # shellcheck disable=SC2154 #variable referenced but not assigned
 # shellcheck disable=SC1003 #info: single quote escape
+# shellcheck disable=SC2179 # array append warning
+# shellcheck disable=SC2128 # expanding array without index warning
 
 
 # Copyright 2020 Aristocratos (jakob@qvantnet.com)
@@ -213,6 +215,7 @@ declare -A pid_history
 declare time_left timestamp_start timestamp_end timestamp_input_start timestamp_input_end time_string mem_out proc_misc prev_screen pause_screen filter input_to_filter
 declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2 proc_out curled git_version has_iostat sensor_comm failed_pipes=0 py_error
 declare esc_character tab backspace sleepy late_update skip_process_draw winches quitting theme_int notifier saved_stty nic_int net_misc skip_net_draw
+declare psutil_disk_fail
 declare -a disks_free disks_total disks_name disks_free_percent saved_key themes nic_list old_procs
 printf -v esc_character "\u1b"
 printf -v tab "\u09"
@@ -2261,32 +2264,34 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 	done
 
 	#* Get disk information
-	local df_array df_line line_array dev_path dev_name iostat_var disk_read disk_write disk_io_string df_count=0 filtering
+	local df_array df_line line_array dev_path dev_name iostat_var disk_read disk_write disk_io_string df_count=0 filtering psutil_on
 	local -a device_array iostat_array
 	unset 'disks_free[@]' 'disks_used[@]' 'disks_used_percent[@]' 'disks_total[@]' 'disks_name[@]' 'disks_free_percent[@]' 'disks_io[@]'
-	if [[ $use_psutil == true ]]; then
+	if [[ -n $psutil_disk_fail ]]; then psutil_on="false"; else psutil_on="$use_psutil"; fi
+	if [[ $psutil_on == true ]]; then
 		if [[ -n $disks_filter ]]; then filtering=", filtering='${disks_filter}'"; fi
-		py_command -a df_array "get_disks(exclude='squashfs'${filtering})" || return
-	else
+		py_command -a df_array "get_disks(exclude='squashfs'${filtering})" || psutil_disk_fail=1
+	fi
+	if [[ $psutil_on == false ]]; then
 		readarray -t df_array < <(${df} -x squashfs -x tmpfs -x devtmpfs -x overlay 2>/dev/null || true)
 	fi
 	for df_line in "${df_array[@]:1}"; do
 		line_array=(${df_line})
 		if ! is_int "${line_array[1]}" || ((line_array[1]<=0)); then continue; fi
 
-		if [[ $use_psutil == false && ${line_array[5]} == "/" ]]; then disks_name+=("root")
-		elif [[ $use_psutil == false ]]; then disks_name+=("${line_array[5]##*/}")
-		elif [[ $use_psutil == true ]]; then disks_name+=("${line_array[*]:7}"); fi
+		if [[ $psutil_on == false && ${line_array[5]} == "/" ]]; then disks_name+=("root")
+		elif [[ $psutil_on == false ]]; then disks_name+=("${line_array[5]##*/}")
+		elif [[ $psutil_on == true ]]; then disks_name+=("${line_array[*]:7}"); fi
 
 		#* Filter disks showed if $disks_filter is set
-		if [[ $use_psutil == false && -n $disks_filter ]]; then
+		if [[ $psutil_on == false && -n $disks_filter ]]; then
 			unset found
 			for filter_value in ${disks_filter}; do
 				if [[ $filter_value == "${disks_name[-1]}" ]]; then found=1; fi
 			done
 		fi
 
-		if [[ $use_psutil == true || -z $disks_filter || -n $found ]]; then
+		if [[ $psutil_on == true || -z $disks_filter || -n $found ]]; then
 			disks_total+=("$(floating_humanizer -s 1 -B ${line_array[1]})")
 			disks_used+=("$(floating_humanizer -s 1 -B ${line_array[2]})")
 			disks_used_percent+=("${line_array[4]%'%'}")
@@ -2294,19 +2299,19 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 			disks_free_percent+=("$((100-${line_array[4]%'%'}))")
 
 			#* Get read/write stats for disk from iostat or psutil if available
-			if [[ $use_psutil == true || -n $has_iostat ]]; then
+			if [[ $psutil_on == true || -n $has_iostat ]]; then
 				unset disk_io_string
 				dev_name="${line_array[0]##*/}"
-				if [[ $use_psutil == false && ${dev_name::2} == "md" ]]; then dev_name="${dev_name::3}"; fi
-				if [[ $use_psutil == false ]]; then
+				if [[ $psutil_on == false && ${dev_name::2} == "md" ]]; then dev_name="${dev_name::3}"; fi
+				if [[ $psutil_on == false ]]; then
 					unset iostat_var 'iostat_array[@]'
 					dev_path="${line_array[0]%${dev_name}}"
 					read -r iostat_var < <(iostat -dkz "${dev_path}${dev_name}" | tail -n +4)
 					iostat_array=(${iostat_var})
 				fi
-				if [[ $use_psutil == true || -n ${iostat_var} ]]; then
+				if [[ $psutil_on == true || -n ${iostat_var} ]]; then
 
-					if [[ $use_psutil == true ]]; then
+					if [[ $psutil_on == true ]]; then
 						disk_read=${line_array[5]}
 						disk_write=${line_array[6]}
 					else
@@ -2321,7 +2326,7 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 						disk_io_string+="▼▲$(floating_humanizer -s 1 -short -B $((disk_read+disk_write)))"
 					fi
 
-					if [[ $use_psutil == false ]]; then
+					if [[ $psutil_on == false ]]; then
 						disks[${dev_name}_read]="${iostat_array[-2]}"
 						disks[${dev_name}_write]="${iostat_array[-1]}"
 					fi
