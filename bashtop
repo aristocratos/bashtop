@@ -386,7 +386,7 @@ init_() { #? Collect needed information and set options before startig main loop
 	if [[ -n $curled ]] && command -v notify-send >/dev/null 2>&1; then notifier=1; else unset notifier; fi
 
 	#* Check if "iostat" command is available, if not, disable disk io stat collection
-	if [[ $use_psutil == false ]] && command -v iostat >/dev/null 2>&1; then has_iostat=1; else unset has_iostat; fi
+	if command -v iostat >/dev/null 2>&1; then has_iostat=1; else unset has_iostat; fi
 
 	#* Get number of cores and cpu threads
 	print -bg "#00" -fg "#30ff50" -r 1 -t "√"
@@ -1371,7 +1371,7 @@ create_graph() { 	#? Create a graph from an array of percentage values, usage; 	
 		#* Create graph by walking through all values for each line, speed up by counting similar values and print once, when difference is met
 		while ((x<value_width)); do
 
-			if [[ -z ${input_array[x]} ]] || ((input_array[x]<1)); then input_array[x]=0; fi
+			if [[ -z ${input_array[x]} ]] || ((input_array[x]<1)) || ((${#input_array[x]}>3)); then input_array[x]=0; fi
 
 			#* Print empty space if current value is less than percentage for current line
 			while ((x<value_width & input_array[x]*virt_height/100<next_value)); do
@@ -2264,13 +2264,13 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 	done
 
 	#* Get disk information
-	local df_array df_line line_array dev_path dev_name iostat_var disk_read disk_write disk_io_string df_count=0 filtering psutil_on
-	local -a device_array iostat_array
+	local df_line line_array dev_path dev_name iostat_var disk_read disk_write disk_io_string df_count=0 filtering psutil_on
+	local -a device_array iostat_array df_array
 	unset 'disks_free[@]' 'disks_used[@]' 'disks_used_percent[@]' 'disks_total[@]' 'disks_name[@]' 'disks_free_percent[@]' 'disks_io[@]'
 	if [[ -n $psutil_disk_fail ]]; then psutil_on="false"; else psutil_on="$use_psutil"; fi
 	if [[ $psutil_on == true ]]; then
 		if [[ -n $disks_filter ]]; then filtering=", filtering='${disks_filter}'"; fi
-		py_command -a df_array "get_disks(exclude='squashfs'${filtering})" || psutil_disk_fail=1
+		if ! py_command -a df_array "get_disks(exclude='squashfs'${filtering})"; then psutil_disk_fail=1; psutil_on="false"; fi
 	fi
 	if [[ $psutil_on == false ]]; then
 		readarray -t df_array < <(${df} -x squashfs -x tmpfs -x devtmpfs -x overlay 2>/dev/null || true)
@@ -2658,7 +2658,9 @@ collect_processes_psutil() {
 
 
 	unset 'proc_array[@]'
-	py_command -a proc_array "get_proc(sorting='${proc_sorting}', tree=${proc_tree^}, prog_len=${prog_len}, arg_len=${arg_len}, search='${filter}', reverse=${proc_reversed^}, proc_per_cpu=${proc_per_core^})" || return
+	if ! py_command -a proc_array "get_proc(sorting='${proc_sorting}', tree=${proc_tree^}, prog_len=${prog_len}, arg_len=${arg_len}, search='${filter}', reverse=${proc_reversed^}, proc_per_cpu=${proc_per_core^})"; then
+		proc_array=(""); return
+	fi
 
 	proc_array[0]="${proc_array[0]/ ${selected}/${symbol}${selected}}"
 	proc[pages]=$(( (${#proc_array[@]}-1)/(height-3)+1 ))
@@ -4795,7 +4797,7 @@ fi
 if [[ $use_psutil == true ]]; then
 	py_command() {
 		if [[ -n $failed_pipe ]]; then return; fi
-		local arr var output cmd pyerr ln
+		local arr var output cmd pyerr=${py_error} ln
 		case $1 in
 			"quit")
 				echo "quit" >&${pycoproc[1]} 2>/dev/null || true
@@ -4814,10 +4816,12 @@ if [[ $use_psutil == true ]]; then
 		else pyout=(); fi
 		while IFS= read -r -u ${pycoproc[0]} -t 1 output; do #2>/dev/null
 			if [[ $output == '/EOL' ]]; then break; fi
-			if [[ $output == '/ERROR' || -n $failed_pipe ]]; then py_error=1; py_out=""; return 1; fi
+			if [[ -n $failed_pipe ]]; then py_out=""; return 1; fi
+			if [[ $output == '/ERROR' ]]; then ((++py_error)); unset arr var; fi
 			if [[ -n $arr ]]; then pyout+=("${output}")
 			elif [[ -n $var ]]; then pyout+="${output}${ln:+\n}"; fi
 		done
+		if ((py_error>pyerr)); then py_out=""; return 1; fi
 		if [[ -n $ln ]]; then printf -v pyout "%b" "${pyout}"; fi
 		return 0
 	}
@@ -5211,11 +5215,13 @@ while command != 'quit':
 			exec(command)
 		except Exception as e:
 			pass
-			print('\n', '/ERROR')
+			print()
+			print('/ERROR')
 			print(f'PSUTIL ERROR! Command: {command}\n{e}', file=sys.stderr)
 	else:
 		continue
 	print('/EOL')
+	#print(f'{command}', file=sys.stderr)
 EOF
 
 fi
