@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.9.16
+
+* Fixed: Errors in v0.9.15 psutil disk collection fix
+* Added: Additional graph creation error checks
+
 ## v0.9.15
 
 * Fixed: Psutil error on disk collection now fallback to df and iostat
