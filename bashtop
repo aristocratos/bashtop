@@ -3266,7 +3266,7 @@ draw_processes() { #? Draw processes and values to screen
 	local reverse_string reverse_pos order_left="───────────┤" filter_string current_num detail_location det_no_add com_fg pg_arrow_up_fg pg_arrow_down_fg
 	local pid=0 pid_graph pid_step_r pid_step_g pid_step_b pid_add_r pid_add_g pid_add_b bg_add bg_step proc_start up_fg down_fg page_up_fg page_down_fg this_box=processes
 	local d_width=${box[details_width]} d_height=${box[details_height]} d_line=${box[details_line]} d_col=${box[details_col]}
-	local detail_graph_width=$((d_width/3+2)) detail_graph_height=$((d_height-1)) kill_fg det_mod fg_add_r fg_add_g fg_add_b
+	local detail_graph_width=$((d_width/3+2)) detail_graph_height=$((d_height-1)) kill_fg det_mod fg_add_r fg_add_g fg_add_b fg_inv
 	local right_width=$((d_width-detail_graph_width-2))
 	local right_col=$((d_col+detail_graph_width+4))
 	local -a pid_rgb=(${theme[proc_misc]}) fg_rgb=(${theme[main_fg_dec]})
@@ -3275,13 +3275,14 @@ draw_processes() { #? Draw processes and values to screen
 	if [[ $argument == "now" ]]; then skip_process_draw=1; fi
 
 	if [[ $proc_gradient == true ]]; then
-		fg_add_r=$(( (fg_r-(fg_r/6) )/height))
-		fg_add_g=$(( (fg_g-(fg_g/6) )/height))
-		fg_add_b=$(( (fg_b-(fg_b/6) )/height))
+		if ((fg_r+fg_g+fg_b<(255*3)/2)); then fg_inv=1; fi
+		fg_add_r="${fg_inv:+-}$(( (fg_r-(fg_r/6) )/height))"
+		fg_add_g="${fg_inv:+-}$(( (fg_g-(fg_g/6) )/height))"
+		fg_add_b="${fg_inv:+-}$(( (fg_b-(fg_b/6) )/height))"
 
-		pid_add_r=$(( (pid_r-(pid_r/6) )/height))
-		pid_add_g=$(( (pid_g-(pid_g/6) )/height))
-		pid_add_b=$(( (pid_b-(pid_b/6) )/height))
+		pid_add_r="${fg_inv:+-}$(( (pid_r-(pid_r/6) )/height))"
+		pid_add_g="${fg_inv:+-}$(( (pid_g-(pid_g/6) )/height))"
+		pid_add_b="${fg_inv:+-}$(( (pid_b-(pid_b/6) )/height))"
 	fi
 
 	unset proc_out
