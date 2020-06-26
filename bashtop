@@ -4791,7 +4791,7 @@ if [[ $use_psutil == true ]]; then
 fi
 
 #* if we have been sourced by another shell, quit. Allows sourcing only function definition.
-[[ "${#BASH_SOURCE[@]}" -gt 1 ]] && { return 0; }
+[[ "${#BASH_SOURCE[@]}" -ge 1 ]] && { return 0; }
 
 #* Setup psutil script
 if [[ $use_psutil == true ]]; then
