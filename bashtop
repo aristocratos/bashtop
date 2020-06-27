@@ -2679,7 +2679,7 @@ collect_processes_psutil() {
 
 		pid_history[${pid}]="1"
 
-		#* Create small graphs for all visible processes using more than 1% cpu time
+		#* Create small graphs for all visible processes using more than 1% rounded cpu time
 		pid_graph="pid_${pid}_graph"
 		if ! local -n pid_count="pid_${pid}_count" 2>/dev/null; then continue; fi
 
@@ -2691,8 +2691,10 @@ collect_processes_psutil() {
 		elif [[ ${pid_count} -gt 0 ]]; then
 			if [[ ${cpu_int} -gt 9 ]]; then
 				create_mini_graph -nc -add-value "pid_${pid}_graph" "$((cpu_int+15))"
-			else
+			elif [[ ${cpu_int} -gt 0 ]]; then
 				create_mini_graph -nc -add-value "pid_${pid}_graph" "$((cpu_int+9))"
+			else
+				create_mini_graph -nc -add-value "pid_${pid}_graph" "0"
 			fi
 			pid_count=$((${pid_count}-1))
 		elif [[ ${pid_count} == "0" ]]; then
@@ -2766,16 +2768,14 @@ collect_processes_psutil() {
 
 
 
-	#* Clear up memory by removing variables and graphs of no longer running processes
+	#* Clear up memory
 	((++proc[general_counter]))
 	if ((proc[general_counter]>100)); then
 		proc[general_counter]=0
 		for pids in ${!pid_history[@]}; do
-			if [[ ! -e /proc/${pids} ]]; then
-				unset "pid_${pids}_graph" "pid_${pids}_graph_even" "pid_${pids}_graph_odd" "pid_${pids}_graph_last_type" "pid_${pids}_graph_last_val"
-				unset "pid_${pids}_count"
-				unset "pid_history[${pids}]"
-			fi
+			unset "pid_${pids}_graph" "pid_${pids}_graph_even" "pid_${pids}_graph_odd" "pid_${pids}_graph_last_type" "pid_${pids}_graph_last_val"
+			unset "pid_${pids}_count"
+			unset "pid_history[${pids}]"
 		done
 	fi
 
