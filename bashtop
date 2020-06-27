@@ -491,7 +491,7 @@ init_() { #? Collect needed information and set options before startig main loop
 	print -bg "#00" -fg "#30ff50" -r 1 -t "√"
 	print -m $(( (tty_height/2-3)+stx++ )) 0 -bg "#00" -fg "#cc" -c -b "Running process collection init..."
 	proc[selected]=0
-	proc[page]=1
+	proc[start]=1
 	collect_processes init
 
 	#* Draw first screen
@@ -2399,9 +2399,6 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 		proc_array=("${grep_array[@]}")
 	fi
 
-	proc[pages]=$(( (${#proc_array[@]}-1)/(height-3)+1 ))
-	if ((proc[page]>proc[pages])); then proc[page]=${proc[pages]}; fi
-
 
 	#* Get accurate cpu usage by fetching and comparing values in /proc/"pid"/stat
 	local operations operation utime stime count time_elapsed cpu_percent_string rgb=231 step add proc_out tmp_value_array i pcpu_usage cpu_int tmp_percent breaking
@@ -2414,7 +2411,7 @@ collect_processes() { #? Collect process information and calculate accurate cpu 
 		((++count))
 
 		if ((count==height-3 & breaking==0)); then
-			if [[ -n $filter || $proc_sorting != "cpu lazy" || ${proc[selected]} -gt 0 || ${proc[page]} -gt 1 || ${proc_reversed} == true ]]; then :
+			if [[ -n $filter || $proc_sorting != "cpu lazy" || ${proc[selected]} -gt 0 || ${proc[start]} -gt 1 || ${proc_reversed} == true ]]; then :
 			else breaking=1; fi
 		fi
 
@@ -2663,8 +2660,6 @@ collect_processes_psutil() {
 	fi
 
 	proc_array[0]="${proc_array[0]/ ${selected}/${symbol}${selected}}"
-	proc[pages]=$(( (${#proc_array[@]}-1)/(height-3)+1 ))
-	if ((proc[page]>proc[pages])); then proc[page]=${proc[pages]}; fi
 
 	for((i=1;i<${#proc_array[@]};i++)); do
 		if [[ -z ${proc_array[i]} ]]; then continue; fi
@@ -2760,7 +2755,7 @@ collect_processes_psutil() {
 		fi
 
 		if ((i==height-2)); then
-			if [[ ${proc[selected]} -gt 0 || ${proc[page]} -gt 1 || -z ${proc[detailed_cpu]} ]]; then :
+			if [[ ${proc[selected]} -gt 0 || ${proc[start]} -gt 1 ]] || [[ ${proc[detailed]} -eq 1 && -z ${proc[detailed_cpu]} && -z ${proc[detailed_killed]} ]]; then :
 			else break; fi
 		fi
 
@@ -3263,7 +3258,7 @@ draw_processes() { #? Draw processes and values to screen
 	local argument="$1"
 	if [[ -n $skip_process_draw && $argument != "now" ]]; then return; fi
 	local line=${box[processes_line]} col=${box[processes_col]} width=${box[processes_width]} height=${box[processes_height]} out_line y=1 fg_step_r=0 fg_step_g=0 fg_step_b=0 checker=2 page_string
-	local reverse_string reverse_pos order_left="───────────┤" filter_string current_num detail_location det_no_add com_fg pg_arrow_up_fg pg_arrow_down_fg
+	local reverse_string reverse_pos order_left="───────────┤" filter_string current_num detail_location det_no_add com_fg pg_arrow_up_fg pg_arrow_down_fg p_height=$((height-3))
 	local pid=0 pid_graph pid_step_r pid_step_g pid_step_b pid_add_r pid_add_g pid_add_b bg_add bg_step proc_start up_fg down_fg page_up_fg page_down_fg this_box=processes
 	local d_width=${box[details_width]} d_height=${box[details_height]} d_line=${box[details_line]} d_col=${box[details_col]}
 	local detail_graph_width=$((d_width/3+2)) detail_graph_height=$((d_height-1)) kill_fg det_mod fg_add_r fg_add_g fg_add_b fg_inv
@@ -3384,11 +3379,10 @@ draw_processes() { #? Draw processes and values to screen
 		print -v proc_out -fg ${theme[title]} -b -t "${proc[detailed_mem_string]}"
 	fi
 
-
-	if ((proc[page]==1)); then proc_start=1
-	else proc_start=$(( (height-3)*(proc[page]-1)+1 )); fi
-
-	if ((proc_start+proc[selected]>${#proc_array[@]})); then proc[selected]=$((${#proc_array[@]}-proc_start)); fi
+	#* Print processes
+	if (( proc[start]>(${#proc_array[@]}-1)-p_height )); then
+		proc[start]=$(( (${#proc_array[@]}-1)-p_height ))
+	fi
 
 	if [[ $proc_gradient == true ]] && ((proc[selected]>1)); then
 		fg_r="$(( fg_r-( fg_add_r*(proc[selected]-1) ) ))"
@@ -3405,7 +3399,7 @@ draw_processes() { #? Draw processes and values to screen
 	print -v proc_out -rs -m $((line+y++)) $((col+1)) -fg ${theme[title]} -b -t "${proc_array[0]::$((width-3))} " -rs
 
 	local -a out_arr
-	for out_line in "${proc_array[@]:$proc_start}"; do
+	for out_line in "${proc_array[@]:${proc[start]}}"; do
 
 		if [[ $use_psutil == true ]]; then
 			out_arr=(${out_line})
@@ -3455,6 +3449,11 @@ draw_processes() { #? Draw processes and values to screen
 			print -v proc_out -m $((line+y++)) $((col+1)) -rp $((width-2)) -t " "
 		done
 
+		page_string="$((proc[start]-1+proc[selected]))/$((${#proc_array[@]}-2))"
+		print -v proc_out -m $((line+height-1)) $((col+width-20)) -fg ${box[processes_color]} -rp 19 -t "─"
+		print -v proc_out -m $((line+height-1)) $((col+width-${#page_string}-6)) -fg ${box[processes_color]} -t "┤" -b -fg ${theme[title]} -t " $page_string " -rs -fg ${box[processes_color]} -t "├"
+
+
 	if ((proc[order_change]==1 | proc[filter_change]==1 | resized>0)); then
 		unset proc_misc
 		proc[order_change]=0
@@ -3489,8 +3488,6 @@ draw_processes() { #? Draw processes and values to screen
 			print -v proc_misc -m $line $((col+14)) -fg ${box[processes_color]} -t "┤" -fg ${theme[hi_fg]} -b -t "f" -fg ${theme[title]} -t " ${filter_string} " -fg ${theme[hi_fg]} -t "c" -rs -fg ${box[processes_color]} -t "├"
 		fi
 
-
-
 		proc_out+="${proc_misc}"
 	fi
 
@@ -3498,13 +3495,7 @@ draw_processes() { #? Draw processes and values to screen
 		unset proc_misc2
 		proc[page_change]=0
 		if ((proc[selected]>0)); then up_fg="${theme[hi_fg]}"; kill_fg="${theme[hi_fg]}"; com_fg="${theme[title]}"; else up_fg="${theme[inactive_fg]}"; kill_fg="${theme[inactive_fg]}"; com_fg="${theme[inactive_fg]}"; fi
-		if ((proc[selected]==${#proc_array[@]}-proc_start)); then down_fg="${theme[inactive_fg]}"; else down_fg="${theme[hi_fg]}"; fi
-
-		if ((proc[page]>1)); then page_up_fg="${theme[title]}"; pg_arrow_up_fg="${theme[hi_fg]}"; else page_up_fg="${theme[inactive_fg]}"; pg_arrow_up_fg="${theme[inactive_fg]}"; fi
-		if ((proc[page]<proc[pages])); then page_down_fg="${theme[title]}"; pg_arrow_down_fg="${theme[hi_fg]}" ; else page_down_fg="${theme[inactive_fg]}"; pg_arrow_down_fg="${theme[inactive_fg]}"; fi
-		page_string="${proc[page]}/${proc[pages]}"
-		print -v proc_misc2 -m $((line+height-1)) $((col+width-20)) -fg ${box[processes_color]} -rp 19 -t "─"
-		print -v proc_misc2 -m $((line+height-1)) $((col+width-${#page_string}-12)) -fg ${box[processes_color]} -t "┤" -b -fg $page_up_fg -t "pg" -fg $pg_arrow_up_fg "↑" -fg ${theme[title]} -t " $page_string " -fg $page_down_fg -t "pg" -fg $pg_arrow_down_fg "↓" -rs -fg ${box[processes_color]} -t "├"
+		if ((proc[selected]==(${#proc_array[@]}-1)-proc[start])); then down_fg="${theme[inactive_fg]}"; else down_fg="${theme[hi_fg]}"; fi
 
 		print -v proc_misc2 -m $((line+height-1)) $((col+2)) -fg ${box[processes_color]} -t "┤" -fg $up_fg -b -t "↑" -fg ${theme[title]} -t " select " -fg $down_fg -t "↓" -rs -fg ${box[processes_color]} -t "├"
 		print -v proc_misc2 -r 1 -fg ${box[processes_color]} -t "┤" -fg $com_fg -b -t "info " -fg $kill_fg "↲" -rs -fg ${box[processes_color]} -t "├"
@@ -3879,8 +3870,8 @@ options_() { #? Shows the options overlay
 	desc_use_psutil=(	"Enable the use of psutil python3 module for"
 						"data collection. Default on non Linux."
 						""
-						"Program will automatically restart if setting"
-						"to true to check for compatibility."
+						"Program will automatically restart if changing"
+						"this setting to check for compatibility."
 						" "
 						"True or false."
 						" "
@@ -4188,7 +4179,7 @@ options_() { #? Shows the options overlay
 							resized=1
 						fi
 						if [[ $selected == "use_psutil" && $system != "Linux" ]]; then use_psutil="true"
-						elif [[ $selected == "use_psutil" && $use_psutil == true ]]; then quit_ restart psutil; fi
+						elif [[ $selected == "use_psutil" ]]; then quit_ restart psutil; fi
 						if [[ $selected == "error_logging" ]]; then quit_ restart; fi
 
 					;;
@@ -4438,7 +4429,7 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 }
 
 process_input() { #? Process keypresses for main ui
-	local wait_time="$1" keypress esc prev_screen anykey filter_change
+	local wait_time="$1" keypress esc prev_screen anykey filter_change p_height=$((box[processes_height]-3))
 	late_update=0
 	#* Wait while reading input
 	get_key -v keypress -w "${wait_time}"
@@ -4498,16 +4489,24 @@ process_input() { #? Process keypresses for main ui
 				fi
 			;;
 			up|shift_tab) #* Move process selector up one
-				if [[ ${proc[selected]} -gt 0 ]]; then
+				if ((proc[selected]>1)); then
 					((proc[selected]--))
-					if ((proc[page]>1 & proc[selected]==0)); then ((--proc[page])); proc[selected]=$((box[processes_height]-3)); fi
+					proc[page_change]=1
+				elif ((proc[start]>1)); then
+					if ((proc[selected]==0)); then proc[selected]=${p_height}; fi
+					((proc[start]--))
+					proc[page_change]=1
+				elif ((proc[start]==1 & proc[selected]==1)); then
+					proc[selected]=0
 					proc[page_change]=1
 				fi
 			;;
 			down|tab) #* Move process selector down one
-				if ! ((proc[page]==proc[pages] & proc[selected]>=box[processes_height]-3)); then
-					if ((++proc[selected]==1)); then proc[detailed_change]=1; fi
-					if ((proc[selected]>box[processes_height]-3)); then ((proc[page]++)); proc[selected]=1; fi
+				if ((proc[selected]<p_height & proc[start]+proc[selected]<(${#proc_array[@]}-1) )); then
+					((++proc[selected]))
+					proc[page_change]=1
+				elif ((proc[start]+proc[selected]<(${#proc_array[@]}-1) )); then
+					((++proc[start]))
 					proc[page_change]=1
 				fi
 			;;
@@ -4516,7 +4515,6 @@ process_input() { #? Process keypresses for main ui
 					proc[detailed]=1
 					proc[detailed_change]=1
 					proc[detailed_pid]=${proc[selected_pid]}
-					proc[page]=1
 					proc[selected]=0
 					unset 'proc[detailed_name]' 'detail_history[@]' 'detail_mem_history[@]' 'proc[detailed_killed]'
 					calc_sizes
@@ -4529,30 +4527,34 @@ process_input() { #? Process keypresses for main ui
 				fi
 			;;
 			page_up) #* Move up one page in process box
-				if [[ ${proc[page]} -gt 1 ]]; then
-					((--proc[page]))
+				if ((proc[start]>1)); then
+					proc[start]=$(( proc[start]-p_height ))
+					if ((proc[start]<1)); then proc[start]=1; fi
 					proc[page_change]=1
-				elif [[ ${proc[selected]} -gt 0 ]]; then
+				elif ((proc[selected]>0)); then
 					proc[selected]=0
+					proc[start]=1
 					proc[page_change]=1
 				fi
 			;;
 			page_down) #* Move down one page in process box
-				if [[ ${proc[page]} -lt ${proc[pages]} ]]; then
-					if ((proc[page]++==1)); then collect_processes now; fi
+				if ((proc[start]<(${#proc_array[@]}-1)-p_height)); then
+					if ((proc[start]==1)) && [[ $use_psutil == false ]]; then collect_processes now; fi
+					proc[start]=$(( proc[start]+p_height ))
+					if (( proc[start]>(${#proc_array[@]}-1)-p_height )); then proc[start]=$(( (${#proc_array[@]}-1)-p_height )); fi
 					proc[page_change]=1
-				elif [[ ${proc[selected]} -gt 0 ]]; then
-					proc[selected]=$((box[processes_height]-3))
+				elif ((proc[selected]>0)); then
+					proc[selected]=$((p_height))
 					proc[page_change]=1
 				fi
 			;;
 			home) #* Go to first page in process box
-					proc[page]=1
+					proc[start]=1
 					proc[page_change]=1
 			;;
 			end) #* Go to last page in process box
-					if ((proc[selected]==0)); then collect_processes now; fi
-					proc[page]=${proc[pages]}
+					if ((proc[selected]==0)) && [[ $use_psutil == false ]]; then collect_processes now; fi
+					proc[start]=$(((${#proc_array[@]}-1)-p_height))
 					proc[page_change]=1
 			;;
 			r|R) #* Reverse order of processes sorting column
