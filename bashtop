@@ -2755,7 +2755,7 @@ collect_processes_psutil() {
 		fi
 
 		if ((i==height-2)); then
-			if [[ ${proc[selected]} -gt 0 || ${proc[start]} -gt 1 ]] || [[ ${proc[detailed]} -eq 1 && -z ${proc[detailed_cpu]} && -z ${proc[detailed_killed]} ]]; then :
+			if [[ ${proc[selected]} -gt 0 || -n $filter || ${proc[start]} -gt 1 ]] || [[ ${proc[detailed]} -eq 1 && -z ${proc[detailed_cpu]} && -z ${proc[detailed_killed]} ]]; then :
 			else break; fi
 		fi
 
@@ -3380,9 +3380,13 @@ draw_processes() { #? Draw processes and values to screen
 	fi
 
 	#* Print processes
-	if (( proc[start]>(${#proc_array[@]}-1)-p_height )); then
+	if ((${#proc_array[@]}<=p_height)); then
+		proc[start]=1
+	elif (( proc[start]>(${#proc_array[@]}-1)-p_height )); then
 		proc[start]=$(( (${#proc_array[@]}-1)-p_height ))
 	fi
+
+	if ((proc[selected]>${#proc_array[@]}-1)); then proc[selected]=$((${#proc_array[@]}-1)); fi
 
 	if [[ $proc_gradient == true ]] && ((proc[selected]>1)); then
 		fg_r="$(( fg_r-( fg_add_r*(proc[selected]-1) ) ))"
@@ -3450,7 +3454,7 @@ draw_processes() { #? Draw processes and values to screen
 		done
 
 		if ((proc[selected]>0)); then sel_string=$((proc[start]-1+proc[selected])); else sel_string=0; fi
-		page_string="${sel_string}/$((${#proc_array[@]}-2))"
+		page_string="${sel_string}/$((${#proc_array[@]}-2${filter:++1}))"
 		print -v proc_out -m $((line+height-1)) $((col+width-20)) -fg ${box[processes_color]} -rp 19 -t "─"
 		print -v proc_out -m $((line+height-1)) $((col+width-${#page_string}-4)) -fg ${box[processes_color]} -t "┤" -b -fg ${theme[title]} -t "$page_string" -rs -fg ${box[processes_color]} -t "├"
 
@@ -3496,7 +3500,7 @@ draw_processes() { #? Draw processes and values to screen
 		unset proc_misc2
 		proc[page_change]=0
 		if ((proc[selected]>0)); then kill_fg="${theme[hi_fg]}"; com_fg="${theme[title]}"; else kill_fg="${theme[inactive_fg]}"; com_fg="${theme[inactive_fg]}"; fi
-		if ((proc[selected]==(${#proc_array[@]}-1)-proc[start])); then down_fg="${theme[inactive_fg]}"; else down_fg="${theme[hi_fg]}"; fi
+		if ((proc[selected]==(${#proc_array[@]}-1${filter:++1})-proc[start])); then down_fg="${theme[inactive_fg]}"; else down_fg="${theme[hi_fg]}"; fi
 		if ((proc[selected]>0 | proc[start]>1)); then up_fg="${theme[hi_fg]}"; else up_fg="${theme[inactive_fg]}"; fi
 
 		print -v proc_misc2 -m $((line+height-1)) $((col+2)) -fg ${box[processes_color]} -t "┤" -fg $up_fg -b -t "↑" -fg ${theme[title]} -t " select " -fg $down_fg -t "↓" -rs -fg ${box[processes_color]} -t "├"
@@ -4443,7 +4447,7 @@ process_input() { #? Process keypresses for main ui
 			"enter") unset input_to_filter ;;
 			"backspace") if [[ ${#filter} -gt 0 ]]; then filter="${filter:: (-1)}"; else unset filter_change; fi ;;
 			"escape") unset input_to_filter filter ;;
-			*) if [[ ${#keypress} -eq 1 ]]; then filter+="${keypress//[\\\$\"\']/}"; else unset filter_change; fi ;;
+			*) if [[ ${#keypress} -eq 1 && $keypress =~ ^[A-Za-z0-9\!\@\#\%\&\/\(\)\[\+\-\_\*\,\;\.\:]$ ]]; then filter+="${keypress//[\\\$\"\']/}"; else unset filter_change; fi ;;
 		esac
 
 	else
@@ -4504,10 +4508,10 @@ process_input() { #? Process keypresses for main ui
 				fi
 			;;
 			down|tab) #* Move process selector down one
-				if ((proc[selected]<p_height & proc[start]+proc[selected]<(${#proc_array[@]}-1) )); then
+				if ((proc[selected]<p_height & proc[start]+proc[selected]<(${#proc_array[@]}) )); then
 					((++proc[selected]))
 					proc[page_change]=1
-				elif ((proc[start]+proc[selected]<(${#proc_array[@]}-1) )); then
+				elif ((proc[start]+proc[selected]<(${#proc_array[@]}) )); then
 					((++proc[start]))
 					proc[page_change]=1
 				fi
@@ -4543,7 +4547,7 @@ process_input() { #? Process keypresses for main ui
 				if ((proc[start]<(${#proc_array[@]}-1)-p_height)); then
 					if ((proc[start]==1)) && [[ $use_psutil == false ]]; then collect_processes now; fi
 					proc[start]=$(( proc[start]+p_height ))
-					if (( proc[start]>(${#proc_array[@]}-1)-p_height )); then proc[start]=$(( (${#proc_array[@]}-1)-p_height )); fi
+					if (( proc[start]>(${#proc_array[@]})-p_height )); then proc[start]=$(( (${#proc_array[@]})-p_height )); fi
 					proc[page_change]=1
 				elif ((proc[selected]>0)); then
 					proc[selected]=$((p_height))
@@ -4606,6 +4610,8 @@ process_input() { #? Process keypresses for main ui
 			f|F) #* Start process filtering input
 				input_to_filter=1
 				filter_change=1
+				if ((proc[selected]>1)); then proc[selected]=1; fi
+				proc[start]=1
 			;;
 			c|C) #* Clear process filter
 				if [[ -n $filter ]]; then
