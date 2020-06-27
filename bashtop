@@ -3257,7 +3257,7 @@ draw_mem() { #? Draw mem, swap and disk statistics
 draw_processes() { #? Draw processes and values to screen
 	local argument="$1"
 	if [[ -n $skip_process_draw && $argument != "now" ]]; then return; fi
-	local line=${box[processes_line]} col=${box[processes_col]} width=${box[processes_width]} height=${box[processes_height]} out_line y=1 fg_step_r=0 fg_step_g=0 fg_step_b=0 checker=2 page_string
+	local line=${box[processes_line]} col=${box[processes_col]} width=${box[processes_width]} height=${box[processes_height]} out_line y=1 fg_step_r=0 fg_step_g=0 fg_step_b=0 checker=2 page_string sel_string
 	local reverse_string reverse_pos order_left="───────────┤" filter_string current_num detail_location det_no_add com_fg pg_arrow_up_fg pg_arrow_down_fg p_height=$((height-3))
 	local pid=0 pid_graph pid_step_r pid_step_g pid_step_b pid_add_r pid_add_g pid_add_b bg_add bg_step proc_start up_fg down_fg page_up_fg page_down_fg this_box=processes
 	local d_width=${box[details_width]} d_height=${box[details_height]} d_line=${box[details_line]} d_col=${box[details_col]}
@@ -3449,9 +3449,10 @@ draw_processes() { #? Draw processes and values to screen
 			print -v proc_out -m $((line+y++)) $((col+1)) -rp $((width-2)) -t " "
 		done
 
-		page_string="$((proc[start]-1+proc[selected]))/$((${#proc_array[@]}-2))"
+		if ((proc[selected]>0)); then sel_string=$((proc[start]-1+proc[selected])); else sel_string=0; fi
+		page_string="${sel_string}/$((${#proc_array[@]}-2))"
 		print -v proc_out -m $((line+height-1)) $((col+width-20)) -fg ${box[processes_color]} -rp 19 -t "─"
-		print -v proc_out -m $((line+height-1)) $((col+width-${#page_string}-6)) -fg ${box[processes_color]} -t "┤" -b -fg ${theme[title]} -t " $page_string " -rs -fg ${box[processes_color]} -t "├"
+		print -v proc_out -m $((line+height-1)) $((col+width-${#page_string}-4)) -fg ${box[processes_color]} -t "┤" -b -fg ${theme[title]} -t "$page_string" -rs -fg ${box[processes_color]} -t "├"
 
 
 	if ((proc[order_change]==1 | proc[filter_change]==1 | resized>0)); then
@@ -3494,8 +3495,9 @@ draw_processes() { #? Draw processes and values to screen
 	if ((proc[page_change]==1 | resized>0)); then
 		unset proc_misc2
 		proc[page_change]=0
-		if ((proc[selected]>0)); then up_fg="${theme[hi_fg]}"; kill_fg="${theme[hi_fg]}"; com_fg="${theme[title]}"; else up_fg="${theme[inactive_fg]}"; kill_fg="${theme[inactive_fg]}"; com_fg="${theme[inactive_fg]}"; fi
+		if ((proc[selected]>0)); then kill_fg="${theme[hi_fg]}"; com_fg="${theme[title]}"; else kill_fg="${theme[inactive_fg]}"; com_fg="${theme[inactive_fg]}"; fi
 		if ((proc[selected]==(${#proc_array[@]}-1)-proc[start])); then down_fg="${theme[inactive_fg]}"; else down_fg="${theme[hi_fg]}"; fi
+		if ((proc[selected]>0 | proc[start]>1)); then up_fg="${theme[hi_fg]}"; else up_fg="${theme[inactive_fg]}"; fi
 
 		print -v proc_misc2 -m $((line+height-1)) $((col+2)) -fg ${box[processes_color]} -t "┤" -fg $up_fg -b -t "↑" -fg ${theme[title]} -t " select " -fg $down_fg -t "↓" -rs -fg ${box[processes_color]} -t "├"
 		print -v proc_misc2 -r 1 -fg ${box[processes_color]} -t "┤" -fg $com_fg -b -t "info " -fg $kill_fg "↲" -rs -fg ${box[processes_color]} -t "├"
