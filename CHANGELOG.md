@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.9.17
+
+* Changed: Process list now scrolls instead of "page jump" and shows number of processes instead of number of pages
+* Fixed: Inverted gradient on dark text in processes box
+
 ## v0.9.16
 
 * Fixed: Errors in v0.9.15 psutil disk collection fix
