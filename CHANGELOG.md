@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.9.18
+
+* Fixed: Errors caused by process scroll change
+* Fixed: Process graph creation ignored for process below 0.5%
+
 ## v0.9.17
 
 * Changed: Process list now scrolls instead of "page jump" and shows number of processes instead of number of pages
