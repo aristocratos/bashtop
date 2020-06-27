@@ -32,7 +32,8 @@ allowed_commands: Tuple[str] = (
 	'get_net',
 	'get_cmd_out',
 	'get_sensors',
-	'get_sensors_check'
+	'get_sensors_check',
+	'get_ms'
 	)
 command: str = ''
 cpu_count: int = psutil.cpu_count()
@@ -45,6 +46,11 @@ def cleaned(string: str) -> str:
 def get_cmd_out(cmd: str):
 	'''Save bash the trouble of creating child processes by running through python instead'''
 	print(subprocess.check_output(cmd, shell=True, universal_newlines=True).rstrip())
+
+def get_ms():
+	'''Get current epoch millisecond'''
+	t = str(time.time()).split(".")
+	print(f'{t[0]}{t[1][:3]}')
 
 def get_sensors():
 	'''A clone of "sensors" but using psutil'''

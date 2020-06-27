@@ -277,47 +277,6 @@ box[double_right_corner_down]="╝"
 box[double_title_left]="╟"
 box[double_title_right]="╢"
 
-#* If using bash version 5, set timestamps with EPOCHREALTIME variable
-if [[ -n $EPOCHREALTIME ]]; then
-	get_ms() { #? Set given variable to current epoch millisecond with EPOCHREALTIME varialble
-		local -n ms_out=$1
-		ms_out=$((${EPOCHREALTIME/[.,]/}/1000))
-	}
-
-#* If not, use date command, through fifo if possible
-else
-	tmpdir=""
-	if [[ -n $XDG_RUNTIME_DIR && -w "$XDG_RUNTIME_DIR" ]]; then
-		tmpdir="$XDG_RUNTIME_DIR"
-	elif [[ -w /dev/shm ]]; then
-		tmpdir="/dev/shm"
-	elif [[ -w /tmp ]]; then
-		tmpdir="/tmp"
-	elif [[ -w "$HOME" ]]; then
-		tmpdir="$HOME"
-	fi
-
-	if [[ -n $tmpdir ]] && command -v ${stdbuf} >/dev/null 2>&1; then
-		${mkfifo} "${tmpdir}/bashtop_datefifo"
-		exec 5> >(exec ${stdbuf} -o0 ${date} -f - +%s%3N > "${tmpdir}/bashtop_datefifo" 2>&1)
-		exec 6< "${tmpdir}/bashtop_datefifo"
-		${rm} -f "${tmpdir}/bashtop_datefifo"
-
-		get_ms() { #? Set given variable to current epoch millisecond with date command through background fifo
-			local -n ms_out=$1
-			echo now >&5 &&
-			read -u 6 ms_out
-		}
-
-	else
-		get_ms() { #? Set given variable to current epoch millisecond with forked date command
-			local -n ms_out=$1
-			ms_out=""
-			read ms_out < <(${date} +%s%3N)
-		}
-	fi
-fi
-
 init_() { #? Collect needed information and set options before startig main loop
 	if [[ -z $1 ]]; then
 		local i stx=0
@@ -4801,8 +4760,28 @@ if [[ $use_psutil == true ]]; then
 	fi
 fi
 
-#* if we have been sourced by another shell, quit. Allows sourcing only function definition.
-[[ "${#BASH_SOURCE[@]}" -gt 1 ]] && { return 0; }
+#* If using bash version 5, set timestamps with EPOCHREALTIME variable
+if [[ -n $EPOCHREALTIME ]]; then
+	get_ms() { #? Set given variable to current epoch millisecond with EPOCHREALTIME varialble
+		local -n ms_out=$1
+		ms_out=$((${EPOCHREALTIME/[.,]/}/1000))
+	}
+
+#* If not, but using psutil, set timestamps with python
+elif [[ $use_psutil == true ]]; then
+	get_ms() {
+		local -n ms_out=$1
+		py_command -v ms_out "get_ms()"
+	}
+
+#* Else use date command
+else
+	get_ms() { #? Set given variable to current epoch millisecond with date command
+		local -n ms_out=$1
+		ms_out=""
+		read ms_out < <(${date} +%s%3N)
+	}
+fi
 
 #* Setup psutil script
 if [[ $use_psutil == true ]]; then
@@ -4870,7 +4849,8 @@ allowed_commands: Tuple[str] = (
 	'get_net',
 	'get_cmd_out',
 	'get_sensors',
-	'get_sensors_check'
+	'get_sensors_check',
+	'get_ms'
 	)
 command: str = ''
 cpu_count: int = psutil.cpu_count()
@@ -4883,6 +4863,11 @@ def cleaned(string: str) -> str:
 def get_cmd_out(cmd: str):
 	'''Save bash the trouble of creating child processes by running through python instead'''
 	print(subprocess.check_output(cmd, shell=True, universal_newlines=True).rstrip())
+
+def get_ms():
+	'''Get current epoch millisecond'''
+	t = str(time.time()).split(".")
+	print(f'{t[0]}{t[1][:3]}')
 
 def get_sensors():
 	'''A clone of "sensors" but using psutil'''
@@ -5265,6 +5250,9 @@ if [[ $error_logging == true ]]; then
 else
 	exec 2>/dev/null
 fi
+
+#* If we have been sourced by another shell, quit. Allows sourcing only function definition.
+[[ "${#BASH_SOURCE[@]}" -gt 1 ]] && { return 0; }
 
 #* Call init function
 init_
