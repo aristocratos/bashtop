@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.9.19
+
+* Added: Option for timestamps with python on bash < 5
+* Changed: Reverted "date" command timestamps to not using fifo
+* Added missing # from hex value in monokai theme
+
 ## v0.9.18
 
 * Fixed: Errors caused by process scroll change
