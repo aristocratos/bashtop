@@ -17,15 +17,15 @@
 * [Documents](#documents)
 * [Description](#description)
 * [Features](#features)
-* [Themes](#themes) (Updated)
+* [Themes](#themes)
 * [Upcoming](#upcoming) (Python port)
 * [Support and funding](#support-and-funding)
 * [Compatibility](#compatibility) (OSX and FreeBSD Support)
-* [Dependencies](#dependencies) (Updated)
+* [Dependencies](#dependencies)
 * [Screenshots](#screenshots)
-* [Installation](#installation) (Updated)
-* [Configurability](#configurability) (Updated)
-* [TODO](#todo) (Updated)
+* [Installation](#installation)
+* [Configurability](#configurability)
+* [TODO](#todo)
 * [License](#license)
 
 ## Documents
@@ -74,11 +74,10 @@ This will add python 3 and psutil as dependencies, but will make bashtop cross p
 
 Bashtop is now Mac OS X and FreeBSD compatible!
 
-#### Python port
+#### Python port: bpytop
 
-Work on a complete python port ~~will begin this summer~~ has begun. My aim is to keep it compatible with pypy3 for a lot of added efficiency.
-
-PyPyTop?
+Currently working full time on this during my vacation :)
+I'm aiming to have a first release by end of July.
 
 ## Support and funding
 
