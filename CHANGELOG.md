@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.9.20
+
+* Fixed: Psutil script security issue when placed directly in temp folder
+
 ## v0.9.19
 
 * Added: Option for timestamps with python on bash < 5
