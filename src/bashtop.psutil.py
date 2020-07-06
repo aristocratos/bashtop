@@ -121,8 +121,8 @@ def get_cpu_name():
 
 def get_cpu_cores():
 	'''Get number of CPU cores and threads'''
-	cores: int = psutil.cpu_count(logical=True)
-	threads: int = psutil.cpu_count(logical=False)
+	cores: int = psutil.cpu_count(logical=False)
+	threads: int = psutil.cpu_count(logical=True)
 	print(f'{cores} {threads if threads else cores}')
 
 def get_cpu_usage():

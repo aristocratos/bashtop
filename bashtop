@@ -589,7 +589,7 @@ quit_() { #? Clean exit
 	if [[ $use_psutil == true && $2 != "psutil" ]]; then
 		py_command quit
 		sleep 0.1
-		rm "${pywrapper}"
+		rm -rf "${pytmpdir}"
 	fi
 	echo -en "${clear_screen}${normal_screen}${show_cursor}"
 	${stty} "${saved_stty}"
@@ -877,7 +877,7 @@ get_cpu_info() {
 	if [[ $use_psutil == true ]]; then
 		if [[ -z ${cpu[threads]} || -z ${cpu[cores]} ]]; then
 			py_command -v pyin "get_cpu_cores()"
-			read cpu[threads] cpu[cores] <<<"${pyin}"
+			read cpu[cores] cpu[threads] <<<"${pyin}"
 		fi
 
 	else
@@ -4816,7 +4816,8 @@ if [[ $use_psutil == true ]]; then
 		return 0
 	}
 
-	pywrapper=$(mktemp "${TMPDIR:-/tmp}"/bashtop.psutil.XXXX)
+	pytmpdir=$(mktemp -d "${TMPDIR:-/tmp}"/XXXXXXXXXXXX)
+	pywrapper=$(mktemp "${pytmpdir}"/bashtop.psutil.XXXX)
 
 cat << 'EOF' > "${pywrapper}"
 import os, sys, subprocess, re, time, psutil
@@ -4938,8 +4939,8 @@ def get_cpu_name():
 
 def get_cpu_cores():
 	'''Get number of CPU cores and threads'''
-	cores: int = psutil.cpu_count(logical=True)
-	threads: int = psutil.cpu_count(logical=False)
+	cores: int = psutil.cpu_count(logical=False)
+	threads: int = psutil.cpu_count(logical=True)
 	print(f'{cores} {threads if threads else cores}')
 
 def get_cpu_usage():
