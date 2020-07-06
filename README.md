@@ -295,20 +295,24 @@ Config files stored in "$HOME/.config/bashtop" folder
 #### bashtop.cfg: (auto generated if not found)
 
 ```bash
-#? Config file for bashtop v. 0.9.9
+#? Config file for bashtop v. 0.9.21
 
-#* Color theme, looks for a .theme file in "$HOME/.config/bashtop/themes" and "$HOME/.config/bashtop/user_themes", "Default" for builtin default theme
+#* Color theme, looks for a .theme file in "$HOME/.config/bashtop/themes" and "$HOME/.config/bashtop/user_themes"
+#* Should be prefixed with either "themes/" or "user_themes/" depending on location, "Default" for builtin default theme
 color_theme="Default"
 
 #* Update time in milliseconds, increases automatically if set below internal loops processing time, recommended 2000 ms or above for better sample times for graphs
 update_ms="2500"
 
-#* Processes sorting, "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive" "tree"
-#* "cpu lazy" updates sorting over time, "cpu responsive" updates sorting directly at a cpu usage cost
+#* Processes sorting, "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive"
+#* "cpu lazy" updates sorting over time, "cpu responsive" updates sorting directly
 proc_sorting="cpu lazy"
 
 #* Reverse sorting order, "true" or "false"
 proc_reversed="false"
+
+#* Show processes as a tree
+proc_tree="false"
 
 #* Check cpu temperature, only works if "sensors", "vcgencmd" or "osx-cpu-temp" commands is available
 check_temp="true"
