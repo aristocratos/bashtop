@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.9.21
+
+* Changed: Config file comments for theme locations
+* Added: Check for correct theme file path prefix
+* Added: Support for application cursor mode input
+* Fixed: Incorrect value calculation for reversed proc gradient
+
 ## v0.9.20
 
 * Fixed: Psutil script security issue when placed directly in temp folder
