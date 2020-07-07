@@ -4826,8 +4826,15 @@ if [[ $use_psutil == true ]]; then
 		return 0
 	}
 
-	pytmpdir=$(mktemp -d "${TMPDIR:-/tmp}"/XXXXXXXXXXXX)
-	pywrapper=$(mktemp "${pytmpdir}"/bashtop.psutil.XXXX)
+	if ! pytmpdir=$(mktemp -d "${TMPDIR:-/tmp}"/XXXXXXXXXXXX); then
+		if [[ $system == "Linux" ]]; then
+			use_psutil="false"
+		else
+			echo "ERROR: Failed setting up temp directory for psutil script!"
+			exit 1
+		fi
+	else
+		pywrapper="${pytmpdir}/bashtop.psutil"
 
 cat << 'EOF' > "${pywrapper}"
 import os, sys, subprocess, re, time, psutil
@@ -5230,7 +5237,7 @@ while command != 'quit':
 	print('/EOL')
 	#print(f'{command}', file=sys.stderr)
 EOF
-
+	fi
 fi
 
 #* Set up traps for ctrl-c, soft kill, window resize, ctrl-z and resume from ctrl-z
