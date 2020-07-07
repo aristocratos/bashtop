@@ -4357,10 +4357,10 @@ get_key() { #? Get one key from standard input and translate key code to readabl
 		if [[ -z $key && $esc -eq 1 ]]; then key="escape"
 		elif [[ $esc -eq 1 ]]; then
 			case "${key}" in
-				'[A'*) key="up" ;;
-				'[B'*) key="down" ;;
-				'[D'*) key="left" ;;
-				'[C'*) key="right" ;;
+				'[A'*|'OA'*) key="up" ;;
+				'[B'*|'OB'*) key="down" ;;
+				'[D'*|'OD'*) key="left" ;;
+				'[C'*|'OC'*) key="right" ;;
 				'[2~') key="insert" ;;
 				'[3~') key="delete" ;;
 				'[H'*) key="home" ;;
