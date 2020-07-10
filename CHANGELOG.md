@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.9.22
+
+* Added: Added handler for mktemp failure for psutil script
+* Removed: Secondary mktemp command for psutil script
+* Fixed: Insecure test import of psutil changed
+
 ## v0.9.21
 
 * Changed: Config file comments for theme locations
