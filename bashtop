@@ -4760,7 +4760,7 @@ if [[ $use_psutil == true ]]; then
 		else
 			exit 1
 		fi
-	elif [[ $use_psutil == true ]] && ! python3 -c "import psutil" >/dev/null 2>&1; then
+	elif [[ $use_psutil == true ]] && ! (cd / && python3 -c "import psutil") >/dev/null 2>&1; then
 		echo "Error: Missing python3 psutil module!"
 		if [[ $system == "Linux" ]]; then
 			use_psutil="false"
