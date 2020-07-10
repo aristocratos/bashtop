@@ -143,7 +143,7 @@ Bash version 5 is highly recommended to make use of $EPOCHREALTIME variable inst
 
 **[Python3](https://www.python.org/downloads/)** (v3.6 or later)
 
-**[psutil python module](https://github.com/giampaolo/psutil)**
+**[psutil python module](https://github.com/giampaolo/psutil)** (v5.7.0 or later)
 
 ## Optionals for additional stats
 
@@ -176,11 +176,27 @@ Options menu.
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
 ```
 
->Install dependencies
+
+
+>If you got python 3.6 or later installed outside of brew:
 
 ``` bash
-brew install bash coreutils gnu-sed python3 git
-pip3 install psutil
+sudo python3 -m ensurepip
+sudo python3 -m pip install psutil
+```
+
+>If you haven't got python3 installed:
+
+```
+brew install python3
+python3 -m pip install psutil
+```
+
+>Install dependencies
+
+
+``` bash
+brew install bash coreutils gnu-sed git
 ```
 
 >Install optional dependency osx-cpu-temp
