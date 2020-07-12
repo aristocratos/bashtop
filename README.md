@@ -20,7 +20,7 @@
 * [Themes](#themes)
 * [Upcoming](#upcoming) (Python port)
 * [Support and funding](#support-and-funding)
-* [Compatibility](#compatibility) (OSX and FreeBSD Support)
+* [Prerequisites](#prerequisites)
 * [Dependencies](#dependencies)
 * [Screenshots](#screenshots)
 * [Installation](#installation)
@@ -67,13 +67,6 @@ Let me know if you want to contribute with new themes.
 
 ## Upcoming
 
-~~Currently rewriting to use python3 [psutil](https://github.com/giampaolo/psutil) for data collection instead of linux specific tools.
-This will add python 3 and psutil as dependencies, but will make bashtop cross platform compatible.~~
-
-~~This will be integrated in to main version when done and add the possibility to switch between psutil and linux tools for users running linux.~~
-
-Bashtop is now Mac OS X and FreeBSD compatible!
-
 #### Python port: bpytop
 
 Currently working full time on this during my vacation :)
@@ -94,21 +87,21 @@ Also added donation links for [paypal](https://paypal.me/aristocratos) and [ko-f
 
 Any support is greatly appreciated!
 
-## Compatibility
+## Prerequisites
 
-Should work on most modern linux distributions, on Mac OS X and on FreeBSD.
+#### Mac Os X
 
-Will not display correctly on the standard terminal on OSX!
+Will not display correctly in the standard terminal!
 Recommended alternative [iTerm2](https://www.iterm2.com/)
 
-Will also need to be run as superuser on OSX to display stats for processes not owned by user.
+Will also need to be run as superuser to display stats for processes not owned by user.
 
-The disk io stats on OSX and FreeBSD shows iostats for all disks at the top instead of per disk.
+#### Linux, Mac Os X and FreeBSD
 
 For correct display, a terminal with support for:
 
-* 24-bit truecolor
-* Wide characters
+* 24-bit truecolor ([See list of terminals with truecolor support](https://gist.github.com/XVilka/8346728))
+* Wide characters (Are sometimes problematic in web-based terminals)
 
 Also needs a UTF8 locale and a font that covers:
 
@@ -384,8 +377,7 @@ Might finish off items out of order since I usually work on multiple at a time.
 - [ ] Add gpu temp and usage. (If feasible)
 - [x] Add io stats for disks.
 - [ ] Add cpu and mem stats for docker containers. (If feasible)
-- [ ] Change process list to line scroll instead of page change.
-- [ ] Add option for custom color gradient in process list in theme settings.
+- [x] Change process list to line scroll instead of page change.
 - [ ] Add optional window for tailing log files.
 - [ ] Add options for resizing all boxes.
 - [ ] Add command line argument parsing.
