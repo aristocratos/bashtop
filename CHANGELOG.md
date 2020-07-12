@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.9.23
+
+* Fixed: kill/terminate/interrupt process not working in OsX and FreeBSD
+
 ## v0.9.22
 
 * Added: Added handler for mktemp failure for psutil script
