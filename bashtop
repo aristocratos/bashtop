@@ -4232,7 +4232,8 @@ killer_() { #? Kill process with selected signal
 	local kill_op="$1" kill_pid="$2" killer_out killer_box col line program keypress selected selected_int=0 sig confirmed=0 option killer_pause status msg
 	local -a options=("yes" "no")
 
-	if ! program="$(ps -o comm --no-header -p ${kill_pid})"; then return; fi
+	if ! program="$(ps -o comm -p ${kill_pid})"; then return
+	else program="$(tail -n1 <<<"$program")"; fi
 
 	case $kill_op in
 		t|T) kill_op="terminate"; sig="SIGTERM" ;;
