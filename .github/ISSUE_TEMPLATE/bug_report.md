@@ -27,11 +27,12 @@ assignees: aristocratos
  - Bashtop version:
  - (Linux) Linux distribution and version:
  - (Linux) Data collection type (/proc or psutil):
+ - Psutil version: `python3 -c "import psutil; print(psutil.version_info)"` (version 5.7.0 or above is required):
  - (OSX/FreeBSD) Os release version:
  - Terminal used:
  - Font used:
- - Bash version, "bash --version" (version 4.4 or above is required):
- - Locales: output of "locale -v"
+ - Bash version, `bash --version` (version 4.4 or above is required):
+ - Locales: output of `locale -v`
 
 **Additional context**
 
