@@ -5062,11 +5062,14 @@ def get_proc(sorting='cpu lazy', tree=False, prog_len=0, arg_len=0, search='', r
 	print(f"{'Pid:':>7} {'Program:':<{prog_len}}", f"{'Arguments:':<{arg_len-4}}" if arg_len else '', f"{'Threads:' if arg_len else ' Tr:'} {'User:':<9}Mem%{'Cpu%':>11}", sep='')
 
 	for p in sorted(psutil.process_iter(['pid', 'name', 'cmdline', 'num_threads', 'username', 'memory_percent', 'cpu_percent', 'cpu_times', 'create_time'], err), key=lambda p: eval(sort_cmd), reverse=reverse):
-		if p.info['name'] == 'idle':
+		if p.info['name'] == 'idle' or p.info['name'] == err or p.info['pid'] == err:
 			continue
-		if p.info['cpu_times'] == err:
+		if p.info['cmdline'] == err:
+			p.info['cmdline'] = ""
+		if p.info['username'] == err:
+			p.info['username'] = "?"
+		if p.info['num_threads'] == err:
 			p.info['num_threads'] = 0
-			p.info['cmdline'] = ''
 		if search:
 			found = False
 			for value in [ p.info['name'], ' '.join(p.info['cmdline']), str(p.info['pid']), p.info['username'] ]:
@@ -5123,6 +5126,8 @@ def proc_tree(width: int, sorting: str = 'cpu lazy', reverse: bool = True, max_l
 		if getinfo and cont:
 			if getinfo['cpu_times'] == err:
 				getinfo['num_threads'] = 0
+			if p.info['username'] == err:
+					p.info['username'] = "?"
 			cpu = getinfo['cpu_percent'] if proc_per_cpu else (getinfo['cpu_percent'] / psutil.cpu_count())
 			print(f"{getinfo['num_threads']:>4} " if getinfo['num_threads'] < 1000 else '999> ',
 				f"{getinfo['username']:<9.9}" if len(getinfo['username']) < 10 else f"{getinfo['username'][:8]:<8}+",
