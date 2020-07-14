@@ -2129,8 +2129,10 @@ collect_cpu_temps() { #? Collect cpu temperatures
 	#* Get CPU package temp for Rapberry Pi cpus and for OSX
 	elif [[ $sensor_comm != "sensors" && -n ${misc_var} ]]; then
 		cpu[temp_0]="${misc_var#temp=}"
-		cpu[temp_unit]="°${cpu[temp_0]:(-1)}"; cpu[temp_0]=${cpu[temp_0]%.*}; if [[ ${cpu[temp_0]::1} == "+" ]]; then cpu[temp_0]=${cpu[temp_0]#+}; fi
-		cpu[temp_high]="75"; cpu[temp_crit]=$((cpu[temp_high]+10))
+		cpu[temp_unit]="°${cpu[temp_0]:(-1)}"; cpu[temp_0]=${cpu[temp_0]%%.*}; if [[ ${cpu[temp_0]::1} == "+" ]]; then cpu[temp_0]=${cpu[temp_0]#+}; fi
+		if [[ -z ${cpu[temp_high]} ]]; then
+			cpu[temp_high]="75"; cpu[temp_crit]=$((cpu[temp_high]+10))
+		fi
 
 		#* Copy cpu temp to cores
 		for((i=1;i<=threads;i++)); do
