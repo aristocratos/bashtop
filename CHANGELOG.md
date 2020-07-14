@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.9.24
+
+* Fixed: Psutil script crash on OSX
+* Fixed: Error handling for malformed osx-cpu-temp output
+
 ## v0.9.23
 
 * Fixed: kill/terminate/interrupt process not working in OsX and FreeBSD
