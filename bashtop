@@ -2235,7 +2235,7 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 		if ! py_command -a df_array "get_disks(exclude='squashfs'${filtering})"; then psutil_disk_fail=1; psutil_on="false"; fi
 	fi
 	if [[ $psutil_on == false ]]; then
-		readarray -t df_array < <(${df} -x squashfs -x tmpfs -x devtmpfs -x overlay 2>/dev/null || true)
+		readarray -t df_array < <(${df} -x squashfs -x tmpfs -x devtmpfs -x overlay -x 9p 2>/dev/null || true)
 	fi
 	for df_line in "${df_array[@]:1}"; do
 		line_array=(${df_line})
