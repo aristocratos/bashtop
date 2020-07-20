@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.9.25
+
+* Fixed: Crash when using "/proc" data collection and filesystem type is 9p, by @bolapara
+
 ## v0.9.24
 
 * Fixed: Psutil script crash on OSX
