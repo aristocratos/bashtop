@@ -6,6 +6,8 @@
   * Is it a requested change or feature?
   * If not, open a feature request to get feedback before making a pull request.
 
+* If it's a fix for a unreported bug, make a bug report and link the pull request.
+
 * Split up multiple unrelated changes in multiple pull requests.
 
 * [Shellcheck](https://github.com/koalaman/shellcheck) your work. Current shellsheck exceptions at the beginning of [bashtop](bashtop).
