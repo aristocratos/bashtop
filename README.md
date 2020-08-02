@@ -28,6 +28,22 @@
 * [TODO](#todo)
 * [License](#license)
 
+## Python port
+
+[![bpytop](Imgs/bpytop.png)](https://github.com/aristocratos/bpytop)
+
+Bpytop, bashtop python port is now available at https://github.com/aristocratos/bpytop
+
+It's a lot faster and about a third as cpu heavy and has more features, including:
+
+* Mouse support
+
+* Toggleable mini mode
+
+* More customization
+
+* Graphs for memory consumption
+
 ## Documents
 
 #### [CHANGELOG.md](CHANGELOG.md)
