@@ -12,23 +12,7 @@
 [![Sponsor](https://img.shields.io/badge/-Sponsor-red?logo=github)](https://github.com/sponsors/aristocratos)
 [![Coffee](https://img.shields.io/badge/-Buy%20me%20a%20Coffee-grey?logo=Ko-fi)](https://ko-fi.com/aristocratos)
 
-## Index
-
-* [Documents](#documents)
-* [Description](#description)
-* [Features](#features)
-* [Themes](#themes)
-* [Upcoming](#upcoming) (Python port)
-* [Support and funding](#support-and-funding)
-* [Prerequisites](#prerequisites)
-* [Dependencies](#dependencies)
-* [Screenshots](#screenshots)
-* [Installation](#installation)
-* [Configurability](#configurability)
-* [TODO](#todo)
-* [License](#license)
-
-## Python port
+# Notice, [python version released!](https://github.com/aristocratos/bpytop) Please get this instead.
 
 [![bpytop](Imgs/bpytop.png)](https://github.com/aristocratos/bpytop)
 
@@ -43,6 +27,26 @@ It's a lot faster and about a third as cpu heavy and has more features, includin
 * More customization
 
 * Graphs for memory consumption
+
+It's also a lot easier for me to bug fix and it's the project I'm actively working on, so please try to migrate to bpytop.
+
+#
+
+## Index
+
+* [Documents](#documents)
+* [Description](#description)
+* [Features](#features)
+* [Themes](#themes)
+* [Support and funding](#support-and-funding)
+* [Prerequisites](#prerequisites)
+* [Dependencies](#dependencies)
+* [Screenshots](#screenshots)
+* [Installation](#installation)
+* [Configurability](#configurability)
+* [TODO](#todo)
+* [License](#license)
+
 
 ## Documents
 
@@ -80,13 +84,6 @@ The builtin theme downloader places the default themes in `$HOME/.config/bashtop
 User created themes should be placed in `$HOME/.config/bashtop/user_themes` to be safe from overwrites.
 
 Let me know if you want to contribute with new themes.
-
-## Upcoming
-
-#### Python port: bpytop
-
-Currently working full time on this during my vacation :)
-I'm aiming to have a first release by end of July.
 
 ## Support and funding
 
