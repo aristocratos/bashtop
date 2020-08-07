@@ -219,9 +219,7 @@ brew install osx-cpu-temp
 >Install with pkg and pip
 
 ``` bash
-sudo pkg install coreutils gsed python3 git
-sudo python3 -m ensurepip
-sudo pip3 install psutil
+sudo pkg install coreutils gsed git py37-psutil
 ```
 
 #### Manual installation Linux, OSX and FreeBSD
@@ -238,6 +236,16 @@ sudo make install
 
 ``` bash
 sudo make uninstall
+```
+
+#### FreeBSD package
+
+Available in [FreeBSD ports](https://www.freshports.org/sysutils/bashtop/)
+
+Install pre-built pacakge
+
+``` bash
+sudo pkg install bashtop
 ```
 
 #### Arch based
