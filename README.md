@@ -263,6 +263,16 @@ Or use quick installation:
  sudo ./build --remove
 ```
 
+#### Guix based
+
+Available in [official Guix repository](https://git.savannah.gnu.org/cgit/guix.git/tree/gnu/packages/admin.scm) since 6bbd0fd2
+
+>Installation
+
+``` bash
+guix install bashtop
+```
+
 #### Ubuntu based
 
 Available in [official Ubuntu repository](https://launchpad.net/ubuntu/+source/bashtop) since Ubuntu 20.10
