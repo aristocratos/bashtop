@@ -14,3 +14,4 @@ install:
 uninstall:
 	@rm -rf $(DESTDIR)$(PREFIX)/bin/bashtop
 	@rm -rf $(DESTDIR)$(DOCDIR)
+Installed 
