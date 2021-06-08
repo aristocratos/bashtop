@@ -327,6 +327,12 @@ dnf install epel-release
 dnf install bashtop
 ```
 
+### WSL
+
+Please follow the instructions for your distro above, then install the custom Consolas-Brallie font as described in [#318](https://github.com/aristocratos/bpytop/issues/318#issuecomment-856892684). Then, launch your WSL terminal and change the font to Consolas-Brallie.
+
+Otherwise, none of the graphs work correctly.
+
 ## Configurability
 
 All options changeable from within UI.
