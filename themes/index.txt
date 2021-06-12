@@ -7,3 +7,7 @@ monokai.theme
 nord.theme
 solarized_dark.theme
 whiteout.theme
+dark_green.theme
+dark_orange.theme
+dark_red.theme
+dark_yellow.theme
