@@ -301,8 +301,15 @@ Available in the Fedora repository.
 
 >Installation
 
+Fedora 33
 ``` bash
 sudo dnf install bashtop
+```
+
+
+Fedora 34
+``` bash
+sudo dnf install bpytop
 ```
 
 #### CentOS 8
