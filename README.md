@@ -12,23 +12,15 @@
 [![Sponsor](https://img.shields.io/badge/-Sponsor-red?logo=github)](https://github.com/sponsors/aristocratos)
 [![Coffee](https://img.shields.io/badge/-Buy%20me%20a%20Coffee-grey?logo=Ko-fi)](https://ko-fi.com/aristocratos)
 
-# Notice, [python version released!](https://github.com/aristocratos/bpytop) Please get this instead.
+### C++ Version
 
-[![bpytop](Imgs/bpytop.png)](https://github.com/aristocratos/bpytop)
+##### 18 September 2021
 
-Bpytop, bashtop python port is now available at https://github.com/aristocratos/bpytop
+![btop++](https://raw.githubusercontent.com/aristocratos/btop/main/Img/logo.png)
 
-It's a lot faster and about a third as cpu heavy and has more features, including:
+The C++ version of bashtop - btop++ is available.
 
-* Mouse support
-
-* Toggleable mini mode
-
-* More customization
-
-* Graphs for memory consumption
-
-It's also a lot easier for me to bug fix and it's the project I'm actively working on, so please try to migrate to bpytop.
+Get it at https://github.com/aristocratos/btop
 
 #
 
