@@ -41,9 +41,10 @@ case "$(uname -s)" in
 	Darwin*) system=MacOS;;
 	CYGWIN*) system=Cygwin;;
 	MINGW*)  system=MinGw;;
+        SunOS*)  system=Sun;;
 	*)       system="Other"
 esac
-if [[ ! $system =~ Linux|MacOS|BSD ]]; then
+if [[ ! $system =~ Linux|MacOS|BSD|Sun ]]; then
 	echo "This version of bashtop does not support $system platform."
 	exit 1
 fi
