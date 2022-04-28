@@ -2961,7 +2961,7 @@ draw_bg() { #? Draw all box outlines
 	if [[ $check_temp == true ]]; then cpu_model_len=18; else cpu_model_len=9; fi
 	create_box -v boxes_out -col $((box[p_col]-1)) -line $((box[p_line]-1)) -width ${box[p_width]} -height ${box[p_height]} -lc ${theme[div_line]} -t "${cpu[model]:0:${cpu_model_len}}"
 	print -v boxes_out -m ${box[cpu_line]} $((box[cpu_col]+10)) -rs \
-	-fg ${box[cpu_color]} -t "┤" -b -fg ${theme[hi_fg]} -t "m" -fg ${theme[title]} -t "enu" -rs -fg ${box[cpu_color]} -t "├"
+	-fg ${box[cpu_color]} -t "┤" -b -fg ${theme[title]} -t "m" -fg ${theme[title]} -t "enu" -rs -fg ${box[cpu_color]} -t "├"
 
 	#* Misc mem
 	print -v boxes_out -m ${box[mem_line]} $((box[mem_col]+box[m_width]+2)) -rs -fg ${box[mem_color]} -t "┤" -fg ${theme[title]} -b -t "disks" -rs -fg ${box[mem_color]} -t "├"
