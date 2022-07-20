@@ -35,6 +35,7 @@ Get it at https://github.com/aristocratos/btop
 * [Dependencies](#dependencies)
 * [Screenshots](#screenshots)
 * [Installation](#installation)
+* [Execution](#execution)
 * [Configurability](#configurability)
 * [TODO](#todo)
 * [License](#license)
@@ -319,6 +320,13 @@ dnf install epel-release
 dnf install bashtop
 ```
 
+## Execution
+
+``` bash
+Execute that command to use Bashtop: bashtop
+
+```
+
 ## Configurability
 
 All options changeable from within UI.
@@ -378,13 +386,6 @@ hires_graphs="false"
 
 #* Enable the use of psutil python3 module for data collection, default on OSX
 use_psutil="true"
-```
-
-#### Command line options: (not yet implemented)
-
-``` bash
-USAGE: bashtop
-
 ```
 
 ## TODO
