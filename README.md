@@ -320,7 +320,7 @@ dnf install epel-release
 dnf install bashtop
 ```
 
-#### Execution
+## Execution
 
 ``` bash
 Execute that command to use Bashtop: bashtop
