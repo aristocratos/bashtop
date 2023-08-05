@@ -172,6 +172,9 @@ hires_graphs="false"
 #* Enable the use of psutil python3 module for data collection, default on OSX
 use_psutil="true"
 
+#* Enable the use of GPUtil python3 module for data collection, may not work on some cards (namely AMD cards)
+use_GPUtil="true"
+
 aaz_config() { : ; } #! Do not remove this line!
 #? End default variables-------------------------------------------------------------------------------->
 
@@ -203,11 +206,11 @@ menu_quit_selected=(
 "║═╬╗║ ║ ║ ║  "
 "╚═╝╚╚═╝ ╩ ╩  ")
 
-declare -A cpu mem swap proc net box theme disks
+declare -A cpu mem gpu swap proc net box theme disks
 declare -a cpu_usage cpu_graph_a cpu_graph_b color_meter color_temp_graph color_cpu color_cpu_graph cpu_history color_mem_graph color_swap_graph
-declare -a mem_history swap_history net_history_download net_history_upload mem_graph swap_graph proc_array download_graph upload_graph trace_array
+declare -a mem_history swap_history net_history_download net_history_upload mem_graph gpu_graph swap_graph proc_array download_graph upload_graph trace_array
 declare resized=1 size_error clock tty_width tty_height hex="16#" cpu_p_box swap_on=1 draw_out esc_character boxes_out last_screen clock_out update_string
-declare -a options_array=("color_theme" "update_ms" "use_psutil" "proc_sorting" "proc_tree" "check_temp" "draw_clock" "background_update" "custom_cpu_name"
+declare -a options_array=("color_theme" "update_ms" "use_psutil" "use_GPUtil" "proc_sorting" "proc_tree" "check_temp" "draw_clock" "background_update" "custom_cpu_name"
 	"proc_per_core" "proc_reversed" "proc_gradient" "disks_filter" "hires_graphs" "net_totals_reset" "update_check" "error_logging")
 declare -a save_array=(${options_array[*]/net_totals_reset/})
 declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive")
@@ -2168,7 +2171,7 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 	mem[counter]=0
 
 	local i tmp value array mem_info height=$((box[mem_height]-2)) skip filter_value
-	local -a mem_array swap_array available=("mem")
+	local -a mem_array gpu_array swap_array available=("mem")
 	unset 'mem[total]'
 
 	#* Get memory and swap information from "/proc/meminfo" or psutil and calculate percentages
@@ -2176,8 +2179,16 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 		local pymemout
 
 		py_command -v pymemout "get_mem()" || return
-		read mem[total] mem[free] mem[available] mem[cached] swap[total] swap[free] <<<"$pymemout"
+		read mem[total] mem[free] mem[available] mem[cached] swap[total] swap[free] gpu[total] gpu[free] <<<"$pymemout"
 
+		if [[ $use_GPUtil == true ]]; then
+			if [[ -n ${gpu[total]} ]] && ((gpu[total]>0)); then
+				gpu[free_percent]=$((gpu[free]*100/gpu[total]))
+				gpu[used]=$((gpu[total]-gpu[free]))
+				gpu[used_percent]=$((gpu[used]*100/gpu[total]))
+				available+=("gpu")
+			fi
+		fi
 		if [[ -z ${mem[total]} ]]; then return; fi
 		if [[ -n ${swap[total]} ]] && ((swap[total]>0)); then
 			swap[free_percent]=$((swap[free]*100/swap[total]))
@@ -3097,11 +3108,12 @@ draw_mem() { #? Draw mem, swap and disk statistics
 
 	if ((mem[counter]>0 & resized==0)); then return; fi
 
-	local i swap_used_meter swap_free_meter mem_available_meter mem_free_meter mem_used_meter mem_cached_meter normal_color="${theme[main_fg]}" value_text
+	local i swap_used_meter swap_free_meter gpu_used_meter gpu_free_meter mem_available_meter mem_free_meter mem_used_meter mem_cached_meter normal_color="${theme[main_fg]}" value_text
 	local meter_mod_w meter_mod_pos value type m_title meter_options values="used available cached free"
 	local -a types=("mem")
 	unset mem_out
 
+	if [[ $use_GPUtil == true && $use_psutil == true ]]; then types+=("gpu"); fi
 	if [[ -n ${swap[total]} && ${swap[total]} -gt 0 ]]; then types+=("swap"); fi
 
 	#* Get variables from previous calculations
@@ -3115,6 +3127,8 @@ draw_mem() { #? Draw mem, swap and disk statistics
 		local -n type_name="$type"
 		if [[ $type == "mem" ]]; then
 			m_title="memory"
+		elif [[ $type == "gpu" ]]; then
+			m_title="GPU Memory"
 		else
 			m_title="$type"
 			if ((height>14)); then ((y_pos++)); fi
@@ -3125,6 +3139,7 @@ draw_mem() { #? Draw mem, swap and disk statistics
 
 		for value in ${values}; do
 			if [[ $type == "swap" && $value =~ available|cached ]]; then continue; fi
+			if [[ $type == "gpu" && $value =~ available|cached ]]; then continue; fi
 
 			if [[ $system == "MacOS" && $value == "cached" ]]; then value_text="active"
 			else value_text="${value::$((m_width-12))}"; fi
@@ -3212,7 +3227,7 @@ draw_mem() { #? Draw mem, swap and disk statistics
 
 	if ((resized>0)); then ((resized++)); fi
 	#* Print created text, graph and meters to output variable
-	draw_out+="${mem_graph[*]}${swap_graph[*]}${mem_out}"
+	draw_out+="${mem_graph[*]}${gpu_graph}${swap_graph[*]}${mem_out}"
 
 }
 
@@ -3847,12 +3862,24 @@ options_() { #? Shows the options overlay
 	desc_use_psutil=(	"Enable the use of psutil python3 module for"
 						"data collection. Default on non Linux."
 						""
-						"Program will automatically restart if changing"
-						"this setting to check for compatibility."
+						"Program will automatically restart when this"
+						"setting is changed to check for compatibility."
 						" "
 						"True or false."
 						" "
 						"Can only be switched off when on Linux.")
+	desc_use_GPUtil=(	"Enable the use of GPUtil python3 module for"
+						"data collection. MAY NOT WORK ON SOME CARDS"
+						"(namely AMD cards)."
+						""
+						"Program will automatically restart when this"
+						"setting is changed to check for compatibility."
+						" "
+						"True or false. psutil must also be enabled."
+						" "
+						"If incompatibility is detected the program will"
+						"automatically set this option to false upon"
+						"starting.")
 	desc_proc_sorting=(	"Processes sorting."
 						"Valid values are \"pid\", \"program\", \"arguments\","
 						"\"threads\", \"user\", \"memory\", \"cpu lazy\""
@@ -4126,7 +4153,7 @@ options_() { #? Shows the options overlay
 						if ((net[reset]==1)); then net_totals_reset="Off"; net[reset]=0
 						else net_totals_reset="On"; net[reset]=1; fi
 					;;
-				"check_temp"*|"error_logging"*|"background_update"*|"proc_reversed"*|"proc_gradient"*|"proc_per_core"*|"update_check"*|"hires_graphs"*|"use_psutil"*|"proc_tree"*)
+				"check_temp"*|"error_logging"*|"background_update"*|"proc_reversed"*|"proc_gradient"*|"proc_per_core"*|"update_check"*|"hires_graphs"*|"use_psutil"*|"use_GPUtil"*|"proc_tree"*)
 						local -n selected_var=${selected}
 						if [[ ${selected_var} == "true" ]]; then
 							selected_var="false"
@@ -4156,7 +4183,11 @@ options_() { #? Shows the options overlay
 							resized=1
 						fi
 						if [[ $selected == "use_psutil" && $system != "Linux" ]]; then use_psutil="true"
-						elif [[ $selected == "use_psutil" ]]; then quit_ restart psutil; fi
+						elif [[ $selected == "use_psutil" ]]; then
+							use_GPUtil="false"
+							quit_ restart psutil
+						fi
+						if [[ $selected == "use_GPUtil" ]]; then quit_ restart GPUtil; fi
 						if [[ $selected == "error_logging" ]]; then quit_ restart; fi
 
 					;;
@@ -4840,7 +4871,7 @@ if [[ $use_psutil == true ]]; then
 		pywrapper="${pytmpdir}/bashtop.psutil"
 
 cat << 'EOF' > "${pywrapper}"
-import os, sys, subprocess, re, time, psutil
+import os, sys, subprocess, re, time, psutil, GPUtil
 from datetime import timedelta
 from collections import defaultdict
 from typing import List, Set, Dict, Tuple, Optional, Union
@@ -4991,11 +5022,15 @@ def get_mem():
 	'''Get current system memory and swap usage'''
 	mem = psutil.virtual_memory()
 	swap = psutil.swap_memory()
+	'''GPU monitoring addition, will add some error checking later'''
+	gpu = GPUtil.getGPUs()[0]
+	gpu_total = int(gpu.memoryTotal)
+	gpu_free = int(gpu.memoryFree)
 	try:
 		cmem = mem.cached>>10
 	except:
 		cmem = mem.active>>10
-	print(mem.total>>10, mem.free>>10, mem.available>>10, cmem, swap.total>>10, swap.free>>10)
+	print(mem.total>>10, mem.free>>10, mem.available>>10, cmem, swap.total>>10, swap.free>>10, gpu_total<<10, gpu_free<<10)
 
 def get_nics():
 	'''Get a list of all network devices sorted by highest throughput'''

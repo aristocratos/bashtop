@@ -2,7 +2,7 @@
 
 '''This is a copy of the python script that bashtop starts in a coprocess when using psutil for data collection'''
 
-import os, sys, subprocess, re, time, psutil
+import os, sys, subprocess, re, time, psutil, GPUtil
 from datetime import timedelta
 from collections import defaultdict
 from typing import List, Set, Dict, Tuple, Optional, Union
@@ -153,11 +153,15 @@ def get_mem():
 	'''Get current system memory and swap usage'''
 	mem = psutil.virtual_memory()
 	swap = psutil.swap_memory()
+	'''GPU monitoring addition, will add some error checking later'''
+	gpu = GPUtil.getGPUs()[0]
+	gpu_total = int(gpu.memoryTotal)
+	gpu_free = int(gpu.memoryFree)
 	try:
 		cmem = mem.cached>>10
 	except:
 		cmem = mem.active>>10
-	print(mem.total>>10, mem.free>>10, mem.available>>10, cmem, swap.total>>10, swap.free>>10)
+	print(mem.total>>10, mem.free>>10, mem.available>>10, cmem, swap.total>>10, swap.free>>10, gpu_total<<10, gpu_free<<10)
 
 def get_nics():
 	'''Get a list of all network devices sorted by highest throughput'''
