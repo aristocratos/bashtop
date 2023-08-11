@@ -72,15 +72,15 @@ sudo apt-get install nvidia-smi
 
 ``` bash
 sudo python3 -m pip install psutil
-```
-
-``` bash
 sudo python3 -m pip install GPUtil
 ```
 
 #### Note
 
 Be sure to turn on use psutil and use GPUtil in the options menu of Bashtop.
+
+Main menu with gpu.
+![Screenshot 0](Imgs/gpu.png)
 
 ## Description
 
