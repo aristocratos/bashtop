@@ -33,7 +33,12 @@ allowed_commands: Tuple[str] = (
 	'get_cmd_out',
 	'get_sensors',
 	'get_sensors_check',
-	'get_ms'
+	'get_ms',
+	'get_gpu_name',
+	'get_gpu_driver',
+	'get_gpu_mem',
+	'get_gpu_temp',
+	'get_gpu_usage'
 	)
 command: str = ''
 cpu_count: int = psutil.cpu_count()
@@ -153,15 +158,42 @@ def get_mem():
 	'''Get current system memory and swap usage'''
 	mem = psutil.virtual_memory()
 	swap = psutil.swap_memory()
-	'''GPU monitoring addition, will add some error checking later'''
-	gpu = GPUtil.getGPUs()[0]
-	gpu_total = int(gpu.memoryTotal)
-	gpu_free = int(gpu.memoryFree)
 	try:
 		cmem = mem.cached>>10
 	except:
 		cmem = mem.active>>10
-	print(mem.total>>10, mem.free>>10, mem.available>>10, cmem, swap.total>>10, swap.free>>10, gpu_total<<10, gpu_free<<10)
+	print(mem.total>>10, mem.free>>10, mem.available>>10, cmem, swap.total>>10, swap.free>>10)
+
+def get_gpu_name():
+	'''Fetch GPU model name and chop it to fit in the box'''
+	gpu = GPUtil.getGPUs()[0]
+	name = ((gpu.name).split("GeForce ",1)[1])
+	print(name)
+
+def get_gpu_driver():
+	'''Get current GPU driver'''
+	gpu = GPUtil.getGPUs()[0]
+	driver_name = ("Driver: {}".format(str(gpu.driver)))
+	print(driver_name)
+
+def get_gpu_usage():
+	'''Get current GPU usage'''
+	gpu = GPUtil.getGPUs()[0]
+	load = int(gpu.load*100)
+	print(load)
+
+def get_gpu_mem():
+	'''Get current GPU memory usage'''
+	gpu = GPUtil.getGPUs()[0]
+	gpu_total = int(gpu.memoryTotal)
+	gpu_free = int(gpu.memoryFree)
+	print(gpu_total<<10, gpu_free<<10)
+
+def get_gpu_temp():
+	'''Get current GPU temperature'''
+	gpu = GPUtil.getGPUs()[0]
+	temp = int(gpu.temperature)
+	print(temp)
 
 def get_nics():
 	'''Get a list of all network devices sorted by highest throughput'''
