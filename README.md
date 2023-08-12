@@ -27,7 +27,6 @@ Get it at https://github.com/aristocratos/btop
 ## Index
 
 * [Documents](#documents)
-* [GPU Monitoring](#gpu-monitoring)
 * [Description](#description)
 * [Features](#features)
 * [Themes](#themes)
@@ -48,39 +47,6 @@ Get it at https://github.com/aristocratos/btop
 #### [CONTRIBUTING.md](CONTRIBUTING.md)
 
 #### [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-
-## GPU Monitoring
-
-GPU monitor shows GPU usage, memory usage, and temperature.
-
-#### Note
-
-GPUtil uses nvidia-smi as a dependency, the package may not work with some graphics cards
-(namely AMD cards).
-
-#### Dependencies for GPU monitoring
-
-For GPU collection, the python packages psutil, and GPUtil are required as well as nvidia-smi.
-
->Install nvidia-smi (Debian/Ubuntu based see installation section for installation on other distro or OS)
-
-``` bash
-sudo apt-get install nvidia-smi
-```
-
->Install psutil and GPUtil if not already installed
-
-``` bash
-sudo python3 -m pip install psutil
-sudo python3 -m pip install GPUtil
-```
-
-#### Note
-
-Be sure to turn on use psutil and use GPUtil in the options menu of Bashtop.
-
-Main menu with gpu.
-![Screenshot 0](Imgs/gpu.png)
 
 ## Description
 
@@ -412,9 +378,6 @@ hires_graphs="false"
 
 #* Enable the use of psutil python3 module for data collection, default on OSX
 use_psutil="true"
-
-#* Enable the use of GPUtil python3 module for data collection, may not work on some cards (namely AMD cards)
-use_gputil="true"
 ```
 
 #### Command line options: (not yet implemented)
