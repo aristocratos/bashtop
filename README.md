@@ -62,7 +62,7 @@ GPUtil uses nvidia-smi as a dependency, the package may not work with some graph
 
 For GPU collection, the python packages psutil, and GPUtil are required as well as nvidia-smi.
 
->Install nvidia-smi (Debian/Ubuntu based see installation section for other distros)
+>Install nvidia-smi (Debian/Ubuntu based see installation section for installation on other distro or OS)
 
 ``` bash
 sudo apt-get install nvidia-smi
@@ -412,6 +412,9 @@ hires_graphs="false"
 
 #* Enable the use of psutil python3 module for data collection, default on OSX
 use_psutil="true"
+
+#* Enable the use of GPUtil python3 module for data collection, may not work on some cards (namely AMD cards)
+use_gputil="true"
 ```
 
 #### Command line options: (not yet implemented)
