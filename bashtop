@@ -3340,10 +3340,10 @@ draw_gpu() { #? Draw GPU usage, memory, and temperature graphs
 
 		for value in ${values}; do
 			if [[ $value == "total" ]]; then continue; fi
-			if (($g_height>9)) then
+			if (($g_height>9)); then
 				meter_width=$((box[g_width]-6))
 				usage_meter_width=$((box[g_width]-2))
-			elif (($g_height>7)) then
+			elif (($g_height>7)); then
 				meter_width=12
 				usage_meter_width=$((box[g_width]-2))
 			else
@@ -3382,7 +3382,7 @@ draw_gpu() { #? Draw GPU usage, memory, and temperature graphs
 		if (($g_height>9)); then
 			print -v gpu_out -rs -fg ${main_fg} -m $((ypos++)) $g_col -jl 10 -t "Free:" -jr 20 -t "${gpu[free]}"\
 			-m $((ypos++)) $((box[g_col])) -t $gpu_free_meter -rs -fg $normal_color -rs -fg ${main_fg} -jr 4 -t "${gpu[free_percent]}%"
-			if (($g_height>11)) then ((ypos++)); fi
+			if (($g_height>11)); then ((ypos++)); fi
 		elif (($g_height>6)); then
 			print -v gpu_out -rs -fg ${main_fg} -m $((ypos++)) $g_col -jl 6 -t "Free:" -jl 4 -t "${gpu[free_percent]}%" -t $gpu_free_meter -rs -fg $normal_color -rs -fg ${main_fg} -jr 8 -t "${gpu[free]}"
 		fi
