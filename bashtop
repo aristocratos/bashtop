@@ -172,6 +172,9 @@ hires_graphs="false"
 #* Enable the use of psutil python3 module for data collection, default on OSX
 use_psutil="true"
 
+#* Enable the use of GPUtil python3 module for data collection, may not work on some cards (namely AMD cards)
+use_gputil="true"
+
 aaz_config() { : ; } #! Do not remove this line!
 #? End default variables-------------------------------------------------------------------------------->
 
@@ -203,11 +206,11 @@ menu_quit_selected=(
 "║═╬╗║ ║ ║ ║  "
 "╚═╝╚╚═╝ ╩ ╩  ")
 
-declare -A cpu mem swap proc net box theme disks
-declare -a cpu_usage cpu_graph_a cpu_graph_b color_meter color_temp_graph color_cpu color_cpu_graph cpu_history color_mem_graph color_swap_graph
-declare -a mem_history swap_history net_history_download net_history_upload mem_graph swap_graph proc_array download_graph upload_graph trace_array
+declare -A cpu mem gpu swap proc net box theme disks
+declare -a cpu_usage gpu_usage cpu_graph_a cpu_graph_b gpu_graph_a gpu_graph_b color_meter color_temp_graph color_cpu color_cpu_graph cpu_history color_gpu_graph color_mem_graph color_swap_graph
+declare -a mem_history swap_history gpu_history net_history_download net_history_upload mem_graph gpu_graph swap_graph proc_array download_graph upload_graph trace_array
 declare resized=1 size_error clock tty_width tty_height hex="16#" cpu_p_box swap_on=1 draw_out esc_character boxes_out last_screen clock_out update_string
-declare -a options_array=("color_theme" "update_ms" "use_psutil" "proc_sorting" "proc_tree" "check_temp" "draw_clock" "background_update" "custom_cpu_name"
+declare -a options_array=("color_theme" "update_ms" "use_psutil" "use_gputil" "proc_sorting" "proc_tree" "check_temp" "draw_clock" "background_update" "custom_cpu_name"
 	"proc_per_core" "proc_reversed" "proc_gradient" "disks_filter" "hires_graphs" "net_totals_reset" "update_check" "error_logging")
 declare -a save_array=(${options_array[*]/net_totals_reset/})
 declare -a sorting=( "pid" "program" "arguments" "threads" "user" "memory" "cpu lazy" "cpu responsive")
@@ -216,7 +219,7 @@ declare -A pid_history
 declare time_left timestamp_start timestamp_end timestamp_input_start timestamp_input_end time_string mem_out proc_misc prev_screen pause_screen filter input_to_filter
 declare no_epoch proc_det proc_misc2 sleeping=0 detail_mem_graph proc_det2 proc_out curled git_version has_iostat sensor_comm failed_pipes=0 py_error
 declare esc_character tab backspace sleepy late_update skip_process_draw winches quitting theme_int notifier saved_stty nic_int net_misc skip_net_draw
-declare psutil_disk_fail
+declare psutil_disk_fail gputil_missing
 declare -a disks_free disks_total disks_name disks_free_percent saved_key themes nic_list old_procs
 printf -v esc_character "\u1b"
 printf -v tab "\u09"
@@ -252,7 +255,8 @@ declare -A graph_symbol_down='(
 	[4_0]=⡇ [4_1]=⡏ [4_2]=⡟ [4_3]=⡿ [4_4]=⣿
 )'
 declare -A graph
-box[boxes]="cpu mem net processes"
+
+box[boxes]="cpu mem net processes gpu"
 
 cpu[threads]=0
 
@@ -352,6 +356,14 @@ init_() { #? Collect needed information and set options before startig main loop
 	print -bg "#00" -fg "#30ff50" -r 1 -t "√"
 	print -m $(( (tty_height/2-3)+stx++ )) 0 -bg "#00" -fg "#cc" -c -b "Checking cpu..."
 	get_cpu_info
+
+	print -bg "#00" -fg "#30ff50" -r 1 -t "√"
+	print -m $(( (tty_height/2-3)+stx++ )) 0 -bg "#00" -fg "#cc" -c -b "Checking gpu..."
+	get_gpu_info
+	check_gputil_status
+	if [[ $gputil_missing == "true" ]]; then
+		print -m $(( (tty_height/2-3)+stx++ )) 0 -bg "#00" -fg "#fa1e1e" -c -b "WARNING: GPUTIL NOT FOUND"
+	fi
 
 	#* Set graph resolution
 	graph[hires]="${hires_graphs}"
@@ -477,16 +489,16 @@ init_() { #? Collect needed information and set options before startig main loop
 }
 
 color_init_() { #? Check for theme file and set colors
-	local main_bg="" main_fg="#cc" title="#ee" hi_fg="#90" inactive_fg="#40" cpu_box="#3d7b46" mem_box="#8a882e" net_box="#423ba5" proc_box="#923535" proc_misc="#0de756" selected_bg="#7e2626" selected_fg="#ee"
-	local temp_start="#4897d4" temp_mid="#5474e8" temp_end="#ff40b6" cpu_start="#50f095" cpu_mid="#f2e266" cpu_end="#fa1e1e" div_line="#30"
+	local main_bg="" main_fg="#cc" title="#ee" hi_fg="#90" inactive_fg="#40" cpu_box="#3d7b46" mem_box="#8a882e" gpu_box="#1433a6" net_box="#423ba5" proc_box="#923535" proc_misc="#0de756" selected_bg="#7e2626" selected_fg="#ee"
+	local temp_start="#4897d4" temp_mid="#5474e8" temp_end="#ff40b6" cpu_start="#50f095" cpu_mid="#f2e266" cpu_end="#fa1e1e" div_line="#30" gpu_start='#00aeff' gpu_mid='#0037ff' gpu_end='#fa1e1e'
 	local free_start="#223014" free_mid="#b5e685" free_end="#dcff85" cached_start="#0b1a29" cached_mid="#74e6fc" cached_end="#26c5ff" available_start="#292107" available_mid="#ffd77a" available_end="#ffb814"
 	local used_start="#3b1f1c" used_mid="#d9626d" used_end="#ff4769" download_start="#231a63" download_mid="#4f43a3" download_end="#b0a9de" upload_start="#510554" upload_mid="#7d4180" upload_end="#dcafde"
 	local hex2rgb color_name array_name this_color main_fg_dec sourced theme_unset
 	local -i i y
 	local -A rgb
 	local -a dec_test
-	local -a convert_color=("main_bg" "temp_start" "temp_mid" "temp_end" "cpu_start" "cpu_mid" "cpu_end" "upload_start" "upload_mid" "upload_end" "download_start" "download_mid" "download_end" "used_start" "used_mid" "used_end" "available_start" "available_mid" "available_end" "cached_start" "cached_mid" "cached_end" "free_start" "free_mid" "free_end" "proc_misc" "main_fg_dec")
-	local -a set_color=("main_fg" "title" "hi_fg" "div_line" "inactive_fg" "selected_fg" "selected_bg" "cpu_box" "mem_box" "net_box" "proc_box")
+	local -a convert_color=("main_bg" "temp_start" "temp_mid" "temp_end" "cpu_start" "cpu_mid" "cpu_end" "gpu_start" "gpu_mid" "gpu_end" "upload_start" "upload_mid" "upload_end" "download_start" "download_mid" "download_end" "used_start" "used_mid" "used_end" "available_start" "available_mid" "available_end" "cached_start" "cached_mid" "cached_end" "free_start" "free_mid" "free_end" "proc_misc" "main_fg_dec")
+	local -a set_color=("main_fg" "title" "hi_fg" "div_line" "inactive_fg" "selected_fg" "selected_bg" "cpu_box" "mem_box" "gpu_box" "net_box" "proc_box")
 
 	for theme_unset in ${!theme[@]}; do
 		unset 'theme[${theme_unset}]'
@@ -532,11 +544,12 @@ color_init_() { #? Check for theme file and set colors
 
 	box[cpu_color]="${theme[cpu_box]}"
 	box[mem_color]="${theme[mem_box]}"
+	box[gpu_color]="${theme[gpu_box]}"
 	box[net_color]="${theme[net_box]}"
 	box[processes_color]="${theme[proc_box]}"
 
 	#* Create color arrays from one, two or three color gradient, 100 values in each
-	for array_name in "temp" "cpu" "upload" "download" "used" "available" "cached" "free"; do
+	for array_name in "temp" "cpu" "gpu" "upload" "download" "used" "available" "cached" "free"; do
 		local -n color_array="color_${array_name}_graph"
 		local -a rgb_start=(${theme[${array_name}_start]}) rgb_mid=(${theme[${array_name}_mid]}) rgb_end=(${theme[${array_name}_end]})
 		local pf_calc middle=1
@@ -904,6 +917,19 @@ get_cpu_info() {
 		py_command -v cpu[model] "get_cpu_name()"
 	else
 		cpu[model]="${custom_cpu_name}"
+	fi
+}
+
+check_gputil_status(){
+	local status
+	py_command -v status "get_gputil_status()"
+	if [[ $status == "0" ]]; then use_gputil="false"; gputil_missing="true"; fi
+}
+
+get_gpu_info(){
+	if [[ $use_gputil == true ]]; then
+		py_command -v gpu[model] "get_gpu_name()"
+		py_command -v gpu[driver] "get_gpu_driver()"
 	fi
 }
 
@@ -1700,7 +1726,6 @@ create_graph_hires() { 	#? Create a graph from an array of percentage values, us
 	output_array=("${graph_array[@]}")
 }
 
-
 create_mini_graph_hires() { 	#? Create a one line high graph from an array of percentage values, usage; 	create_mini_graph <options> <value-array>
 						#? Add a value to existing graph; 						create_mini_graph [-i, -invert] [-nc, -no-color] [-c, -color "array-name"] -add-value "graph_variable" <value>
 						#? Add last value from an array to existing graph; 		create_mini_graph [-i, -invert] [-nc, -no-color] [-c, -color "array-name"] -add-last "graph_variable" "value-array"
@@ -2307,6 +2332,43 @@ collect_mem() { #? Collect memory information from "/proc/meminfo"
 
 }
 
+collect_gpu() { #? Collect memory and usage information from GPUtil
+	if [[ $use_gputil == true ]]; then
+		local -a available=("gpu")
+		local pygpuout
+
+		py_command -v gpu[usage] "get_gpu_usage()"
+		py_command -v gpu[temp] "get_gpu_temp()"
+		py_command -v pygpuout "get_gpu_mem()" || return
+		read gpu[total] gpu[free] <<<"$pygpuout"
+
+		gpu[free_percent]=$((gpu[free]*100/gpu[total]))
+		gpu[used]=$((gpu[total]-gpu[free]))
+		gpu[used_percent]=$((gpu[used]*100/gpu[total]))
+
+		for array in ${available[@]}; do
+			for value in total used free available cached; do
+				if [[ $array == "gpu" && $value == "available" ]]; then break 2; fi
+				local -n this_value="${array}[${value}]" this_string="${array}[${value}_string]"
+				floating_humanizer -v this_string -s 1 -B "${this_value}"
+			done
+		done
+
+		local -n gpu_temp_history="gpu_temp_history"
+		if ((${#gpu_temp_history[@]}>40)); then
+			gpu_temp_history=( "${gpu_temp_history[@]:20}" "${gpu[temp]}")
+		else
+			gpu_temp_history+=("${gpu[temp]}")
+		fi
+
+		if ((${#gpu_history[@]}>tty_width*4)); then
+			gpu_history=( "${gpu_history[@]:$((tty_width*2))}" "$((gpu[usage]))")
+		else
+			gpu_history+=("$((gpu[usage]))")
+		fi
+	fi
+}
+
 collect_processes() { #? Collect process information and calculate accurate cpu usage
 	if [[ $use_psutil == true ]]; then collect_processes_psutil $1; return; fi
 	local argument="$1"
@@ -2897,9 +2959,21 @@ calc_sizes() { #? Calculate width and height of all boxes
 	done
 
 	#* Copy numbers around to get target layout
+	if [[ $use_gputil == true ]]; then
+		#* Make space for the gpu box if it is being used
+		box[gpu_line]=$((box[mem_line]))
+		box[gpu_col]=$((box[processes_col]))
+		box[gpu_height]=${box[net_height]}
+		box[gpu_width]=${box[processes_width]}
+
+		box[processes_line]=$((box[net_line]-$((box[mem_height]-box[gpu_height]))))
+		box[processes_height]=${box[mem_height]}
+	else
+		box[processes_line]=${box[mem_line]}
+		box[processes_height]=$((box[mem_height]+box[net_height]))
+	fi
+
 	box[mem_width]=${box[net_width]}
-	box[processes_line]=${box[mem_line]}
-	box[processes_height]=$((box[mem_height]+box[net_height]))
 
 	#  threads=${box[testing]} #! For testing, remove <--------------
 
@@ -2946,14 +3020,22 @@ calc_sizes() { #? Calculate width and height of all boxes
 	box[n_col]="$((net_width-box[n_width]+2))"
 	box[n_line]="$((net_line+(net_height/2)-(box[n_height]/2)+1))"
 
-
+	if [[ $use_gputil == true ]]; then
+		#* Calculate placement of gpu value box
+		local gpu_line=$((box[gpu_line]+1)) gpu_width=$((box[gpu_width]-2)) gpu_height=$((box[gpu_height]-2))
+		box[g_width]=32
+		box[g_height]=${gpu_height}
+		box[g_col]="$((gpu_width-box[g_width]+box[gpu_col]+2))"
+		box[g_line]="$((gpu_line+(gpu_height/2)-(box[g_height]/2)+1))"
+	fi
 }
 
 draw_bg() { #? Draw all box outlines
-	local this_box cpu_p_width i cpu_model_len
+	local this_box cpu_p_width i cpu_model_len gpu_model_len gpu_driver_len
 
 	unset boxes_out
 	for this_box in ${box[boxes]}; do
+		if [[ $this_box == "gpu" && $use_gputil == false ]]; then continue; fi
 		create_box -v boxes_out -col ${box[${this_box}_col]} -line ${box[${this_box}_line]} -width ${box[${this_box}_width]} -height ${box[${this_box}_height]} -fill -lc "${box[${this_box}_color]}" -title ${this_box}
 	done
 
@@ -2975,6 +3057,14 @@ draw_bg() { #? Draw all box outlines
 	#* Misc net box
 	create_box -v boxes_out -col $((box[n_col]-1)) -line $((box[n_line]-1)) -width ${box[n_width]} -height ${box[n_height]} -lc ${theme[div_line]} -t "Download"
 	print -v boxes_out -m $((box[n_line]+box[n_height]-2)) $((box[n_col]+1)) -rs -fg ${theme[div_line]} -t "┤" -fg ${theme[title]} -b -t "Upload" -rs -fg ${theme[div_line]} -t "├"
+
+	#* Misc gpu box
+	if [[ $use_gputil == true ]]; then
+		gpu_model_len=${#gpu[model]}
+		gpu_driver_len=${#gpu[driver]}
+		create_box -v boxes_out -col $((box[g_col]-1)) -line $((box[g_line]-1)) -width ${box[g_width]} -height ${box[g_height]} -lc ${theme[div_line]} -t "${gpu[model]:0:${gpu_model_len}}"
+		print -v boxes_out -m $((box[g_line]+box[g_height]-2)) $((box[g_col]+1)) -rs -fg ${theme[div_line]} -t "┤" -fg ${theme[title]} -b -t "${gpu[driver]:0:${gpu_driver_len}}" -rs -fg ${theme[div_line]} -t "├"
+	fi
 
 
 	if [[ $1 == "quiet" ]]; then draw_out="${boxes_out}"
@@ -3097,7 +3187,7 @@ draw_mem() { #? Draw mem, swap and disk statistics
 
 	if ((mem[counter]>0 & resized==0)); then return; fi
 
-	local i swap_used_meter swap_free_meter mem_available_meter mem_free_meter mem_used_meter mem_cached_meter normal_color="${theme[main_fg]}" value_text
+	local i swap_used_meter swap_free_meter gpu_used_meter gpu_free_meter mem_available_meter mem_free_meter mem_used_meter mem_cached_meter normal_color="${theme[main_fg]}" value_text
 	local meter_mod_w meter_mod_pos value type m_title meter_options values="used available cached free"
 	local -a types=("mem")
 	unset mem_out
@@ -3212,8 +3302,96 @@ draw_mem() { #? Draw mem, swap and disk statistics
 
 	if ((resized>0)); then ((resized++)); fi
 	#* Print created text, graph and meters to output variable
-	draw_out+="${mem_graph[*]}${swap_graph[*]}${mem_out}"
+	draw_out+="${mem_graph[*]}${gpu_graph}${swap_graph[*]}${mem_out}"
 
+}
+
+draw_gpu() { #? Draw GPU usage, memory, and temperature graphs
+	if [[ $use_gputil == true ]]; then
+		local gpu_out meter_width usage_meter_width values="usage total used free"
+
+		#* Get variables from previous calculations
+		local col=$((box[gpu_col]+1)) line=$((box[gpu_line]+1)) width=$((box[gpu_width]-2)) height=$((box[gpu_height]-2))
+		local g_width=${box[g_width]} g_height=${box[g_height]} g_col=${box[g_col]} g_line=${box[g_line]} main_fg="${theme[main_fg]}"
+
+		local graph_a_size graph_b_size
+		graph_a_size=$(( (height)/2 )); graph_b_size=${graph_a_size}
+		#* If resized recreate gpu box and gpu graphs
+		if ((resized>0)); then
+			local graph_a_size graph_b_size
+			graph_a_size=$(( (height)/2 )); graph_b_size=${graph_a_size}
+			if ((graph_a_size*2<height)); then ((graph_a_size++)); fi
+			gpu[graph_a_size]=$graph_a_size
+			gpu[graph_b_size]=$graph_b_size
+			gpu[download_redraw]=0
+			gpu[upload_redraw]=0
+			((resized++))
+		fi
+
+		#* Create graphs and meters for the gpu box
+		create_graph -o gpu_graph_a -d ${line} ${col} ${graph_a_size} $((width-p_width-box[g_width]-1)) -c color_gpu_graph -n gpu_history
+		create_graph -o gpu_graph_b -d $((line+graph_a_size)) ${col} ${graph_b_size} $((width-p_width-box[g_width]-1)) -c color_gpu_graph -i -n gpu_history
+
+		create_mini_graph -o "gpu_temp_graph" -w 10 -nc "gpu_temp_history"
+
+		gpu_temp_color="${color_gpu_graph[gpu[usage]]}"
+		core_name="cpu_core_1_graph"
+		meter="${!core_name}"
+
+		for value in ${values}; do
+			if [[ $value == "total" ]]; then continue; fi
+			if (($g_height>9)); then
+				meter_width=$((box[g_width]-6))
+				usage_meter_width=$((box[g_width]-2))
+			elif (($g_height>7)); then
+				meter_width=12
+				usage_meter_width=$((box[g_width]-2))
+			else
+				meter_width=12
+				usage_meter_width=15
+			fi
+			if [[ $value == "usage" ]]; then create_meter -v gpu_usage_meter -w $usage_meter_width -f -c color_gpu_graph $((gpu[usage])); continue; fi
+			create_meter -v gpu_${value}_meter -w $meter_width -f -c color_${value}_graph ${gpu[${value}_percent]}
+		done
+
+		#* Humanize memory values
+		local ypos=$g_line
+		for value in ${values}; do
+			if [[ $value == "usage" ]]; then continue; fi
+			floating_humanizer -v gpu[${value}] -s 1 -B "${gpu[${value}]}"
+		done
+
+		#* Draw the labels, meters, and values in the gpu box depending on size
+		if (($g_height>7)); then
+			print -v gpu_out -rs -fg ${theme[title]} -b -m $((ypos++)) $g_col -jl 10 -t "GPU Usage:"\
+			-rs -fg ${main_fg} -jr 20 -t "$((gpu[usage]))%" -m $((ypos++)) $((box[g_col])) -t $gpu_usage_meter -rs -fg $normal_color
+			if (($g_height>11)); then ((ypos++)); fi
+		else
+			print -v gpu_out -rs -fg ${theme[title]} -b -m $((ypos++)) $g_col -jl 11 -t "GPU Usage:" -t $gpu_usage_meter -rs -fg ${main_fg} -jr 4 -t "$((gpu[usage]))%" -rs -fg $normal_color
+		fi
+
+		if (($g_height>9)); then
+			print -v gpu_out -rs -fg ${theme[title]} -b -m $((ypos++)) $g_col -jl 10 -t "GPU Memory:" -jr 19 -t "${gpu[total]}"
+			print -v gpu_out -rs -fg ${main_fg} -m $((ypos++)) $g_col -jl 10 -t "Used:" -jr 20 -t "${gpu[used]}"\
+			-m $((ypos++)) $((box[g_col])) -t $gpu_used_meter -rs -fg $normal_color -rs -fg ${main_fg} -jr 4 -t "${gpu[used_percent]}%"
+		elif (($g_height>6)); then
+			print -v gpu_out -rs -fg ${theme[title]} -b -m $((ypos++)) $g_col -jl 10 -t "GPU Memory:" -jr 19 -t "${gpu[total]}"
+			print -v gpu_out -rs -fg ${main_fg} -m $((ypos++)) $g_col -jl 6 -t "Used:" -jl 4 -t "${gpu[used_percent]}%" -t $gpu_used_meter -rs -fg $normal_color -rs -fg ${main_fg} -jr 8 -t "${gpu[used]}"
+		fi
+
+		if (($g_height>9)); then
+			print -v gpu_out -rs -fg ${main_fg} -m $((ypos++)) $g_col -jl 10 -t "Free:" -jr 20 -t "${gpu[free]}"\
+			-m $((ypos++)) $((box[g_col])) -t $gpu_free_meter -rs -fg $normal_color -rs -fg ${main_fg} -jr 4 -t "${gpu[free_percent]}%"
+			if (($g_height>11)); then ((ypos++)); fi
+		elif (($g_height>6)); then
+			print -v gpu_out -rs -fg ${main_fg} -m $((ypos++)) $g_col -jl 6 -t "Free:" -jl 4 -t "${gpu[free_percent]}%" -t $gpu_free_meter -rs -fg $normal_color -rs -fg ${main_fg} -jr 8 -t "${gpu[free]}"
+		fi
+
+		print -v gpu_out -m $((ypos++)) $g_col -rs -fg ${theme[title]} -jl 14 -b -t "Temperature:" -rs -fg ${theme[inactive_fg]} "⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀" -l 10 -fg $gpu_temp_color -t "$meter"\
+		-jr 4 -fg $gpu_temp_color -t "${gpu[temp]}" -fg ${theme[main_fg]} -t "°C"
+
+		draw_out+="${gpu_graph_a[*]}${gpu_graph_b[*]}${gpu_graph_temp[*]}${gpu_out}"
+	fi
 }
 
 draw_processes() { #? Draw processes and values to screen
@@ -3847,12 +4025,24 @@ options_() { #? Shows the options overlay
 	desc_use_psutil=(	"Enable the use of psutil python3 module for"
 						"data collection. Default on non Linux."
 						""
-						"Program will automatically restart if changing"
-						"this setting to check for compatibility."
+						"Program will automatically restart when this"
+						"setting is changed to check for compatibility."
 						" "
 						"True or false."
 						" "
 						"Can only be switched off when on Linux.")
+	desc_use_gputil=(	"Enable the use of GPUtil python3 module for"
+						"data collection. MAY NOT WORK ON SOME CARDS"
+						"(namely AMD cards). psutil must be enabled."
+						""
+						"Program will automatically restart when this"
+						"setting is changed to check for compatibility."
+						" "
+						"True or false."
+						" "
+						"If incompatibility is detected the program will"
+						"automatically set this option to false upon"
+						"starting.")
 	desc_proc_sorting=(	"Processes sorting."
 						"Valid values are \"pid\", \"program\", \"arguments\","
 						"\"threads\", \"user\", \"memory\", \"cpu lazy\""
@@ -4126,7 +4316,7 @@ options_() { #? Shows the options overlay
 						if ((net[reset]==1)); then net_totals_reset="Off"; net[reset]=0
 						else net_totals_reset="On"; net[reset]=1; fi
 					;;
-				"check_temp"*|"error_logging"*|"background_update"*|"proc_reversed"*|"proc_gradient"*|"proc_per_core"*|"update_check"*|"hires_graphs"*|"use_psutil"*|"proc_tree"*)
+				"check_temp"*|"error_logging"*|"background_update"*|"proc_reversed"*|"proc_gradient"*|"proc_per_core"*|"update_check"*|"hires_graphs"*|"use_psutil"*|"use_gputil"*|"proc_tree"*)
 						local -n selected_var=${selected}
 						if [[ ${selected_var} == "true" ]]; then
 							selected_var="false"
@@ -4156,7 +4346,11 @@ options_() { #? Shows the options overlay
 							resized=1
 						fi
 						if [[ $selected == "use_psutil" && $system != "Linux" ]]; then use_psutil="true"
-						elif [[ $selected == "use_psutil" ]]; then quit_ restart psutil; fi
+						elif [[ $selected == "use_psutil" ]]; then
+							use_gputil="false"
+							quit_ restart psutil
+						fi
+						if [[ $selected == "use_gputil" ]]; then quit_ restart GPUtil; fi
 						if [[ $selected == "error_logging" ]]; then quit_ restart; fi
 
 					;;
@@ -4620,7 +4814,7 @@ process_input() { #? Process keypresses for main ui
 
 collect_and_draw() { #? Run all collect and draw functions
 	local task_int=0 input_runs
-	for task in processes cpu mem net; do
+	for task in processes cpu mem net gpu; do
 		((++task_int))
 		if [[ -n $pause_screen && -n ${saved_key[0]} ]]; then
 			return
@@ -4845,6 +5039,13 @@ from datetime import timedelta
 from collections import defaultdict
 from typing import List, Set, Dict, Tuple, Optional, Union
 
+'''Check to see if GPUtil exists'''
+gputil_status = 1
+try:
+	import GPUtil
+except:
+	gputil_status = 0
+
 system: str
 if "linux" in sys.platform: system = "Linux"
 elif "bsd" in sys.platform: system = "BSD"
@@ -4871,7 +5072,13 @@ allowed_commands: Tuple[str] = (
 	'get_cmd_out',
 	'get_sensors',
 	'get_sensors_check',
-	'get_ms'
+	'get_ms',
+	'get_gputil_status',
+	'get_gpu_name',
+	'get_gpu_driver',
+	'get_gpu_mem',
+	'get_gpu_temp',
+	'get_gpu_usage'
 	)
 command: str = ''
 cpu_count: int = psutil.cpu_count()
@@ -4996,6 +5203,42 @@ def get_mem():
 	except:
 		cmem = mem.active>>10
 	print(mem.total>>10, mem.free>>10, mem.available>>10, cmem, swap.total>>10, swap.free>>10)
+
+def get_gputil_status():
+	'''Check if GPUtil exists'''
+	status = str(gputil_status)
+	print(status)
+
+def get_gpu_name():
+	'''Fetch GPU model name and chop it to fit in the box'''
+	gpu = GPUtil.getGPUs()[0]
+	name = ((gpu.name).split("GeForce ",1)[1])
+	print(name)
+
+def get_gpu_driver():
+	'''Get current GPU driver'''
+	gpu = GPUtil.getGPUs()[0]
+	driver_name = ("Driver: {}".format(str(gpu.driver)))
+	print(driver_name)
+
+def get_gpu_usage():
+	'''Get current GPU usage'''
+	gpu = GPUtil.getGPUs()[0]
+	load = int(gpu.load*100)
+	print(load)
+
+def get_gpu_mem():
+	'''Get current GPU memory usage'''
+	gpu = GPUtil.getGPUs()[0]
+	gpu_total = int(gpu.memoryTotal)
+	gpu_free = int(gpu.memoryFree)
+	print(gpu_total<<10, gpu_free<<10)
+
+def get_gpu_temp():
+	'''Get current GPU temperature'''
+	gpu = GPUtil.getGPUs()[0]
+	temp = int(gpu.temperature)
+	print(temp)
 
 def get_nics():
 	'''Get a list of all network devices sorted by highest throughput'''
@@ -5244,6 +5487,7 @@ while command != 'quit':
 		continue
 	print('/EOL')
 	#print(f'{command}', file=sys.stderr)
+
 EOF
 	fi
 fi
